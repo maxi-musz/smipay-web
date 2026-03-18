@@ -11,7 +11,7 @@ export default function Faq() {
       id: 1,
       question: "What is Smipay and what can I do with the app?",
       answer:
-        "Smipay is an all-in-one lifestyle app that allows you to manage your finances seamlessly. You can pay electricity bills, buy airtime and data, renew cable TV subscriptions, pay for education services (JAMB/WAEC), and create Virtual Dollar or Naira cards for online shopping.",
+        "Smipay is an all-in-one lifestyle app that allows you to manage your finances seamlessly. You can pay electricity bills, buy airtime and data, renew cable TV subscriptions, and pay for education services (JAMB/WAEC).",
     },
     {
       id: 2,
@@ -19,12 +19,6 @@ export default function Faq() {
       answer:
         "Yes. We use encryption and security protocols to ensure your personal information and funds are protected. You also have access to a complete transaction history to track every Kobo you spend in real-time.",
     },
-    // {
-    //   id: 3,
-    //   question: "Where can I use my Smipay Virtual Dollar Card?",
-    //   answer:
-    //     "Your Virtual Dollar Card works globally on most international platforms. You can use it to pay for subscriptions like Netflix, Apple Music, and Spotify, or shop on websites like Amazon, AliExpress, and more.",
-    // },
     {
       id: 4,
       question: "How long does it take to receive my electricity token?",

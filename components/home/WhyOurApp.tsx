@@ -50,7 +50,7 @@ export default function WhyOurApp() {
           <FeatureCard
             icon={<ShieldPlus className="w-6 h-6" />}
             title="Safe and Transparent"
-            description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Secure virtual cards and strong protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
+            description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
           />
           <FeatureCard
             icon={<PiggyBank className="w-6 h-6" />}
@@ -92,7 +92,7 @@ export default function WhyOurApp() {
         <FeatureCard
           icon={<ShieldPlus className="w-6 h-6" />}
           title="Safe and Transparent"
-          description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Secure virtual cards and strong protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
+          description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
         />
         <FeatureCard
           icon={<PiggyBank className="w-6 h-6" />}
@@ -133,7 +133,7 @@ export default function WhyOurApp() {
         <FeatureCard
           icon={<ShieldPlus className="w-5 h-5" />}
           title="Safe and Transparent"
-          description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Secure virtual cards and strong protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
+          description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
         />
         <FeatureCard
           icon={<PiggyBank className="w-5 h-5" />}

@@ -21,7 +21,7 @@ export default function Testimonial() {
     {
       id: 3,
       quote:
-        "Smipay Virtual Card is a game-changer. Now, I am almost a shopping addict, smiles.",
+        "Smipay makes my bill payments seamless. It’s fast, reliable, and stress-free.",
       name: "Esther O'Funmi",
       reviewPlace: "Play-store review",
       avatar: "/imgs/reviewer-03.jpg",
