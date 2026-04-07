@@ -338,57 +338,6 @@ export default function TransactionDetailPage() {
             </div>
           )}
 
-          {/* ── Cashback (VTpass: used or earned) ── */}
-          {(transaction.cashback_balance_before != null ||
-            transaction.cashback_used != null ||
-            transaction.cashback_balance_after != null ||
-            transaction.cashback_earned != null) && (
-            <div className="mx-4 mt-3">
-              <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/50 px-4 py-3.5 space-y-3">
-                <h3 className="text-[13px] font-semibold text-dashboard-heading">Cashback</h3>
-                {transaction.cashback_used != null && transaction.cashback_used > 0 && (
-                  <p className="text-xs text-dashboard-muted">
-                    Used ₦{parseAmount(transaction.cashback_used)} cashback on this purchase.
-                    {transaction.balance_before != null && transaction.balance_after != null && (
-                      <> Wallet: ₦{parseAmount(transaction.balance_before)} → ₦{parseAmount(transaction.balance_after)}</>
-                    )}
-                  </p>
-                )}
-                {transaction.cashback_earned != null && transaction.cashback_earned > 0 && (
-                  <p className="text-xs text-emerald-600 font-medium">
-                    Earned ₦{parseAmount(transaction.cashback_earned)} cashback on this transaction.
-                  </p>
-                )}
-                <div className="divide-y divide-dashboard-border/40 pt-1 space-y-0">
-                  {transaction.cashback_balance_before != null && (
-                    <Row
-                      label="Cashback balance before"
-                      value={`₦${parseAmount(transaction.cashback_balance_before)}`}
-                    />
-                  )}
-                  {transaction.cashback_used != null && (
-                    <Row
-                      label="Cashback used"
-                      value={`₦${parseAmount(transaction.cashback_used)}`}
-                    />
-                  )}
-                  {transaction.cashback_balance_after != null && (
-                    <Row
-                      label="Cashback balance after"
-                      value={`₦${parseAmount(transaction.cashback_balance_after)}`}
-                    />
-                  )}
-                  {transaction.cashback_earned != null && (
-                    <Row
-                      label="Cashback earned"
-                      value={`₦${parseAmount(transaction.cashback_earned)}`}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ── Token fallback (electricity, success but no token) ── */}
           {shouldShowTokenFallback && (
             <div className="mx-4 mt-3">
@@ -522,6 +471,16 @@ export default function TransactionDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Cashback (compact; VTpass used or earned) ── */}
+          {(transaction.cashback_balance_before != null ||
+            transaction.cashback_used != null ||
+            transaction.cashback_balance_after != null ||
+            transaction.cashback_earned != null) && (
+            <div className="mx-4 mb-4">
+              <CashbackCompactCard transaction={transaction} parseAmount={parseAmount} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -632,6 +591,67 @@ function CopyRow({
             <Copy className="h-3.5 w-3.5 text-dashboard-muted/40" />
           )}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function CashbackCompactCard({
+  transaction,
+  parseAmount,
+}: {
+  transaction: TransactionDetail;
+  parseAmount: (amount: string | number) => string;
+}) {
+  const before = transaction.cashback_balance_before;
+  const after = transaction.cashback_balance_after;
+  const used = transaction.cashback_used ?? 0;
+  const earned = transaction.cashback_earned ?? 0;
+
+  const showCashbackWalletTrail =
+    before != null && after != null && before !== after;
+
+  const hasEarnedOrUsedLine = earned > 0 || used > 0;
+
+  return (
+    <div className="bg-dashboard-surface rounded-lg border border-dashboard-border/50 px-3 py-2 flex items-start justify-between gap-3">
+      <span className="text-[11px] font-semibold text-dashboard-heading shrink-0 pt-0.5">
+        Cashback
+      </span>
+      <div className="text-right min-w-0 space-y-0.5">
+        {used > 0 && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            Used ₦{parseAmount(used)}
+            {transaction.balance_before != null &&
+              transaction.balance_after != null && (
+                <>
+                  {" "}
+                  · Wallet ₦{parseAmount(transaction.balance_before)}→₦
+                  {parseAmount(transaction.balance_after)}
+                </>
+              )}
+          </p>
+        )}
+        {earned > 0 && (
+          <p className="text-[11px] font-semibold text-emerald-600 leading-snug">
+            Earned ₦{parseAmount(earned)}
+          </p>
+        )}
+        {showCashbackWalletTrail && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            Balance ₦{parseAmount(before)} → ₦{parseAmount(after)}
+          </p>
+        )}
+        {!hasEarnedOrUsedLine && !showCashbackWalletTrail && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            {[
+              before != null && `Before ₦${parseAmount(before)}`,
+              after != null && `After ₦${parseAmount(after)}`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"}
+          </p>
+        )}
       </div>
     </div>
   );

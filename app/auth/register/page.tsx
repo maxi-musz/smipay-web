@@ -6,7 +6,6 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { FormError } from "@/components/auth/FormError";
 import { FormSuccess } from "@/components/auth/FormSuccess";
-import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,66 +56,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Password strength: min 6 chars with letters, number and special = strong */
-type PasswordStrength = "weak" | "fair" | "good" | "strong";
-
-function getPasswordStrength(password: string): PasswordStrength {
-  if (!password.length) return "weak";
-  const hasLetter = /[a-zA-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[^A-Za-z0-9]/.test(password);
-  const types = [hasLetter, hasNumber, hasSpecial].filter(Boolean).length;
-  const longEnough = password.length >= 6;
-  if (longEnough && types >= 3) return "strong";
-  if (longEnough && types >= 2) return "good";
-  if (longEnough || types >= 1) return "fair";
-  return "weak";
-}
-
-function PasswordStrengthMeter({
-  strength,
-  className = "",
-}: {
-  strength: PasswordStrength;
-  className?: string;
-}) {
-  const labels: Record<PasswordStrength, string> = {
-    weak: "Weak",
-    fair: "Fair",
-    good: "Good",
-    strong: "Strong",
-  };
-  const colors: Record<PasswordStrength, string> = {
-    weak: "bg-red-500",
-    fair: "bg-amber-500",
-    good: "bg-sky-500",
-    strong: "bg-emerald-600",
-  };
-  const widths: Record<PasswordStrength, string> = {
-    weak: "w-1/4",
-    fair: "w-2/4",
-    good: "w-3/4",
-    strong: "w-full",
-  };
-  const textColors: Record<PasswordStrength, string> = {
-    weak: "text-red-600",
-    fair: "text-amber-600",
-    good: "text-sky-600",
-    strong: "text-emerald-600",
-  };
-  return (
-    <div className={className}>
-      <div className="flex gap-1 h-1.5 bg-dashboard-border rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${widths[strength]} ${colors[strength]}`}
-        />
-      </div>
-      <p className={`text-xs mt-1 font-medium ${textColors[strength]}`}>
-        {labels[strength]}
-      </p>
-    </div>
-  );
-}
+const PIN_LENGTH = 6;
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -142,6 +82,7 @@ export default function RegisterPage() {
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [showReferralCode, setShowReferralCode] = useState(false);
+  const [pinFieldBlurred, setPinFieldBlurred] = useState(false);
 
   // 3-minute countdown when on verify-otp step
   useEffect(() => {
@@ -151,6 +92,19 @@ export default function RegisterPage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [step, otpCountdown]);
+
+  /** 6-digit PIN only; max length enforced in handler */
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, PIN_LENGTH);
+    setFormData((prev) => ({ ...prev, password: digitsOnly }));
+    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+  };
+
+  useEffect(() => {
+    if (formData.password.length !== PIN_LENGTH) return;
+    const el = document.getElementById("password") as HTMLInputElement | null;
+    if (el && document.activeElement === el) el.blur();
+  }, [formData.password]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -267,16 +221,6 @@ export default function RegisterPage() {
         fieldErrors[path] = err.message;
       });
       setErrors(fieldErrors);
-      return;
-    }
-
-    const strength = getPasswordStrength(formData.password);
-    if (strength !== "strong") {
-      setErrors((prev) => ({
-        ...prev,
-        password:
-          "Password must be strong: at least 6 characters with letters, numbers and special characters.",
-      }));
       return;
     }
 
@@ -669,21 +613,37 @@ export default function RegisterPage() {
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="password" className="label-auth">
-                      Password
+                      6-digit PIN
                     </Label>
-                    <PasswordInput
+                    <Input
                       id="password"
                       name="password"
-                      placeholder="e.g. MyPass1!"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={PIN_LENGTH}
+                      placeholder="••••••"
                       value={formData.password}
-                      onChange={handleChange}
+                      onChange={handlePinChange}
+                      onFocus={() => setPinFieldBlurred(false)}
+                      onBlur={() => setPinFieldBlurred(true)}
                       disabled={isLoading}
-                      error={errors.password}
-                      className="input-auth"
+                      className={`input-auth font-mono tracking-widest tabular-nums ${
+                        errors.password ||
+                        (pinFieldBlurred &&
+                          formData.password.length > 0 &&
+                          formData.password.length < PIN_LENGTH)
+                          ? "input-auth-error"
+                          : ""
+                      }`}
                     />
-                    <PasswordStrengthMeter strength={getPasswordStrength(formData.password)} />
-                    {errors.password && (
-                      <p className="text-xs text-red-600">{errors.password}</p>
+                    {(errors.password ||
+                      (pinFieldBlurred &&
+                        formData.password.length > 0 &&
+                        formData.password.length < PIN_LENGTH)) && (
+                      <p className="text-xs text-red-600" role="alert">
+                        {errors.password ?? "6 digits required"}
+                      </p>
                     )}
                   </div>
                 </motion.div>
@@ -766,7 +726,7 @@ export default function RegisterPage() {
                     !formData.first_name.trim() ||
                     !formData.last_name.trim() ||
                     !formData.phone_number.trim() ||
-                    getPasswordStrength(formData.password) !== "strong" ||
+                    formData.password.length !== PIN_LENGTH ||
                     !formData.agree_to_terms
                   }
                 >

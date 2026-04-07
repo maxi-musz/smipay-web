@@ -96,7 +96,7 @@ export type CompleteRegistrationData = z.infer<
 
 /**
  * New-auth register (§3.1): single-step register with agree_to_terms.
- * Password min 6, max 64 per API.
+ * Password is a 6-digit PIN (digits only).
  */
 export const newAuthRegisterSchema = z
   .object({
@@ -108,8 +108,8 @@ export const newAuthRegisterSchema = z
       .trim(),
     password: z
       .string()
-      .min(6, "Password must be at least 6 characters")
-      .max(64, "Password must not exceed 64 characters"),
+      .length(6, "Enter exactly 6 digits")
+      .regex(/^\d{6}$/, "PIN must be 6 numbers"),
     first_name: z
       .string()
       .min(1, "First name is required")
