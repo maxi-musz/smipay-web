@@ -68,9 +68,12 @@ export function UsersAnalytics({ analytics }: Props) {
       label: "Total wallet balance",
       value: formatNGN(overview.total_main_wallet_balance ?? 0),
       sub: (
-        <span className="text-[11px] text-dashboard-muted leading-snug">
-          Sum of all users&apos; main NGN wallet balances
-        </span>
+        <div className="text-[11px] text-dashboard-muted leading-snug space-y-0.5">
+          <p>Main wallets for users matching current search and filters</p>
+          <p className="text-violet-700/90">
+            Cashback (same cohort): {formatNGN(overview.total_cashback_balance ?? 0)}
+          </p>
+        </div>
       ),
       icon: Wallet,
       iconBg: "bg-emerald-50",

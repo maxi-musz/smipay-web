@@ -36,8 +36,10 @@ export interface UserOverview {
   total_users: number;
   active_users: number;
   suspended_users: number;
-  /** Sum of all users' main NGN wallet `current_balance` (platform-wide). */
+  /** Sum of main NGN wallet `current_balance` for users matching current list filters. */
   total_main_wallet_balance: number;
+  /** Sum of cashback `current_balance` for users matching current list filters. */
+  total_cashback_balance: number;
 }
 
 export interface UserGrowth {

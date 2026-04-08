@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { FundWalletModal } from "@/components/dashboard/FundWalletModal";
 import {
@@ -348,6 +347,25 @@ function DashboardContent() {
   const isCashbackActive = dashboardData.cashback_rates?.some((r) => r.is_active) ?? false;
   const cashbackWallet = dashboardData.cashback_wallet;
 
+  const profilePhotoUrl = dashboardData.user.profile_image?.trim() ?? "";
+  const hasProfilePhoto = profilePhotoUrl.length > 0;
+  const initialA = (dashboardData.user.first_name?.[0] || dashboardData.user.name?.[0] || "?").toUpperCase();
+  const initialB = (dashboardData.user.last_name?.[0] || "").toUpperCase();
+
+  const renderHeaderAvatar = () =>
+    hasProfilePhoto ? (
+      // eslint-disable-next-line @next/next/no-img-element -- user-uploaded URL (Cloudinary, etc.)
+      <img
+        src={profilePhotoUrl}
+        alt=""
+        className="h-9 w-9 rounded-full object-cover ring-1 ring-dashboard-border/50 bg-dashboard-bg shrink-0"
+      />
+    ) : (
+      <div className="h-9 w-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px] font-semibold shrink-0 ring-1 ring-dashboard-border/40">
+        {initialB ? `${initialA}${initialB}` : initialA}
+      </div>
+    );
+
   return (
     <div className="min-h-screen bg-dashboard-bg min-w-0 w-full">
       {/* Fixed: header + wallet card. On desktop (lg), starts at sidebar edge (left-72) */}
@@ -363,26 +381,14 @@ function DashboardContent() {
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new Event("open-mobile-sidebar"))}
-                className="lg:hidden active:scale-95 transition-transform touch-manipulation rounded-lg"
+                className="lg:hidden active:scale-95 transition-transform touch-manipulation rounded-full overflow-hidden"
                 aria-label="Open menu"
               >
-                <Image
-                  src="/smipay-icon.jpg"
-                  alt="Smipay"
-                  width={36}
-                  height={36}
-                  className="rounded-lg"
-                  priority
-                />
+                {renderHeaderAvatar()}
               </button>
-              <Image
-                src="/smipay-icon.jpg"
-                alt="Smipay"
-                width={36}
-                height={36}
-                className="rounded-lg hidden lg:block"
-                priority
-              />
+              <div className="hidden lg:block" aria-hidden>
+                {renderHeaderAvatar()}
+              </div>
             </div>
             <p className="text-base sm:text-lg font-semibold text-dashboard-heading tracking-tight truncate">
               Hi, {dashboardData.user.first_name}
