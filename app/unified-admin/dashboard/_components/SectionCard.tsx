@@ -37,11 +37,13 @@ export function SectionCard({
         {rows.map((row) => (
           <div
             key={row.label}
-            className="flex items-center justify-between px-4 py-2.5"
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 min-w-0"
           >
-            <span className="text-xs text-dashboard-muted">{row.label}</span>
+            <span className="text-xs text-dashboard-muted min-w-0 shrink truncate">
+              {row.label}
+            </span>
             <span
-              className={`text-sm font-semibold tabular-nums ${
+              className={`text-sm font-semibold tabular-nums text-left sm:text-right shrink-0 sm:max-w-[55%] sm:truncate ${
                 row.valueColor || "text-dashboard-heading"
               }`}
             >

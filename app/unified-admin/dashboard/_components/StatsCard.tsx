@@ -29,28 +29,29 @@ export function StatsCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: 0.06 * index }}
-      className="bg-dashboard-surface rounded-xl border border-dashboard-border/60 p-4 sm:p-5"
+      className="relative bg-dashboard-surface rounded-xl border border-dashboard-border/60 p-4 sm:p-5 pt-11 sm:pt-12"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-dashboard-muted truncate">
-            {title}
+      <div
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 h-9 w-9 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center pointer-events-none"
+        style={{ backgroundColor: iconBg, color: iconColor }}
+        aria-hidden
+      >
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+      </div>
+      <div className="min-w-0 pr-1">
+        <p className="text-xs font-medium text-dashboard-muted leading-snug line-clamp-2 break-words">
+          {title}
+        </p>
+        <p className="text-lg sm:text-xl xl:text-2xl font-bold text-dashboard-heading mt-1 tabular-nums tracking-tight break-words overflow-hidden">
+          {value}
+        </p>
+        {subtitle && (
+          <p
+            className={`text-[11px] sm:text-xs mt-1 font-medium leading-snug line-clamp-2 break-words ${subtitleColor}`}
+          >
+            {subtitle}
           </p>
-          <p className="text-xl sm:text-2xl font-bold text-dashboard-heading mt-1 tabular-nums tracking-tight">
-            {value}
-          </p>
-          {subtitle && (
-            <p className={`text-[11px] sm:text-xs mt-1 font-medium ${subtitleColor}`}>
-              {subtitle}
-            </p>
-          )}
-        </div>
-        <div
-          className="flex-shrink-0 h-10 w-10 sm:h-11 sm:w-11 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: iconBg, color: iconColor }}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
+        )}
       </div>
     </motion.div>
   );

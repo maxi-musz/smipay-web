@@ -5,6 +5,8 @@ import type {
   UserDetailResponse,
   UserMutationResponse,
   UserFilters,
+  AdjustBalancesResponse,
+  AdjustUserBalancesPayload,
 } from "@/types/admin/users";
 
 function buildParams(filters: Partial<UserFilters>): Record<string, string | number> {
@@ -84,6 +86,21 @@ export const adminUsersApi = {
     try {
       const response = await backendApi.put<UserMutationResponse>(
         `/unified-admin/users/${id}/tier`,
+        payload,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  adjustBalances: async (
+    id: string,
+    payload: AdjustUserBalancesPayload,
+  ): Promise<AdjustBalancesResponse> => {
+    try {
+      const response = await backendApi.post<AdjustBalancesResponse>(
+        `/unified-admin/users/${id}/balances/adjust`,
         payload,
       );
       return response.data;

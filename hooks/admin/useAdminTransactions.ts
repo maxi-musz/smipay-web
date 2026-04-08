@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdminTransactionsStore } from "@/store/admin/admin-transactions-store";
 import type { TransactionFilters } from "@/types/admin/transactions";
 
 const DEBOUNCE_MS = 400;
 
 export function useAdminTransactions() {
+  const searchParams = useSearchParams();
+  const urlUserId = (searchParams.get("user_id") ?? "").trim();
+
   const {
     transactions,
     analytics,
@@ -23,6 +27,13 @@ export function useAdminTransactions() {
   const mounted = useRef(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useLayoutEffect(() => {
+    const current = useAdminTransactionsStore.getState().filters.user_id;
+    if (current !== urlUserId) {
+      setFilters({ user_id: urlUserId });
+    }
+  }, [urlUserId, setFilters]);
+
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
@@ -38,6 +49,7 @@ export function useAdminTransactions() {
     filters.transaction_type,
     filters.credit_debit,
     filters.payment_channel,
+    filters.user_id,
     filters.min_amount,
     filters.max_amount,
     filters.date_from,

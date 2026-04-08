@@ -26,12 +26,14 @@ import {
   UserCog,
   ShieldAlert,
   Award,
+  Gift,
 } from "lucide-react";
 import { adminUsersApi } from "@/services/admin/users-api";
 import type { AdminUserDetail, AdminUser } from "@/types/admin/users";
 import { UserRoleModal } from "../_components/UserRoleModal";
 import { UserStatusModal } from "../_components/UserStatusModal";
 import { UserTierModal } from "../_components/UserTierModal";
+import { UserBalanceAdjustModal } from "../_components/UserBalanceAdjustModal";
 
 function formatNGN(value: number | null | undefined): string {
   if (value == null) return "—";
@@ -97,6 +99,7 @@ export default function UserDetailPage() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [tierOpen, setTierOpen] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
 
   const fetchUser = useCallback(async () => {
     setLoading(true);
@@ -250,21 +253,66 @@ export default function UserDetailPage() {
           <InfoRow label="Updated" value={formatDateTime(user.updatedAt)} />
         </motion.section>
 
-        {/* Wallet */}
-        {user.wallet && (
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Wallet className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-sm font-bold text-dashboard-heading">Wallet</h2>
+        {/* Wallet & cashback */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-5"
+        >
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <Wallet className="h-4 w-4 text-emerald-600 shrink-0" />
+            <h2 className="text-sm font-bold text-dashboard-heading">Wallet & cashback</h2>
+            <button
+              type="button"
+              onClick={() => setBalanceOpen(true)}
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors"
+            >
+              <Gift className="h-3.5 w-3.5" />
+              Adjust balances
+            </button>
+          </div>
+
+          {user.wallet ? (
+            <>
               {!user.wallet.isActive && (
-                <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">Inactive</span>
+                <p className="text-[11px] text-red-600 mb-2">Main wallet is marked inactive.</p>
+              )}
+              <InfoRow
+                label="Main balance"
+                value={<span className="font-semibold text-emerald-600">{formatNGN(user.wallet.current_balance)}</span>}
+              />
+              <InfoRow label="All-time funding" value={formatNGN(user.wallet.all_time_fuunding)} />
+              <InfoRow label="All-time withdrawn" value={formatNGN(user.wallet.all_time_withdrawn)} />
+            </>
+          ) : (
+            <p className="text-xs text-dashboard-muted mb-3">No main wallet record — only cashback adjustments are available.</p>
+          )}
+
+          <div className="mt-4 pt-3 border-t border-dashboard-border/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Gift className="h-3.5 w-3.5 text-violet-600" />
+              <span className="text-[11px] font-semibold text-dashboard-heading">Cashback wallet</span>
+              {user.cashbackWallet && !user.cashbackWallet.isActive && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">Inactive</span>
               )}
             </div>
-            <InfoRow label="Current Balance" value={<span className="font-semibold text-emerald-600">{formatNGN(user.wallet.current_balance)}</span>} />
-            <InfoRow label="All-Time Funding" value={formatNGN(user.wallet.all_time_fuunding)} />
-            <InfoRow label="All-Time Withdrawn" value={formatNGN(user.wallet.all_time_withdrawn)} />
-          </motion.section>
-        )}
+            <InfoRow
+              label="Cashback balance"
+              value={
+                <span className="font-semibold text-violet-700">
+                  {formatNGN(user.cashbackWallet?.current_balance ?? 0)}
+                </span>
+              }
+            />
+            {user.cashbackWallet && (
+              <>
+                <InfoRow label="Cashback all-time earned" value={formatNGN(user.cashbackWallet.all_time_earned)} />
+                <InfoRow label="Cashback all-time withdrawn" value={formatNGN(user.cashbackWallet.all_time_withdrawn)} />
+              </>
+            )}
+          </div>
+        </motion.section>
 
         {/* KYC */}
         {user.kyc_verification && (
@@ -351,6 +399,17 @@ export default function UserDetailPage() {
       )}
       {tierOpen && (
         <UserTierModal user={asAdminUser} open={tierOpen} onClose={() => setTierOpen(false)} onUpdated={handleUpdated} />
+      )}
+      {balanceOpen && (
+        <UserBalanceAdjustModal
+          user={asAdminUser}
+          open={balanceOpen}
+          onClose={() => setBalanceOpen(false)}
+          onSuccess={fetchUser}
+          hasMainWallet={!!user.wallet}
+          mainBalanceDisplay={user.wallet?.current_balance ?? null}
+          cashbackBalanceDisplay={user.cashbackWallet?.current_balance ?? 0}
+        />
       )}
     </div>
   );

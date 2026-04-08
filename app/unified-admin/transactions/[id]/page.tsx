@@ -15,6 +15,7 @@ import {
   Clock,
   Hash,
   Flag,
+  LayoutList,
   ExternalLink,
   Copy,
   Check,
@@ -28,6 +29,64 @@ import {
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
 import type { TransactionDetail } from "@/types/admin/transactions";
 import { FlagTransactionModal } from "../_components/FlagTransactionModal";
+
+function metaNum(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * For wallet debits, show how much came from cashback vs main wallet.
+ * Uses DB columns first, then meta_data.wallet_charged / cashback_used, then balance delta.
+ */
+function getWalletCashbackSplit(tx: TransactionDetail): {
+  show: boolean;
+  total: number;
+  cashback: number;
+  wallet: number;
+  sumMismatch: boolean;
+} {
+  const total = Number(tx.amount) || 0;
+  if (tx.credit_debit !== "debit" || total <= 0) {
+    return { show: false, total, cashback: 0, wallet: 0, sumMismatch: false };
+  }
+
+  const meta =
+    tx.meta_data && typeof tx.meta_data === "object"
+      ? (tx.meta_data as Record<string, unknown>)
+      : {};
+
+  const fromColumn = metaNum(tx.cashback_used);
+  const fromMetaCb = metaNum(meta.cashback_used);
+  let cashback = fromColumn ?? fromMetaCb ?? 0;
+  if (cashback < 0) cashback = 0;
+
+  let wallet = metaNum(meta.wallet_charged);
+  if (wallet == null && tx.balance_before != null && tx.balance_after != null) {
+    wallet = Math.round((Number(tx.balance_before) - Number(tx.balance_after)) * 100) / 100;
+  }
+  if (wallet == null || wallet < 0) wallet = 0;
+
+  if (cashback > 0 && wallet === 0) {
+    wallet = Math.round((total - cashback) * 100) / 100;
+  }
+
+  const isWalletPayment = tx.payment_method === "wallet";
+  if (isWalletPayment && cashback === 0 && wallet === 0) {
+    wallet = total;
+  }
+
+  const sum = Math.round((cashback + wallet) * 100) / 100;
+  const sumMismatch = Math.abs(sum - total) > 0.02;
+
+  const show =
+    isWalletPayment ||
+    cashback > 0 ||
+    (tx.cashback_balance_before != null && tx.cashback_used != null);
+
+  return { show, total, cashback, wallet, sumMismatch };
+}
 
 function formatNGN(value: number | null | undefined): string {
   if (value == null) return "—";
@@ -201,6 +260,15 @@ export default function TransactionDetailPage() {
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </button>
+            {tx.user_id && (
+              <Link
+                href={`/unified-admin/transactions?user_id=${encodeURIComponent(tx.user_id)}`}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg transition-colors"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                User transactions
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setFlagOpen(true)}
@@ -283,6 +351,57 @@ export default function TransactionDetailPage() {
             <h2 className="text-sm font-bold text-dashboard-heading">Financial Details</h2>
           </div>
           <InfoRow label="Amount" value={<span className="font-semibold">{formatNGN(tx.amount)}</span>} />
+          {(() => {
+            const split = getWalletCashbackSplit(tx);
+            if (!split.show) return null;
+            return (
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-3 mb-3 mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Gift className="h-4 w-4 text-amber-600 shrink-0" />
+                  <p className="text-xs font-bold text-amber-900">Payment source (wallet + cashback)</p>
+                </div>
+                <p className="text-[11px] text-amber-900/80 leading-snug mb-3">
+                  <span className="font-semibold text-amber-950">Why balance before/after may match:</span> those fields are the{" "}
+                  <span className="font-medium">main NGN wallet only</span>. If the user paid with cashback, the main wallet may not move.
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-dashboard-muted">Total charged</span>
+                    <span className="font-semibold tabular-nums text-dashboard-heading">{formatNGN(split.total)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-dashboard-muted">From cashback wallet</span>
+                    <span className="font-semibold tabular-nums text-amber-800">{formatNGN(split.cashback)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-dashboard-muted">From main wallet</span>
+                    <span className="font-semibold tabular-nums text-emerald-800">{formatNGN(split.wallet)}</span>
+                  </div>
+                  {split.cashback <= 0 && split.wallet >= split.total && (
+                    <p className="text-[11px] text-amber-900/75 pt-1 border-t border-amber-200/60">
+                      Paid entirely from the main wallet (no cashback applied on this transaction).
+                    </p>
+                  )}
+                  {split.cashback >= split.total && split.total > 0 && (
+                    <p className="text-[11px] text-amber-900/75 pt-1 border-t border-amber-200/60">
+                      Paid entirely from cashback — main wallet unchanged for this purchase.
+                    </p>
+                  )}
+                  {split.cashback > 0 && split.wallet > 0 && (
+                    <p className="text-[11px] text-amber-900/75 pt-1 border-t border-amber-200/60">
+                      Split payment: part from cashback, part from main wallet.
+                    </p>
+                  )}
+                  {split.sumMismatch && (
+                    <p className="text-[11px] text-amber-950 font-medium pt-1">
+                      Parts sum to {formatNGN(split.cashback + split.wallet)} vs amount {formatNGN(split.total)} — check metadata or raw
+                      logs if needed.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           <InfoRow label="Fee" value={formatNGN(tx.fee)} />
           {(tx.commission_smipay_earned != null || tx.commission != null) && (
             <InfoRow
@@ -291,8 +410,14 @@ export default function TransactionDetailPage() {
             />
           )}
           <InfoRow label="Currency" value={tx.currency_type?.toUpperCase() ?? "NGN"} />
-          <InfoRow label="Balance Before" value={formatNGN(tx.balance_before)} />
-          <InfoRow label="Balance After" value={formatNGN(tx.balance_after)} />
+          <InfoRow
+            label="Main wallet balance before"
+            value={formatNGN(tx.balance_before)}
+          />
+          <InfoRow
+            label="Main wallet balance after"
+            value={formatNGN(tx.balance_after)}
+          />
           {(tx.markup_value != null || tx.vtpass_amount != null) && (
             <>
               <div className="border-t border-dashboard-border/40 mt-2 pt-2">
@@ -306,7 +431,7 @@ export default function TransactionDetailPage() {
           )}
         </motion.section>
 
-        {/* Cashback (VTpass purchases) */}
+        {/* Cashback wallet snapshot (VTpass / split payments) */}
         {(tx.cashback_balance_before != null ||
           tx.cashback_used != null ||
           tx.cashback_balance_after != null ||
@@ -315,15 +440,18 @@ export default function TransactionDetailPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-5"
+            className="bg-dashboard-surface rounded-xl border border-amber-200/70 p-5"
           >
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-1">
               <Gift className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-bold text-dashboard-heading">Cashback</h2>
+              <h2 className="text-sm font-bold text-dashboard-heading">Cashback wallet</h2>
             </div>
-            <InfoRow label="Balance before" value={formatNGN(tx.cashback_balance_before)} />
-            <InfoRow label="Used on purchase" value={formatNGN(tx.cashback_used)} />
-            <InfoRow label="Balance after" value={formatNGN(tx.cashback_balance_after)} />
+            <p className="text-[11px] text-dashboard-muted mb-3">
+              Separate balance from the main NGN wallet. “Used on purchase” is the amount that funded this transaction from cashback.
+            </p>
+            <InfoRow label="Cashback balance before" value={formatNGN(tx.cashback_balance_before)} />
+            <InfoRow label="Used on this transaction" value={formatNGN(tx.cashback_used)} />
+            <InfoRow label="Cashback balance after" value={formatNGN(tx.cashback_balance_after)} />
             <InfoRow
               label="Earned"
               value={

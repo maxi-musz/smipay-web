@@ -137,6 +137,15 @@ export interface AdminUserWallet {
   isActive: boolean;
 }
 
+/** Prisma relation name; included on admin user detail when present */
+export interface AdminUserCashbackWallet {
+  id: string;
+  current_balance: number;
+  all_time_earned: number;
+  all_time_withdrawn: number;
+  isActive: boolean;
+}
+
 export interface AdminUserKYCFull {
   id: string;
   userId: string;
@@ -171,6 +180,8 @@ export interface AdminUserDetail extends Omit<AdminUser, "kyc_verification"> {
   agree_to_terms: boolean;
   address: AdminUserAddress | null;
   wallet: AdminUserWallet | null;
+  /** Present when API includes cashback relation (null if user has no cashback wallet row) */
+  cashbackWallet?: AdminUserCashbackWallet | null;
   kyc_verification: AdminUserKYCFull | null;
   _count: {
     cards: number;
@@ -226,4 +237,22 @@ export interface UserMutationResponse {
   success: boolean;
   message: string;
   data: AdminUser;
+}
+
+export interface AdjustUserBalancesPayload {
+  wallet_delta?: number;
+  cashback_delta?: number;
+  reason: string;
+}
+
+export interface AdjustBalancesResult {
+  user_id: string;
+  wallet: { balance_before: number; balance_after: number };
+  cashback: { balance_before: number; balance_after: number };
+}
+
+export interface AdjustBalancesResponse {
+  success: boolean;
+  message: string;
+  data: AdjustBalancesResult;
 }

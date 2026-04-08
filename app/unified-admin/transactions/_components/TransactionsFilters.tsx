@@ -32,13 +32,14 @@ export function TransactionsFilters({ filters, onSearch, onFilterChange, onReset
   };
 
   const hasActiveFilters =
-    filters.transaction_type ||
-    filters.credit_debit ||
-    filters.payment_channel ||
-    filters.min_amount ||
-    filters.max_amount ||
-    filters.date_from ||
-    filters.date_to;
+    !!filters.user_id ||
+    !!filters.transaction_type ||
+    !!filters.credit_debit ||
+    !!filters.payment_channel ||
+    !!filters.min_amount ||
+    !!filters.max_amount ||
+    !!filters.date_from ||
+    !!filters.date_to;
 
   return (
     <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden">

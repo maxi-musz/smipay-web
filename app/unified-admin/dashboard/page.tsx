@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
         {/* <ActionItems items={data.action_items} /> */}
 
         {/* Primary Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <StatsCard
             title="Total Users"
             value={data.users.total.toLocaleString()}
@@ -141,7 +141,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Secondary Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <StatsCard
             title="Pending KYC"
             value={data.kyc.pending.toLocaleString()}
@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Detailed Section Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <SectionCard
             title="Users"
             icon={Users}

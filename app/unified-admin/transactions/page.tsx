@@ -1,8 +1,12 @@
 "use client";
 
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeftRight, RefreshCw } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { ArrowLeftRight, RefreshCw, BarChart3, Wallet } from "lucide-react";
 import { useAdminTransactions } from "@/hooks/admin/useAdminTransactions";
+import { adminUsersApi } from "@/services/admin/users-api";
+import type { AdminUserWallet } from "@/types/admin/users";
 import { TRANSACTION_STATUSES } from "@/types/admin/transactions";
 import { TransactionsAnalytics } from "./_components/TransactionsAnalytics";
 import { TransactionsFilters } from "./_components/TransactionsFilters";
@@ -10,7 +14,23 @@ import { TransactionsTable } from "./_components/TransactionsTable";
 import { TransactionsPagination } from "./_components/TransactionsPagination";
 import { TransactionsSkeleton } from "./_components/TransactionsSkeleton";
 
-export default function TransactionsPage() {
+function formatNGN(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `₦${Number(value).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+type FilteredUserInfo =
+  | { status: "ready"; displayName: string; email: string | null; wallet: AdminUserWallet | null }
+  | { status: "loading" }
+  | { status: "error" };
+
+function TransactionsPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [filteredUserInfo, setFilteredUserInfo] = useState<FilteredUserInfo | null>(null);
   const {
     transactions,
     meta,
@@ -24,6 +44,52 @@ export default function TransactionsPage() {
     resetFilters,
     refetch,
   } = useAdminTransactions();
+
+  const resetFiltersAndUrl = useCallback(() => {
+    resetFilters();
+    router.replace(pathname);
+  }, [resetFilters, router, pathname]);
+
+  const loadFilteredUserProfile = useCallback(async (userId: string): Promise<void> => {
+    setFilteredUserInfo({ status: "loading" });
+    try {
+      const res = await adminUsersApi.getById(userId);
+      if (!res.success || !res.data) {
+        setFilteredUserInfo({ status: "error" });
+        return;
+      }
+      const u = res.data;
+      const displayName =
+        [u.first_name, u.last_name].filter(Boolean).join(" ").trim() ||
+        u.email ||
+        (u.smipay_tag ? `@${u.smipay_tag}` : null) ||
+        u.phone_number ||
+        "User";
+      setFilteredUserInfo({
+        status: "ready",
+        displayName,
+        email: u.email,
+        wallet: u.wallet ?? null,
+      });
+    } catch {
+      setFilteredUserInfo({ status: "error" });
+    }
+  }, []);
+
+  useEffect(() => {
+    const userId = filters.user_id?.trim();
+    if (!userId) {
+      setFilteredUserInfo(null);
+      return;
+    }
+    void loadFilteredUserProfile(userId);
+  }, [filters.user_id, loadFilteredUserProfile]);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    const uid = filters.user_id?.trim();
+    if (uid) void loadFilteredUserProfile(uid);
+  }, [refetch, filters.user_id, loadFilteredUserProfile]);
 
   if (isLoading && !analytics) return <TransactionsSkeleton />;
 
@@ -42,7 +108,7 @@ export default function TransactionsPage() {
           </div>
           <button
             type="button"
-            onClick={refetch}
+            onClick={handleRefresh}
             disabled={isLoading}
             className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
           >
@@ -53,6 +119,101 @@ export default function TransactionsPage() {
       </header>
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-3">
+        {filters.user_id && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            role="status"
+            className="rounded-xl border border-dashboard-border/70 bg-dashboard-surface shadow-sm border-l-4 border-l-brand-bg-primary overflow-hidden"
+          >
+            <div className="flex flex-wrap items-start gap-3 pl-4 pr-3 py-3.5">
+              <div className="h-9 w-9 rounded-lg bg-brand-bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <BarChart3 className="h-4 w-4 text-brand-bg-primary" />
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-dashboard-muted mb-1">
+                  Filtered view
+                </p>
+                {(!filteredUserInfo || filteredUserInfo.status === "loading") && (
+                  <p className="text-sm text-dashboard-heading">
+                    <span className="inline-block h-4 w-64 max-w-full bg-dashboard-border/60 rounded animate-pulse align-middle" />
+                  </p>
+                )}
+                {filteredUserInfo?.status === "error" && (
+                  <p className="text-sm text-dashboard-heading">
+                    Transaction analysis for user{" "}
+                    <span className="font-mono text-xs">{filters.user_id}</span>
+                    <span className="text-dashboard-muted"> — profile could not be loaded.</span>
+                  </p>
+                )}
+                {filteredUserInfo?.status === "ready" && (
+                  <p className="text-sm text-dashboard-heading leading-snug">
+                    <span className="text-dashboard-muted">Transaction analysis for </span>
+                    <span className="font-semibold text-dashboard-heading">{filteredUserInfo.displayName}</span>
+                    {filteredUserInfo.email ? (
+                      <span className="text-dashboard-muted"> ({filteredUserInfo.email})</span>
+                    ) : null}
+                  </p>
+                )}
+                <p className="text-xs text-dashboard-muted mt-1">
+                  Totals and charts below apply only to this user&apos;s transactions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetFiltersAndUrl}
+                className="shrink-0 text-xs font-semibold text-brand-bg-primary hover:underline py-1"
+              >
+                Clear filter
+              </button>
+            </div>
+
+            {filteredUserInfo?.status === "ready" && filteredUserInfo.wallet && (
+              <div className="border-t border-dashboard-border/50 bg-dashboard-bg/40 px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="h-3.5 w-3.5 text-dashboard-muted" />
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-dashboard-muted">
+                    Wallet (all-time)
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="rounded-lg border border-dashboard-border/50 bg-dashboard-surface px-3 py-2">
+                    <p className="text-[10px] font-medium text-dashboard-muted uppercase tracking-wide">
+                      Current balance
+                    </p>
+                    <p className="text-sm font-bold text-dashboard-heading tabular-nums">
+                      {formatNGN(filteredUserInfo.wallet.current_balance)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-dashboard-border/50 bg-dashboard-surface px-3 py-2">
+                    <p className="text-[10px] font-medium text-dashboard-muted uppercase tracking-wide">
+                      All-time funded
+                    </p>
+                    <p className="text-sm font-bold text-emerald-700 tabular-nums">
+                      {formatNGN(filteredUserInfo.wallet.all_time_fuunding)}
+                    </p>
+                    <p className="text-[10px] text-dashboard-muted mt-0.5 leading-snug">
+                      Deposits, rewards, and money received into this wallet
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-dashboard-border/50 bg-dashboard-surface px-3 py-2 sm:col-span-2 lg:col-span-2">
+                    <p className="text-[10px] font-medium text-dashboard-muted uppercase tracking-wide">
+                      All-time outflows
+                    </p>
+                    <p className="text-sm font-bold text-dashboard-heading tabular-nums">
+                      {formatNGN(filteredUserInfo.wallet.all_time_withdrawn)}
+                    </p>
+                    <p className="text-[10px] text-dashboard-muted mt-0.5 leading-snug">
+                      Wallet spends (airtime/data/bills), Smipay transfers out, and bank payouts from wallet.
+                      Not the same as “withdrawals” to a bank unless that flow debited the wallet.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -60,7 +221,9 @@ export default function TransactionsPage() {
             className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700"
           >
             {error}
-            <button type="button" onClick={refetch} className="ml-2 underline font-medium">Retry</button>
+            <button type="button" onClick={handleRefresh} className="ml-2 underline font-medium">
+              Retry
+            </button>
           </motion.div>
         )}
 
@@ -105,7 +268,7 @@ export default function TransactionsPage() {
           filters={filters}
           onSearch={debouncedSearch}
           onFilterChange={updateFilters}
-          onReset={resetFilters}
+          onReset={resetFiltersAndUrl}
           total={meta?.total ?? 0}
           isLoading={isLoading}
         />
@@ -115,5 +278,13 @@ export default function TransactionsPage() {
         <TransactionsTable transactions={transactions} />
       </div>
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<TransactionsSkeleton />}>
+      <TransactionsPageContent />
+    </Suspense>
   );
 }

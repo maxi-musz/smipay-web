@@ -282,19 +282,24 @@ html {
 
 /*
  * Admin content area readability boost.
- * Scales all text, spacing, and elements proportionally
- * without touching individual component files.
- * Adjust --admin-zoom to taste (1.0 = no change, 1.15 = 15% bigger, 1.2 = 20% bigger).
+ * Strong zoom on very wide screens only; tablets/small laptops stay at 1× so grids
+ * and stat cards are not squeezed (see unified-admin dashboard).
  */
 :root {
-  --admin-zoom: 1.5;
+  --admin-zoom: 1;
 }
 .admin-content-area {
   zoom: var(--admin-zoom);
 }
 
-@media (max-width: 768px) {
-  .admin-content-area {
-    zoom: 1;
+@media (min-width: 1401px) {
+  :root {
+    --admin-zoom: 1.15;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --admin-zoom: 1.25;
   }
 }
