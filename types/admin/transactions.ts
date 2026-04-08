@@ -86,6 +86,9 @@ export interface TransactionUserBrief {
   role: string;
   account_status: string;
   profile_image: { secure_url: string } | null;
+  /** Live main wallet balance (now); snapshot at tx time is balance_before/after on the row */
+  wallet?: { current_balance: number } | null;
+  cashbackWallet?: { current_balance: number } | null;
 }
 
 // --- Transaction item (list view) ---
@@ -109,6 +112,10 @@ export interface TransactionItem {
   fee: number | null;
   balance_before: number;
   balance_after: number;
+  cashback_balance_before?: number | null;
+  cashback_used?: number | null;
+  cashback_balance_after?: number | null;
+  cashback_earned?: number | null;
   transaction_number: string | null;
   transaction_reference: string | null;
   session_id: string | null;
@@ -155,10 +162,6 @@ export interface TransactionDetail extends Omit<TransactionItem, "user"> {
   authorization_url: string | null;
   electricity_token: string | null;
   meta_data: Record<string, unknown> | null;
-  cashback_balance_before: number | null;
-  cashback_used: number | null;
-  cashback_balance_after: number | null;
-  cashback_earned: number | null;
   user: TransactionDetailUser | null;
   counterpart: TransactionCounterpart | null;
 }
