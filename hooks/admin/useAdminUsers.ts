@@ -34,12 +34,17 @@ export function useAdminUsers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.page,
+    filters.search,
     filters.role,
     filters.account_status,
     filters.tier,
     filters.kyc_status,
     filters.date_from,
     filters.date_to,
+    filters.min_wallet_balance,
+    filters.max_wallet_balance,
+    filters.min_cashback_balance,
+    filters.max_cashback_balance,
     filters.sort_by,
     filters.sort_order,
   ]);

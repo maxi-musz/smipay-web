@@ -25,8 +25,8 @@ export function UsersSkeleton() {
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-3">
         {/* Analytics cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 12 }}
@@ -67,7 +67,7 @@ export function UsersSkeleton() {
         <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/60 overflow-hidden">
           <div className="px-3 py-2.5 border-b border-dashboard-border/60">
             <div className="flex gap-4">
-              {Array.from({ length: 9 }).map((_, i) => (
+              {Array.from({ length: 10 }).map((_, i) => (
                 <Pulse key={i} className="h-3 w-16" />
               ))}
             </div>

@@ -179,6 +179,12 @@ export default function UserDetailPage() {
           id_type: user.kyc_verification.id_type,
         }
       : null,
+    wallet: user.wallet
+      ? {
+          current_balance: user.wallet.current_balance,
+          all_time_fuunding: user.wallet.all_time_fuunding,
+        }
+      : null,
     last_activity: null,
   };
 
@@ -406,9 +412,8 @@ export default function UserDetailPage() {
           open={balanceOpen}
           onClose={() => setBalanceOpen(false)}
           onSuccess={fetchUser}
-          hasMainWallet={!!user.wallet}
-          mainBalanceDisplay={user.wallet?.current_balance ?? null}
-          cashbackBalanceDisplay={user.cashbackWallet?.current_balance ?? 0}
+          wallet={user.wallet}
+          cashbackWallet={user.cashbackWallet ?? null}
         />
       )}
     </div>

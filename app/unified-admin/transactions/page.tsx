@@ -275,7 +275,10 @@ function TransactionsPageContent() {
 
         {meta && <TransactionsPagination meta={meta} onPageChange={setPage} />}
 
-        <TransactionsTable transactions={transactions} />
+        <TransactionsTable
+          transactions={transactions}
+          hideUserColumn={Boolean(filters.user_id?.trim())}
+        />
       </div>
     </div>
   );

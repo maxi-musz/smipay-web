@@ -33,6 +33,10 @@ const DEFAULT_FILTERS: UserFilters = {
   kyc_status: "",
   date_from: "",
   date_to: "",
+  min_wallet_balance: "",
+  max_wallet_balance: "",
+  min_cashback_balance: "",
+  max_cashback_balance: "",
   sort_by: "createdAt",
   sort_order: "desc",
 };

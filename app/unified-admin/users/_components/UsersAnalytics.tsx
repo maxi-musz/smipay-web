@@ -8,8 +8,18 @@ import {
   TrendingUp,
   TrendingDown,
   UserPlus,
+  Wallet,
 } from "lucide-react";
 import type { AdminUserAnalytics } from "@/types/admin/users";
+
+function formatNGN(value: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 interface Props {
   analytics: AdminUserAnalytics;
@@ -54,10 +64,22 @@ export function UsersAnalytics({ analytics }: Props) {
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
     },
+    {
+      label: "Total wallet balance",
+      value: formatNGN(overview.total_main_wallet_balance ?? 0),
+      sub: (
+        <span className="text-[11px] text-dashboard-muted leading-snug">
+          Sum of all users&apos; main NGN wallet balances
+        </span>
+      ),
+      icon: Wallet,
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-700",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
       {cards.map((card, i) => (
         <motion.div
           key={card.label}

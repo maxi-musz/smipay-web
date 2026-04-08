@@ -5,6 +5,15 @@ import { motion } from "motion/react";
 import { Eye, ShieldAlert, UserCog } from "lucide-react";
 import type { AdminUser } from "@/types/admin/users";
 
+function formatNGN(value: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -47,10 +56,13 @@ export function UsersTable({ users, onEditRole, onEditStatus, onEditTier }: Prop
   return (
     <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] text-xs">
+        <table className="w-full min-w-[980px] text-xs">
           <thead>
             <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/50">
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">User</th>
+              <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted min-w-[120px]">
+                Balance
+              </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Role</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Status</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">KYC</th>
@@ -89,6 +101,19 @@ export function UsersTable({ users, onEditRole, onEditStatus, onEditTier }: Prop
                         )}
                       </div>
                     </Link>
+                  </td>
+                  <td className="px-4 py-2.5 text-right align-top">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="text-xs font-semibold tabular-nums text-emerald-700">
+                        {formatNGN(user.wallet?.current_balance ?? 0)}
+                      </span>
+                      <span className="text-[10px] text-dashboard-muted tabular-nums">
+                        All-time funded {formatNGN(user.wallet?.all_time_fuunding ?? 0)}
+                      </span>
+                      <span className="text-[10px] text-violet-700/90 tabular-nums">
+                        Cashback {formatNGN(user.cashbackWallet?.current_balance ?? 0)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="text-xs capitalize text-dashboard-heading">{user.role.replace(/_/g, " ")}</span>

@@ -17,6 +17,11 @@ import { doesPhoneMatchNigeriaService } from "@/lib/nigeria-network";
 const IS_NETWORK_CHECK_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_PHONE_NETWORK_CHECK === "true";
 
+function parseCashbackToNumber(val: string | undefined): number {
+  if (!val) return 0;
+  return parseFloat(val.replace(/[₦,\s]/g, "")) || 0;
+}
+
 interface AirtimeFormProps {
   onSuccess: (data: VtpassPurchaseResponse) => void;
   onError: (error: string) => void;
@@ -82,6 +87,31 @@ export function AirtimeForm({ onSuccess, onError, walletBalance, cashbackBalance
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServiceId, services]);
 
+  const maxPayable = useMemo(
+    () => walletBalance + parseCashbackToNumber(cashbackBalance),
+    [walletBalance, cashbackBalance],
+  );
+
+  const derivedAmountError = useMemo(() => {
+    if (!amount.trim()) return undefined;
+    const n = parseFloat(amount);
+    if (isNaN(n) || n <= 0) return "Please enter a valid amount";
+    const service = services.find((s) => s.serviceID === selectedServiceId);
+    if (services.length > 0 && selectedServiceId && !service) return undefined;
+    if (service) {
+      const minAmt = parseFloat(service.minimium_amount);
+      const maxAmt = parseFloat(service.maximum_amount);
+      if (n < minAmt) return `Minimum ₦${minAmt.toLocaleString()}`;
+      if (n > maxAmt) return `Maximum ₦${maxAmt.toLocaleString()}`;
+    }
+    if (n > maxPayable + 1e-9) {
+      return maxPayable <= 0
+        ? "Insufficient balance (wallet + cashback)"
+        : `Maximum ₦${maxPayable.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (wallet + cashback)`;
+    }
+    return undefined;
+  }, [amount, services, selectedServiceId, maxPayable]);
+
 useEffect(() => {
   if (servicesError) {
     setServerError(servicesError);
@@ -136,26 +166,10 @@ const validateForm = (): boolean => {
     newErrors.phoneNumber = phoneError;
   }
 
-  if (!amount) {
+  if (!amount.trim()) {
     newErrors.amount = "Amount is required";
-  } else {
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      newErrors.amount = "Please enter a valid amount";
-    } else if (services.length > 0) {
-      const service = services.find((s) => s.serviceID === selectedServiceId);
-      if (service) {
-        const minAmount = parseFloat(service.minimium_amount);
-        const maxAmount = parseFloat(service.maximum_amount);
-        if (numericAmount < minAmount) {
-          newErrors.amount = `Minimum ₦${minAmount.toLocaleString()}`;
-        } else if (numericAmount > maxAmount) {
-          newErrors.amount = `Maximum ₦${maxAmount.toLocaleString()}`;
-        } else if (numericAmount > walletBalance) {
-          newErrors.amount = "Insufficient balance";
-        }
-      }
-    }
+  } else if (derivedAmountError) {
+    newErrors.amount = derivedAmountError;
   }
 
   setErrors(newErrors);
@@ -228,18 +242,20 @@ const validateForm = (): boolean => {
   const selectedService = services.find((s) => s.serviceID === selectedServiceId);
   const minAmount = selectedService ? parseFloat(selectedService.minimium_amount) : 50;
   const maxAmount = selectedService ? parseFloat(selectedService.maximum_amount) : 100000;
+  /** Upper bound for amount field: provider max and funds available (wallet + cashback). */
+  const effectiveAmountMax = Math.min(maxAmount, Math.max(0, maxPayable));
 
   const hasPhoneError = Boolean(errors.phoneNumber);
-  const hasAmountError = Boolean(errors.amount);
+  const amountErrorShown = derivedAmountError ?? errors.amount;
 
   const isFormReady =
     selectedServiceId &&
     phoneNumber &&
-    amount &&
+    amount.trim() &&
     !isSubmitting &&
     !loadingServices &&
     !hasPhoneError &&
-    !hasAmountError;
+    !derivedAmountError;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -290,10 +306,10 @@ const validateForm = (): boolean => {
       <AmountInput
         value={amount}
         onChange={setAmount}
-        error={errors.amount}
+        error={amountErrorShown}
         disabled={isSubmitting || loadingServices}
         min={minAmount}
-        max={maxAmount}
+        max={effectiveAmountMax}
         presetAmounts={[100, 200, 500, 1000, 2000, 5000]}
         cashbackPercent={cashbackPercent}
       />

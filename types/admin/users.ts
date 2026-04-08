@@ -36,6 +36,8 @@ export interface UserOverview {
   total_users: number;
   active_users: number;
   suspended_users: number;
+  /** Sum of all users' main NGN wallet `current_balance` (platform-wide). */
+  total_main_wallet_balance: number;
 }
 
 export interface UserGrowth {
@@ -113,6 +115,10 @@ export interface AdminUser {
     bvn_verified: boolean;
     id_type: string | null;
   } | null;
+  /** Main wallet; null if no wallet row (unusual). */
+  wallet: { current_balance: number; all_time_fuunding: number } | null;
+  /** Cashback wallet; null if no row yet. */
+  cashbackWallet?: { current_balance: number } | null;
   last_activity: UserLastActivity | null;
 }
 
@@ -211,6 +217,14 @@ export interface UserFilters {
   kyc_status: string;
   date_from: string;
   date_to: string;
+  /** Inclusive min main wallet current balance (NGN). */
+  min_wallet_balance: string;
+  /** Inclusive max main wallet current balance (NGN). */
+  max_wallet_balance: string;
+  /** Inclusive min cashback current balance (NGN). */
+  min_cashback_balance: string;
+  /** Inclusive max cashback current balance (NGN). */
+  max_cashback_balance: string;
   sort_by: string;
   sort_order: string;
 }
@@ -240,15 +254,31 @@ export interface UserMutationResponse {
 }
 
 export interface AdjustUserBalancesPayload {
-  wallet_delta?: number;
-  cashback_delta?: number;
+  wallet_current_balance?: number;
+  wallet_all_time_fuunding?: number;
+  wallet_all_time_withdrawn?: number;
+  cashback_current_balance?: number;
+  cashback_all_time_earned?: number;
+  cashback_all_time_withdrawn?: number;
   reason: string;
+}
+
+export interface WalletAggregateSnapshot {
+  current_balance: number;
+  all_time_fuunding: number;
+  all_time_withdrawn: number;
+}
+
+export interface CashbackAggregateSnapshot {
+  current_balance: number;
+  all_time_earned: number;
+  all_time_withdrawn: number;
 }
 
 export interface AdjustBalancesResult {
   user_id: string;
-  wallet: { balance_before: number; balance_after: number };
-  cashback: { balance_before: number; balance_after: number };
+  wallet: { before: WalletAggregateSnapshot; after: WalletAggregateSnapshot } | null;
+  cashback: { before: CashbackAggregateSnapshot; after: CashbackAggregateSnapshot } | null;
 }
 
 export interface AdjustBalancesResponse {

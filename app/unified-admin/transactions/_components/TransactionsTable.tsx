@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import {
   ArrowUpRight,
@@ -8,8 +9,13 @@ import {
   Copy,
   Check,
   CornerDownRight,
+  ChevronDown,
+  Wallet,
+  Gift,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { TransactionItem } from "@/types/admin/transactions";
 
 function formatNGN(value: number | null): string {
@@ -73,6 +79,8 @@ function CopyRef({ value }: { value: string }) {
 
 interface Props {
   transactions: TransactionItem[];
+  /** When listing a single user’s txs (e.g. `?user_id=`), the User column is redundant. */
+  hideUserColumn?: boolean;
 }
 
 /** Same “retry streak” if user + status + type + amount match (current page only). */
@@ -107,25 +115,6 @@ function streakForward(
   return { length, isStart, continuesUser };
 }
 
-/** Tiny ₦ formatter for dense table cells */
-function fmtCompact(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(Number(n))) return "—";
-  const v = Number(n);
-  const sign = v < 0 ? "-" : "";
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}m`;
-  if (abs >= 10_000) return `${sign}${Math.round(abs / 1000)}k`;
-  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}k`;
-  return `${sign}${Math.round(abs)}`;
-}
-
-function fmtSignedDrift(n: number): string {
-  if (Number.isNaN(n)) return "—";
-  if (Math.abs(n) < 0.01) return "0";
-  const sign = n > 0 ? "+" : n < 0 ? "" : "";
-  return `${sign}${fmtCompact(n)}`;
-}
-
 /** Compare stored wallet movement to amount + cashback_used (VT-style debits). */
 function txnBalanceIntegrity(tx: TransactionItem): "ok" | "warn" | "na" {
   if (tx.amount == null || tx.credit_debit == null) return "na";
@@ -147,86 +136,260 @@ function txnBalanceIntegrity(tx: TransactionItem): "ok" | "warn" | "na" {
   return "na";
 }
 
-function WalletAnalysisCell({ tx }: { tx: TransactionItem }) {
-  const bb = Number(tx.balance_before);
-  const ba = Number(tx.balance_after);
-  const curW = tx.user?.wallet?.current_balance;
-  const driftW = curW != null && !Number.isNaN(curW) ? Number(curW) - ba : null;
-
-  const cbb = tx.cashback_balance_before;
-  const cba = tx.cashback_balance_after;
-  const curC = tx.user?.cashbackWallet?.current_balance;
-  const hasCb =
-    cbb != null ||
-    cba != null ||
-    (tx.cashback_used != null && Number(tx.cashback_used) > 0);
-  const driftC =
-    curC != null && cba != null && !Number.isNaN(Number(cba)) ? Number(curC) - Number(cba) : null;
-
-  const integrity = txnBalanceIntegrity(tx);
-  const driftWLarge = driftW != null && Math.abs(driftW) > 0.5;
-  const driftCLarge = driftC != null && Math.abs(driftC) > 0.5;
-
-  const title = [
-    "Main wallet snapshot at tx: before → after | live now (drift vs after)",
-    `W ${fmtCompact(bb)} → ${fmtCompact(ba)} | now ${fmtCompact(curW)}${driftW != null ? ` (Δ ${fmtSignedDrift(driftW)})` : ""}`,
-    hasCb || curC != null
-      ? `Cashback: ${fmtCompact(cbb)} → ${fmtCompact(cba)} | now ${fmtCompact(curC)}${driftC != null ? ` (Δ ${fmtSignedDrift(driftC)})` : ""}`
-      : "No cashback snapshot on this row.",
-    integrity === "warn"
-      ? "Check: wallet balance change vs (amount − cashback_used) looks inconsistent."
-      : integrity === "ok"
-        ? "Check: wallet delta matches amount/cashback split."
-        : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
+function BreakdownRow({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
-    <div
-      className="font-mono text-[9px] leading-snug text-dashboard-heading/90 max-w-[7.25rem] py-0.5"
-      title={title}
-    >
-      <div className="flex flex-wrap items-baseline gap-x-0.5 gap-y-0">
-        <span className="text-[8px] font-bold text-violet-600/90 shrink-0">W</span>
-        <span className="tabular-nums text-[9px]">
-          {fmtCompact(bb)}→{fmtCompact(ba)}|{fmtCompact(curW)}
-          {driftW != null ? (
-            <span className={driftWLarge ? "text-amber-700 font-semibold" : "text-dashboard-muted"}>
-              ({fmtSignedDrift(driftW)})
-            </span>
-          ) : null}
-        </span>
-        {integrity === "warn" ? (
-          <span className="text-[8px] font-bold text-amber-600 ml-0.5" title="Ledger check: unexpected wallet delta">
-            ?
-          </span>
-        ) : integrity === "ok" ? (
-          <span className="text-[8px] text-emerald-600/90 ml-0.5" title="Ledger check OK">
-            ✓
-          </span>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-baseline gap-x-0.5 mt-0.5">
-        <span className="text-[8px] font-bold text-sky-600/90 shrink-0">C</span>
-        {hasCb || curC != null ? (
-          <span className="tabular-nums text-[9px]">
-            {fmtCompact(cbb)}→{fmtCompact(cba)}|{fmtCompact(curC)}
-            {driftC != null ? (
-              <span className={driftCLarge ? "text-amber-700 font-semibold" : "text-dashboard-muted"}>
-                ({fmtSignedDrift(driftC)})
-              </span>
-            ) : null}
-          </span>
-        ) : (
-          <span className="text-dashboard-muted/80 text-[9px]">—</span>
-        )}
-      </div>
+    <div className="py-2 border-b border-dashboard-border/40 last:border-b-0">
+      <p className="text-[10px] font-medium text-dashboard-muted uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-semibold tabular-nums text-dashboard-heading mt-0.5">{value}</p>
+      {hint ? <p className="text-[11px] text-dashboard-muted mt-1 leading-relaxed">{hint}</p> : null}
     </div>
   );
 }
 
-export function TransactionsTable({ transactions }: Props) {
+/** Table cell: live main wallet balance + chevron opens plain-English breakdown (portal). */
+function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
+  const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const bb = Number(tx.balance_before);
+  const ba = Number(tx.balance_after);
+  const mainDelta = ba - bb;
+  const liveMain = tx.user?.wallet?.current_balance;
+  const liveMainNum = liveMain != null && !Number.isNaN(Number(liveMain)) ? Number(liveMain) : null;
+  const driftW = liveMainNum != null ? liveMainNum - ba : null;
+
+  const cbb = tx.cashback_balance_before;
+  const cba = tx.cashback_balance_after;
+  const curC = tx.user?.cashbackWallet?.current_balance;
+  const cbUsed = tx.cashback_used != null ? Number(tx.cashback_used) : 0;
+  const hasCb =
+    cbb != null ||
+    cba != null ||
+    cbUsed > 0 ||
+    (curC != null && !Number.isNaN(Number(curC)));
+  const curCNum = curC != null && !Number.isNaN(Number(curC)) ? Number(curC) : null;
+  const cbaNum = cba != null && !Number.isNaN(Number(cba)) ? Number(cba) : null;
+  const driftC = curCNum != null && cbaNum != null ? curCNum - cbaNum : null;
+
+  const integrity = txnBalanceIntegrity(tx);
+  const showLive = liveMainNum != null;
+  const displayAmount = showLive ? liveMainNum : ba;
+  const integrityWarn = integrity === "warn";
+
+  const updatePosition = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const panelW = 300;
+    const left = Math.max(8, Math.min(r.right - panelW, window.innerWidth - panelW - 8));
+    setPanelPos({ top: r.bottom + 8, left });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const onScroll = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const panel =
+    open &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        ref={panelRef}
+        className="fixed z-[200] w-[min(300px,calc(100vw-16px))] rounded-xl border border-dashboard-border/60 bg-dashboard-surface shadow-xl shadow-black/10 overflow-hidden"
+        style={{ top: panelPos.top, left: panelPos.left }}
+        role="dialog"
+        aria-label="Wallet breakdown for this transaction"
+      >
+        <div className="px-3 py-2.5 border-b border-dashboard-border/40 bg-dashboard-bg/50">
+          <p className="text-xs font-bold text-dashboard-heading">Wallet breakdown</p>
+          <p className="text-[10px] text-dashboard-muted mt-0.5 leading-snug">
+            Numbers stored on this transaction row, plus the customer&apos;s live balances when loaded.
+          </p>
+        </div>
+
+        <div className="px-3 py-2 max-h-[min(70vh,420px)] overflow-y-auto">
+          <div className="flex items-center gap-2 mb-1 text-violet-700">
+            <Wallet className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-[11px] font-bold">Main wallet (NGN)</span>
+          </div>
+          <BreakdownRow
+            label="Balance before this transaction"
+            value={formatNGN(bb)}
+            hint="What the main wallet showed immediately before this line was saved."
+          />
+          <BreakdownRow
+            label="Balance after this transaction"
+            value={formatNGN(ba)}
+            hint="What the main wallet showed right after this line was saved."
+          />
+          <BreakdownRow
+            label="Change on main wallet (this row)"
+            value={`${mainDelta >= 0 ? "+" : ""}${formatNGN(mainDelta)}`}
+            hint={
+              tx.credit_debit === "credit"
+                ? "Money in: main wallet should increase by the credited amount."
+                : tx.credit_debit === "debit"
+                  ? "Money out: main wallet usually drops by (amount − cashback used from main)."
+                  : "Direction of this line in the ledger."
+            }
+          />
+          {showLive ? (
+            <BreakdownRow
+              label="Customer's main wallet now (live)"
+              value={formatNGN(liveMainNum)}
+              hint={
+                driftW != null && Math.abs(driftW) > 0.5
+                  ? `This is ${formatNGN(Math.abs(driftW))} ${driftW > 0 ? "higher" : "lower"} than the “after” figure above — normal if they have done other transactions since.`
+                  : "Matches the “after” balance on this row (no drift)."
+              }
+            />
+          ) : (
+            <p className="text-[10px] text-dashboard-muted py-2 italic">
+              Live wallet balance is not loaded in this list. The table shows the balance right after this transaction instead.
+            </p>
+          )}
+
+          {hasCb ? (
+            <>
+              <div className="flex items-center gap-2 mt-3 mb-1 text-amber-800">
+                <Gift className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-[11px] font-bold">Cashback wallet</span>
+              </div>
+              <BreakdownRow
+                label="Cashback before"
+                value={formatNGN(cbb != null ? Number(cbb) : null)}
+              />
+              <BreakdownRow
+                label="Used from cashback on this purchase"
+                value={formatNGN(cbUsed > 0 ? cbUsed : null)}
+                hint="Part of the purchase paid from the separate cashback balance, not the main wallet."
+              />
+              <BreakdownRow
+                label="Cashback after"
+                value={formatNGN(cba != null ? Number(cba) : null)}
+              />
+              {curCNum != null ? (
+                <BreakdownRow
+                  label="Customer's cashback now (live)"
+                  value={formatNGN(curCNum)}
+                  hint={
+                    driftC != null && Math.abs(driftC) > 0.5
+                      ? `Differs from “after” by ${formatNGN(Math.abs(driftC))} — other activity since this transaction.`
+                      : "Matches the snapshot after this transaction."
+                  }
+                />
+              ) : null}
+            </>
+          ) : (
+            <p className="text-[10px] text-dashboard-muted mt-3 py-1">
+              No cashback movement recorded on this transaction.
+            </p>
+          )}
+
+          <div
+            className={`mt-3 rounded-lg px-2.5 py-2 flex gap-2 ${
+              integrityWarn ? "bg-amber-50 border border-amber-200/80" : "bg-emerald-50/80 border border-emerald-200/60"
+            }`}
+          >
+            {integrityWarn ? (
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="text-[11px] font-semibold text-dashboard-heading">
+                {integrityWarn ? "Review suggested" : "Row looks consistent"}
+              </p>
+              <p className="text-[10px] text-dashboard-muted mt-0.5 leading-relaxed">
+                {integrityWarn
+                  ? "The change on the main wallet does not match the transaction amount and cashback split we expect. Open the full transaction or check for refunds, double charges, or data entry issues."
+                  : integrity === "ok"
+                    ? "The main wallet movement on this row matches the transaction amount and cashback used (standard sanity check)."
+                    : "Not enough data on this row to run the debit/credit check."}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/unified-admin/transactions/${tx.id}`}
+            className="mt-3 block text-center text-[11px] font-semibold text-brand-bg-primary hover:underline py-2"
+            onClick={() => setOpen(false)}
+          >
+            Open full transaction detail →
+          </Link>
+        </div>
+      </div>,
+      document.body,
+    );
+
+  return (
+    <div ref={wrapRef} className="flex items-center justify-end gap-0.5 min-w-0">
+      <div className="text-right min-w-0">
+        <p className="text-[11px] font-semibold tabular-nums text-emerald-800 leading-tight">{formatNGN(displayAmount)}</p>
+        <p className="text-[9px] text-dashboard-muted leading-tight">
+          {showLive ? "Current (main)" : "After this tx"}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!open) updatePosition();
+          setOpen((v) => !v);
+        }}
+        className={`shrink-0 p-1 rounded-md border transition-colors ${
+          integrityWarn
+            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+            : "border-dashboard-border/60 bg-dashboard-surface text-dashboard-muted hover:bg-dashboard-bg hover:text-dashboard-heading"
+        } ${open ? "ring-2 ring-brand-bg-primary/25 border-brand-bg-primary/40" : ""}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title="Show wallet breakdown"
+      >
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {panel}
+    </div>
+  );
+}
+
+export function TransactionsTable({ transactions, hideUserColumn = false }: Props) {
   if (!transactions.length) {
     return (
       <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-12 text-center">
@@ -239,27 +402,35 @@ export function TransactionsTable({ transactions }: Props) {
     <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden shadow-sm">
       <p className="px-4 py-2.5 text-[11px] text-dashboard-muted border-b border-dashboard-border/30 bg-dashboard-bg/30 leading-relaxed">
         <span className="font-medium text-dashboard-heading/80">Ledger view:</span> each row is one distinct
-        reference (separate attempt). Consecutive attempts from the same user are visually grouped; we do not merge
-        rows so audits and support stay traceable.
+        reference (separate attempt).
+        {hideUserColumn
+          ? " Consecutive attempts with the same status, type, and amount are visually grouped; rows are not merged."
+          : " Consecutive attempts from the same user are visually grouped; we do not merge rows so audits and support stay traceable."}
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-xs">
+        <table
+          className={`w-full text-xs ${hideUserColumn ? "min-w-[920px]" : "min-w-[1040px]"}`}
+        >
           <thead>
             <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/50">
-              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">User</th>
+              {!hideUserColumn && (
+                <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">User</th>
+              )}
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Amount</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Type</th>
-              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Plan</th>
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted w-0 max-w-[10rem]">
+                Plan
+              </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Status</th>
               <th className="text-center px-4 py-2.5 font-medium text-dashboard-muted">Dir</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Channel</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Revenue</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted" title="Commission (Smipay earned)">Commission</th>
               <th
-                className="text-left px-2 py-2.5 font-medium text-dashboard-muted w-[7.5rem]"
-                title="W = main wallet before→after|now (Δ vs after). C = cashback. ? = wallet delta vs amount looks off."
+                className="text-right px-2 py-2.5 font-medium text-dashboard-muted min-w-[7.5rem]"
+                title="Customer main wallet: current balance when loaded, otherwise balance right after this transaction. Use the chevron for a full plain-English breakdown."
               >
-                <span className="whitespace-nowrap">Balances</span>
+                <span className="whitespace-nowrap">Balance</span>
               </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Reference</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Date</th>
@@ -267,10 +438,12 @@ export function TransactionsTable({ transactions }: Props) {
           </thead>
           <tbody>
             {transactions.map((tx, i) => {
-              const userName = tx.user
-                ? [tx.user.first_name, tx.user.last_name].filter(Boolean).join(" ") || tx.user.email || tx.user.phone_number
-                : "—";
-              const avatar = tx.user?.first_name?.[0]?.toUpperCase() ?? "?";
+              const userName = hideUserColumn
+                ? ""
+                : tx.user
+                  ? [tx.user.first_name, tx.user.last_name].filter(Boolean).join(" ") || tx.user.email || tx.user.phone_number
+                  : "—";
+              const avatar = hideUserColumn ? "" : (tx.user?.first_name?.[0]?.toUpperCase() ?? "?");
               const { length: streakLen, isStart: streakStart, continuesUser } = streakForward(transactions, i);
               const rowMuted = continuesUser;
               return (
@@ -283,47 +456,75 @@ export function TransactionsTable({ transactions }: Props) {
                     continuesUser ? "bg-dashboard-bg/20" : ""
                   } ${streakStart ? "border-t border-dashboard-border/35" : ""}`}
                 >
-                  <td className={`px-4 py-2 align-middle ${continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""}`}>
-                    {continuesUser ? (
-                      <div className="flex items-center gap-2 min-h-[2rem] pl-1">
-                        <CornerDownRight className="h-3.5 w-3.5 text-dashboard-muted/70 shrink-0" aria-hidden />
-                        <div className="min-w-0 flex flex-col gap-0.5">
-                          <span className="text-[10px] text-dashboard-muted">Same user</span>
-                          {tx.user?.id ? (
-                            <Link
-                              href={`/unified-admin/users/${tx.user.id}`}
-                              className="text-[10px] font-medium text-brand-bg-primary hover:underline truncate max-w-[140px]"
-                              title="Open user profile"
-                            >
-                              Profile
-                            </Link>
-                          ) : null}
+                  {!hideUserColumn && (
+                    <td className={`px-4 py-2 align-middle ${continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""}`}>
+                      {continuesUser ? (
+                        <div className="flex items-center gap-2 min-h-[2rem] pl-1">
+                          <CornerDownRight className="h-3.5 w-3.5 text-dashboard-muted/70 shrink-0" aria-hidden />
+                          <div className="min-w-0 flex flex-col gap-0.5">
+                            <span className="text-[10px] text-dashboard-muted">Same user</span>
+                            {tx.user?.id ? (
+                              <Link
+                                href={`/unified-admin/users/${tx.user.id}`}
+                                className="text-[10px] font-medium text-brand-bg-primary hover:underline truncate max-w-[140px]"
+                                title="Open user profile"
+                              >
+                                Profile
+                              </Link>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1">
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {streakStart ? (
+                            <span className="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-50 text-amber-800 border border-amber-200/80">
+                              {streakLen} similar {tx.status === "failed" ? "failures" : "attempts"}
+                            </span>
+                          ) : null}
+                          <Link href={`/unified-admin/transactions/${tx.id}`} className="flex items-center gap-2 group/row">
+                            {tx.user?.profile_image?.secure_url ? (
+                              <img src={tx.user.profile_image.secure_url} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-dashboard-border/40" />
+                            ) : (
+                              <div className="h-7 w-7 rounded-full bg-brand-bg-primary/10 text-brand-bg-primary flex items-center justify-center text-[10px] font-bold ring-1 ring-dashboard-border/40">
+                                {avatar}
+                              </div>
+                            )}
+                            <span className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors">
+                              {userName}
+                            </span>
+                          </Link>
+                        </div>
+                      )}
+                    </td>
+                  )}
+                  <td
+                    className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""} ${
+                      hideUserColumn && continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""
+                    }`}
+                  >
+                    {hideUserColumn ? (
+                      <div className="flex flex-col items-end gap-1">
                         {streakStart ? (
                           <span className="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-50 text-amber-800 border border-amber-200/80">
                             {streakLen} similar {tx.status === "failed" ? "failures" : "attempts"}
                           </span>
                         ) : null}
-                        <Link href={`/unified-admin/transactions/${tx.id}`} className="flex items-center gap-2 group/row">
-                          {tx.user?.profile_image?.secure_url ? (
-                            <img src={tx.user.profile_image.secure_url} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-dashboard-border/40" />
-                          ) : (
-                            <div className="h-7 w-7 rounded-full bg-brand-bg-primary/10 text-brand-bg-primary flex items-center justify-center text-[10px] font-bold ring-1 ring-dashboard-border/40">
-                              {avatar}
-                            </div>
-                          )}
-                          <span className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors">
-                            {userName}
-                          </span>
+                        {continuesUser ? (
+                          <div className="flex items-center gap-1 text-[10px] text-dashboard-muted">
+                            <CornerDownRight className="h-3 w-3 shrink-0" aria-hidden />
+                            <span>Same pattern</span>
+                          </div>
+                        ) : null}
+                        <Link
+                          href={`/unified-admin/transactions/${tx.id}`}
+                          className="tabular-nums hover:text-brand-bg-primary transition-colors"
+                        >
+                          {formatNGN(tx.amount)}
                         </Link>
                       </div>
+                    ) : (
+                      formatNGN(tx.amount)
                     )}
-                  </td>
-                  <td className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""}`}>
-                    {formatNGN(tx.amount)}
                   </td>
                   <td className="px-4 py-2.5">
                     {tx.transaction_type && (
@@ -332,8 +533,19 @@ export function TransactionsTable({ transactions }: Props) {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-dashboard-heading max-w-[140px]">
-                    {tx.data_plan_name?.trim() ?? "—"}
+                  <td className="px-4 py-2.5 text-dashboard-heading w-0 max-w-[10rem] min-w-0 align-middle">
+                    {(() => {
+                      const plan = tx.data_plan_name?.trim() ?? "";
+                      if (!plan) return <span className="text-dashboard-muted">—</span>;
+                      return (
+                        <span
+                          className="block truncate text-[11px] leading-tight text-dashboard-heading"
+                          title={plan}
+                        >
+                          {plan}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-2.5">
                     {tx.status && (
@@ -379,8 +591,8 @@ export function TransactionsTable({ transactions }: Props) {
                       <span className="text-dashboard-muted">—</span>
                     )}
                   </td>
-                  <td className="px-2 py-2 align-top border-l border-dashboard-border/15 bg-dashboard-bg/10">
-                    <WalletAnalysisCell tx={tx} />
+                  <td className="px-2 py-2 align-middle border-l border-dashboard-border/15 bg-dashboard-bg/10 w-0 whitespace-nowrap">
+                    <WalletBalanceCell tx={tx} />
                   </td>
                   <td className="px-4 py-2.5 text-dashboard-muted">
                     {tx.transaction_reference ? <CopyRef value={tx.transaction_reference} /> : "—"}

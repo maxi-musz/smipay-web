@@ -20,6 +20,14 @@ function buildParams(filters: Partial<UserFilters>): Record<string, string | num
   if (filters.kyc_status) params.kyc_status = filters.kyc_status;
   if (filters.date_from) params.date_from = filters.date_from;
   if (filters.date_to) params.date_to = filters.date_to;
+  if (filters.min_wallet_balance?.trim())
+    params.min_wallet_balance = filters.min_wallet_balance.trim();
+  if (filters.max_wallet_balance?.trim())
+    params.max_wallet_balance = filters.max_wallet_balance.trim();
+  if (filters.min_cashback_balance?.trim())
+    params.min_cashback_balance = filters.min_cashback_balance.trim();
+  if (filters.max_cashback_balance?.trim())
+    params.max_cashback_balance = filters.max_cashback_balance.trim();
   if (filters.sort_by) params.sort_by = filters.sort_by;
   if (filters.sort_order) params.sort_order = filters.sort_order;
   return params;
