@@ -130,21 +130,38 @@ export function handleApiError(error: unknown): ApiError {
         statusCode: 409,
       };
 
-    case 429:
-      // Too many requests
-      const retryAfter = (responseData?.data as Record<string, unknown>)?.retry_after as number | undefined || 120;
+    case 429: {
+      // Too many requests (Nest may put payload on `data` or at top level)
+      const nested = (responseData?.data as Record<string, unknown>)?.retry_after;
+      const top = responseData?.retry_after;
+      const retryAfter =
+        (typeof nested === "number" ? nested : undefined) ??
+        (typeof top === "number" ? top : undefined) ??
+        120;
       const retryMessage =
         retryAfter > 60
-          ? `${Math.ceil(retryAfter / 60)} minutes`
+          ? `${Math.ceil(retryAfter / 60)} minute${Math.ceil(retryAfter / 60) === 1 ? "" : "s"}`
           : `${retryAfter} seconds`;
 
+      const isTxCooldown = responseData?.error === "TX_FAILURE_COOLDOWN";
+      const baseMsg =
+        (responseData?.message as string) ||
+        (isTxCooldown
+          ? "Too many failed purchases recently."
+          : "Too many attempts.");
+
+      const message = isTxCooldown
+        ? `${baseMsg} You can try again in ${retryMessage}.`
+        : baseMsg.includes("try again")
+          ? baseMsg
+          : `${baseMsg} Please try again in ${retryMessage}.`;
+
       return {
-        message:
-          (responseData?.message as string) ||
-          `Too many attempts. Please try again in ${retryMessage}.`,
-        code: "RATE_LIMIT_EXCEEDED",
+        message,
+        code: isTxCooldown ? "TX_FAILURE_COOLDOWN" : "RATE_LIMIT_EXCEEDED",
         statusCode: 429,
       };
+    }
 
     case 500:
     case 502:
