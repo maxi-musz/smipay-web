@@ -183,6 +183,14 @@ export default function UserDetailPage() {
       ? {
           current_balance: user.wallet.current_balance,
           all_time_fuunding: user.wallet.all_time_fuunding,
+          all_time_withdrawn: user.wallet.all_time_withdrawn,
+        }
+      : null,
+    cashbackWallet: user.cashbackWallet
+      ? {
+          current_balance: user.cashbackWallet.current_balance,
+          all_time_earned: user.cashbackWallet.all_time_earned,
+          all_time_withdrawn: user.cashbackWallet.all_time_withdrawn,
         }
       : null,
     last_activity: null,

@@ -28,6 +28,7 @@ function buildParams(filters: Partial<UserFilters>): Record<string, string | num
     params.min_cashback_balance = filters.min_cashback_balance.trim();
   if (filters.max_cashback_balance?.trim())
     params.max_cashback_balance = filters.max_cashback_balance.trim();
+  if (filters.list_sort) params.list_sort = filters.list_sort;
   if (filters.sort_by) params.sort_by = filters.sort_by;
   if (filters.sort_order) params.sort_order = filters.sort_order;
   return params;

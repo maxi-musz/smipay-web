@@ -37,6 +37,7 @@ const DEFAULT_FILTERS: UserFilters = {
   max_wallet_balance: "",
   min_cashback_balance: "",
   max_cashback_balance: "",
+  list_sort: "created_desc",
   sort_by: "createdAt",
   sort_order: "desc",
 };

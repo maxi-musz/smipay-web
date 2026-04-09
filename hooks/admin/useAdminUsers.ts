@@ -45,6 +45,7 @@ export function useAdminUsers() {
     filters.max_wallet_balance,
     filters.min_cashback_balance,
     filters.max_cashback_balance,
+    filters.list_sort,
     filters.sort_by,
     filters.sort_order,
   ]);

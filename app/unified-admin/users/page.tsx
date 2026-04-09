@@ -10,6 +10,7 @@ import { UsersAnalytics } from "./_components/UsersAnalytics";
 import { UsersFilters } from "./_components/UsersFilters";
 import { UsersTable } from "./_components/UsersTable";
 import { UsersPagination } from "./_components/UsersPagination";
+import { UsersListSort } from "./_components/UsersListSort";
 import { UsersSkeleton } from "./_components/UsersSkeleton";
 import { UserRoleModal } from "./_components/UserRoleModal";
 import { UserStatusModal } from "./_components/UserStatusModal";
@@ -121,7 +122,18 @@ export default function UsersPage() {
           total={meta?.total ?? 0}
         />
 
-        {meta && <UsersPagination meta={meta} onPageChange={setPage} />}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+          {meta ? (
+            <UsersPagination meta={meta} onPageChange={setPage} className="sm:flex-1 sm:min-w-0" />
+          ) : (
+            <span className="text-xs text-dashboard-muted sm:flex-1" aria-hidden />
+          )}
+          <UsersListSort
+            listSort={filters.list_sort}
+            onChange={(list_sort) => updateFilters({ list_sort })}
+            className="sm:justify-end"
+          />
+        </div>
 
         <UsersTable
           users={users}

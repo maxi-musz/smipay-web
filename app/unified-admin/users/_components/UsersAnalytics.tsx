@@ -65,16 +65,18 @@ export function UsersAnalytics({ analytics }: Props) {
       iconColor: "text-purple-600",
     },
     {
-      label: "Total wallet balance",
+      label: "Wallet total",
       value: formatNGN(overview.total_main_wallet_balance ?? 0),
       sub: (
-        <div className="text-[11px] text-dashboard-muted leading-snug space-y-0.5">
-          <p>Main wallets for users matching current search and filters</p>
-          <p className="text-violet-700/90">
-            Cashback (same cohort): {formatNGN(overview.total_cashback_balance ?? 0)}
-          </p>
-        </div>
+        <p
+          className="text-[10px] text-violet-700/90 font-medium tabular-nums truncate"
+          title={`Cashback for the same filtered list: ${formatNGN(overview.total_cashback_balance ?? 0)}`}
+        >
+          Cashback {formatNGN(overview.total_cashback_balance ?? 0)}
+        </p>
       ),
+      cardTitle:
+        "Main wallet sum for users matching your current search and filters. Cashback line uses the same cohort.",
       icon: Wallet,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-700",
@@ -82,23 +84,26 @@ export function UsersAnalytics({ analytics }: Props) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 items-stretch">
       {cards.map((card, i) => (
         <motion.div
           key={card.label}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.05 }}
-          className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-4"
+          title={"cardTitle" in card && card.cardTitle ? card.cardTitle : undefined}
+          className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-4 flex flex-col min-h-[100px]"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`h-8 w-8 rounded-lg ${card.iconBg} flex items-center justify-center`}>
+          <div className="flex items-center gap-3 mb-2 min-w-0">
+            <div className={`h-8 w-8 rounded-lg shrink-0 ${card.iconBg} flex items-center justify-center`}>
               <card.icon className={`h-4 w-4 ${card.iconColor}`} />
             </div>
-            <span className="text-[11px] font-medium text-dashboard-muted uppercase tracking-wide">{card.label}</span>
+            <span className="text-[11px] font-medium text-dashboard-muted uppercase tracking-wide leading-tight min-w-0">
+              {card.label}
+            </span>
           </div>
-          <p className="text-lg font-bold text-dashboard-heading">{card.value}</p>
-          {"sub" in card && card.sub && <div className="mt-0.5">{card.sub}</div>}
+          <p className="text-lg font-bold text-dashboard-heading tabular-nums leading-tight">{card.value}</p>
+          {"sub" in card && card.sub && <div className="mt-1 min-w-0">{card.sub}</div>}
         </motion.div>
       ))}
     </div>

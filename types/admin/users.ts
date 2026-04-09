@@ -118,9 +118,17 @@ export interface AdminUser {
     id_type: string | null;
   } | null;
   /** Main wallet; null if no wallet row (unusual). */
-  wallet: { current_balance: number; all_time_fuunding: number } | null;
+  wallet: {
+    current_balance: number;
+    all_time_fuunding: number;
+    all_time_withdrawn: number;
+  } | null;
   /** Cashback wallet; null if no row yet. */
-  cashbackWallet?: { current_balance: number } | null;
+  cashbackWallet?: {
+    current_balance: number;
+    all_time_earned: number;
+    all_time_withdrawn: number;
+  } | null;
   last_activity: UserLastActivity | null;
 }
 
@@ -209,6 +217,36 @@ export interface UserListMeta {
 
 // --- Filters ---
 
+/** Matches backend `list_sort` presets (admin user list ordering). */
+export type AdminUserListSort =
+  | "created_desc"
+  | "created_asc"
+  | "name_asc"
+  | "name_desc"
+  | "wallet_balance_desc"
+  | "wallet_balance_asc"
+  | "cashback_balance_desc"
+  | "cashback_balance_asc"
+  | "all_time_funding_desc"
+  | "all_time_funding_asc"
+  | "transaction_count_desc"
+  | "transaction_count_asc";
+
+export const ADMIN_USER_LIST_SORT_OPTIONS: { value: AdminUserListSort; label: string }[] = [
+  { value: "created_desc", label: "Joined (newest first)" },
+  { value: "created_asc", label: "Joined (oldest first)" },
+  { value: "name_asc", label: "Name (A–Z)" },
+  { value: "name_desc", label: "Name (Z–A)" },
+  { value: "wallet_balance_desc", label: "Main wallet balance (high → low)" },
+  { value: "wallet_balance_asc", label: "Main wallet balance (low → high)" },
+  { value: "all_time_funding_desc", label: "All-time funded (high → low)" },
+  { value: "all_time_funding_asc", label: "All-time funded (low → high)" },
+  { value: "cashback_balance_desc", label: "Cashback balance (high → low)" },
+  { value: "cashback_balance_asc", label: "Cashback balance (low → high)" },
+  { value: "transaction_count_desc", label: "Total transactions (high → low)" },
+  { value: "transaction_count_asc", label: "Total transactions (low → high)" },
+];
+
 export interface UserFilters {
   page: number;
   limit: number;
@@ -227,6 +265,8 @@ export interface UserFilters {
   min_cashback_balance: string;
   /** Inclusive max cashback current balance (NGN). */
   max_cashback_balance: string;
+  /** Preset list ordering (sent as `list_sort` query param). */
+  list_sort: AdminUserListSort;
   sort_by: string;
   sort_order: string;
 }

@@ -6,14 +6,23 @@ import type { UserListMeta } from "@/types/admin/users";
 interface Props {
   meta: UserListMeta;
   onPageChange: (page: number) => void;
+  className?: string;
 }
 
-export function UsersPagination({ meta, onPageChange }: Props) {
+export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
   const { page, total_pages, total, limit } = meta;
   const start = (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
 
-  if (total_pages <= 1) return null;
+  if (total_pages <= 1) {
+    return (
+      <div className={`flex items-center text-xs text-dashboard-muted ${className}`.trim()}>
+        <span>
+          {start}–{end} of {total.toLocaleString()}
+        </span>
+      </div>
+    );
+  }
 
   const pages: (number | "...")[] = [];
   if (total_pages <= 7) {
@@ -29,7 +38,9 @@ export function UsersPagination({ meta, onPageChange }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+    <div
+      className={`flex flex-wrap items-center justify-between gap-2 text-xs min-w-0 ${className}`.trim()}
+    >
       <span className="text-dashboard-muted">
         {start}–{end} of {total.toLocaleString()}
       </span>
