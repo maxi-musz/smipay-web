@@ -282,6 +282,116 @@ export default function TransactionDetailPage() {
       </header>
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4 max-w-5xl">
+        {/* Wallet analysis (ledger vs stored) */}
+        {tx.wallet_analysis && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-xl border p-4 text-xs ${
+              tx.wallet_analysis.main.ok && (tx.wallet_analysis.cashback?.ok ?? true)
+                ? "bg-slate-50/90 border-dashboard-border/50"
+                : "bg-amber-50/95 border-amber-200/90"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-dashboard-muted shrink-0" />
+                <h2 className="text-[11px] font-bold uppercase tracking-wide text-dashboard-heading">
+                  Wallet analysis
+                </h2>
+              </div>
+              <span className="text-[10px] text-dashboard-muted tabular-nums">
+                ±₦{tx.wallet_analysis.tolerance_ngn} tol · success-only ledger
+              </span>
+            </div>
+            {tx.wallet_analysis.enforcement_skipped && (
+              <p className="text-[11px] text-sky-800 bg-sky-50 border border-sky-200/80 rounded-md px-2 py-1.5 mb-2">
+                {tx.wallet_analysis.enforcement_skip_reason}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-lg bg-white/70 border border-dashboard-border/30 p-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-dashboard-muted uppercase">Main wallet</p>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">Current balance</span>
+                  <span className="font-mono tabular-nums font-medium">{formatNGN(tx.wallet_analysis.main.current_balance)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">All-time funded (stored)</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.all_time_fuunding)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">All-time out (stored)</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.all_time_withdrawn)}</span>
+                </div>
+                <div className="flex justify-between gap-2 border-t border-dashboard-border/20 pt-1.5 mt-1">
+                  <span className="text-dashboard-muted">Ledger credits (success)</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.ledger_credits_total)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">Ledger debits (success)</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.ledger_debits_total)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">Expected balance</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.expected_balance)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">Referral bonuses (ledger)</span>
+                  <span className="font-mono tabular-nums text-emerald-700">{formatNGN(tx.wallet_analysis.main.referral_bonus_total)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">First-tx bonus (ledger)</span>
+                  <span className="font-mono tabular-nums text-emerald-700">{formatNGN(tx.wallet_analysis.main.first_tx_bonus_total)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-dashboard-muted">Deposits (ledger)</span>
+                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.deposit_credits_total)}</span>
+                </div>
+                <p className={`text-[10px] font-medium pt-1 ${tx.wallet_analysis.main.ok ? "text-emerald-700" : "text-amber-800"}`}>
+                  {tx.wallet_analysis.main.ok ? "Stored fields match ledger." : "Mismatch — investigate or run aggregate reconcile."}
+                </p>
+              </div>
+              {tx.wallet_analysis.cashback ? (
+                <div className="rounded-lg bg-white/70 border border-dashboard-border/30 p-3 space-y-1.5">
+                  <p className="text-[10px] font-semibold text-dashboard-muted uppercase">Cashback wallet</p>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-dashboard-muted">Current balance</span>
+                    <span className="font-mono tabular-nums font-medium">{formatNGN(tx.wallet_analysis.cashback.current_balance)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-dashboard-muted">All-time earned</span>
+                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.all_time_earned)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-dashboard-muted">All-time withdrawn</span>
+                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.all_time_withdrawn)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2 border-t border-dashboard-border/20 pt-1.5 mt-1">
+                    <span className="text-dashboard-muted">Earned (history net)</span>
+                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.earned_net)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-dashboard-muted">Used on success txs</span>
+                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.withdrawn_from_success_tx)}</span>
+                  </div>
+                  <p className={`text-[10px] font-medium pt-1 ${tx.wallet_analysis.cashback.ok ? "text-emerald-700" : "text-amber-800"}`}>
+                    {tx.wallet_analysis.cashback.ok
+                      ? "Cashback aggregates OK."
+                      : tx.wallet_analysis.cashback.tx_anomaly
+                        ? "Cashback used exceeds earned — anomaly."
+                        : "Cashback mismatch — investigate."}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-white/40 border border-dashed border-dashboard-border/40 p-3 flex items-center text-dashboard-muted text-[11px]">
+                  No cashback wallet for this user.
+                </div>
+              )}
+            </div>
+          </motion.section>
+        )}
+
         {/* Transaction Info */}
         <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-5">
           <div className="flex items-center gap-2 mb-4">

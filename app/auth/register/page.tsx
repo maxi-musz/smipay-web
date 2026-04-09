@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -111,9 +111,13 @@ export default function RegisterPage() {
   ) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+    let next: string | boolean = value;
+    if (type !== "checkbox" && name === "referral_code") {
+      next = value.replace(/^@+/, "").replace(/[^A-Za-z0-9]/g, "");
+    }
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : (next as string),
     }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
@@ -254,6 +258,7 @@ export default function RegisterPage() {
       setServerError(
         err instanceof Error ? err.message : "Registration failed. Please try again."
       );
+    } finally {
       setIsLoading(false);
     }
   };
@@ -296,6 +301,26 @@ export default function RegisterPage() {
   };
 
   const currentStepIndex = stepIndex(step);
+
+  const registerSubmitBlockedReason = useMemo(() => {
+    if (step !== "register") return null;
+    if (isLoading) return null;
+    if (!formData.first_name.trim()) return "Enter your first name.";
+    if (!formData.last_name.trim()) return "Enter your last name.";
+    if (!formData.phone_number.trim()) return "Enter your phone number.";
+    if (formData.password.length !== PIN_LENGTH) return "Enter a 6-digit PIN.";
+    if (!formData.agree_to_terms) return "Tick the box to agree to the Terms and Privacy Policy.";
+    return null;
+  }, [step, isLoading, formData]);
+
+  const isRegisterSubmitDisabled =
+    step === "register" &&
+    (isLoading ||
+      !formData.first_name.trim() ||
+      !formData.last_name.trim() ||
+      !formData.phone_number.trim() ||
+      formData.password.length !== PIN_LENGTH ||
+      !formData.agree_to_terms);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
@@ -680,9 +705,9 @@ export default function RegisterPage() {
                   )}
                 </motion.div>
 
-                {/* Terms */}
+                {/* Terms — checkbox + text/links split so label clicks toggle reliably */}
                 <motion.div className="space-y-1 pt-0.5" variants={fieldVariants}>
-                  <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="flex items-start gap-3">
                     <input
                       id="agree_to_terms"
                       name="agree_to_terms"
@@ -690,14 +715,18 @@ export default function RegisterPage() {
                       checked={formData.agree_to_terms}
                       onChange={handleChange}
                       disabled={isLoading}
-                      className="mt-0.5 h-4 w-4 rounded border-dashboard-border text-brand-bg-primary focus:ring-2 focus:ring-brand-bg-primary/20 focus:ring-offset-0"
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-dashboard-border text-brand-bg-primary focus:ring-2 focus:ring-brand-bg-primary/20 focus:ring-offset-0 cursor-pointer"
                     />
-                    <span className="text-sm text-dashboard-muted group-hover:text-dashboard-heading transition-colors">
-                      I agree to the{" "}
+                    <p className="text-sm text-dashboard-muted leading-snug">
+                      <label htmlFor="agree_to_terms" className="cursor-pointer">
+                        I agree to the{" "}
+                      </label>
                       <Link
                         href="/terms"
                         className="text-dashboard-accent hover:underline"
                         target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         Terms and Conditions
                       </Link>{" "}
@@ -706,28 +735,29 @@ export default function RegisterPage() {
                         href="/privacy"
                         className="text-dashboard-accent hover:underline"
                         target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         Privacy Policy
                       </Link>
-                    </span>
-                  </label>
+                    </p>
+                  </div>
                   {errors.agree_to_terms && (
                     <p className="text-xs text-red-600">{errors.agree_to_terms}</p>
                   )}
                 </motion.div>
               </div>
 
-              <motion.div className="mt-4 space-y-2" variants={fieldVariants}>
+              <motion.div
+                className="relative z-10 mt-4 space-y-2"
+                variants={fieldVariants}
+              >
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
-                  disabled={
-                    isLoading ||
-                    !formData.first_name.trim() ||
-                    !formData.last_name.trim() ||
-                    !formData.phone_number.trim() ||
-                    formData.password.length !== PIN_LENGTH ||
-                    !formData.agree_to_terms
+                  className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isRegisterSubmitDisabled}
+                  title={
+                    registerSubmitBlockedReason ?? undefined
                   }
                 >
                   {isLoading ? (
@@ -739,6 +769,11 @@ export default function RegisterPage() {
                     "Create account"
                   )}
                 </Button>
+                {registerSubmitBlockedReason && (
+                  <p className="text-center text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">
+                    {registerSubmitBlockedReason}
+                  </p>
+                )}
                 <p className="text-center text-sm text-dashboard-muted">
                   Already have an account?{" "}
                   <Link

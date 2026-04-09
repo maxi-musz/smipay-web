@@ -154,6 +154,39 @@ export interface TransactionCounterpart {
   };
 }
 
+/** Ledger vs stored wallet aggregates (admin transaction detail). */
+export interface AdminWalletAnalysis {
+  enforcement_skipped: boolean;
+  enforcement_skip_reason?: string;
+  tolerance_ngn: number;
+  main: {
+    current_balance: number;
+    all_time_fuunding: number;
+    all_time_withdrawn: number;
+    ledger_credits_total: number;
+    ledger_debits_total: number;
+    expected_balance: number;
+    balance_delta: number;
+    stored_invariant: number;
+    deposit_credits_total: number;
+    referral_bonus_total: number;
+    first_tx_bonus_total: number;
+    ok: boolean;
+  };
+  cashback: {
+    current_balance: number;
+    all_time_earned: number;
+    all_time_withdrawn: number;
+    earned_net: number;
+    withdrawn_from_success_tx: number;
+    expected_balance: number;
+    balance_delta: number;
+    stored_invariant: number;
+    tx_anomaly: boolean;
+    ok: boolean;
+  } | null;
+}
+
 export interface TransactionDetail extends Omit<TransactionItem, "user"> {
   account_id: string | null;
   vtpass_amount: number | null;
@@ -164,6 +197,7 @@ export interface TransactionDetail extends Omit<TransactionItem, "user"> {
   meta_data: Record<string, unknown> | null;
   user: TransactionDetailUser | null;
   counterpart: TransactionCounterpart | null;
+  wallet_analysis?: AdminWalletAnalysis | null;
 }
 
 // --- List meta ---
