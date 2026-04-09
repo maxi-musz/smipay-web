@@ -198,7 +198,11 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
   useEffect(() => {
     if (!open) return;
     updatePosition();
-    const onScroll = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", updatePosition);
     return () => {
@@ -243,7 +247,10 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
           </p>
         </div>
 
-        <div className="px-3 py-2 max-h-[min(70vh,420px)] overflow-y-auto">
+        <div
+          className="px-3 py-2 max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain"
+          onWheel={(e) => e.stopPropagation()}
+        >
           <div className="flex items-center gap-2 mb-1 text-violet-700">
             <Wallet className="h-3.5 w-3.5 shrink-0" />
             <span className="text-[11px] font-bold">Main wallet (NGN)</span>
@@ -463,15 +470,24 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
                           <CornerDownRight className="h-3.5 w-3.5 text-dashboard-muted/70 shrink-0" aria-hidden />
                           <div className="min-w-0 flex flex-col gap-0.5">
                             <span className="text-[10px] text-dashboard-muted">Same user</span>
-                            {tx.user?.id ? (
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                               <Link
-                                href={`/unified-admin/users/${tx.user.id}`}
-                                className="text-[10px] font-medium text-brand-bg-primary hover:underline truncate max-w-[140px]"
-                                title="Open user profile"
+                                href={`/unified-admin/transactions/${tx.id}`}
+                                className="text-[10px] font-medium text-brand-bg-primary hover:underline"
+                                title="Open this transaction"
                               >
-                                Profile
+                                Transaction
                               </Link>
-                            ) : null}
+                              {tx.user?.id ? (
+                                <Link
+                                  href={`/unified-admin/users/${tx.user.id}`}
+                                  className="text-[10px] font-medium text-brand-bg-primary/90 hover:underline truncate max-w-[120px]"
+                                  title="Open user profile"
+                                >
+                                  Profile
+                                </Link>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -523,7 +539,14 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
                         </Link>
                       </div>
                     ) : (
-                      formatNGN(tx.amount)
+                      <Link
+                        href={`/unified-admin/transactions/${tx.id}`}
+                        className={`block text-right font-semibold whitespace-nowrap tabular-nums hover:text-brand-bg-primary transition-colors ${
+                          rowMuted ? "text-dashboard-heading/90" : "text-dashboard-heading"
+                        }`}
+                      >
+                        {formatNGN(tx.amount)}
+                      </Link>
                     )}
                   </td>
                   <td className="px-4 py-2.5">

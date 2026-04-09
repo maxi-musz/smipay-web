@@ -94,7 +94,11 @@ function UserWalletBalanceCell({ user }: { user: AdminUser }) {
   useEffect(() => {
     if (!open) return;
     updatePosition();
-    const onScroll = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", updatePosition);
     return () => {
@@ -139,7 +143,10 @@ function UserWalletBalanceCell({ user }: { user: AdminUser }) {
           </p>
         </div>
 
-        <div className="px-3 py-2 max-h-[min(70vh,480px)] overflow-y-auto">
+        <div
+          className="px-3 py-2 max-h-[min(70vh,480px)] overflow-y-auto overscroll-contain"
+          onWheel={(e) => e.stopPropagation()}
+        >
           {w ? (
             <>
               <div className="flex items-center gap-2 mb-1 text-violet-700">
