@@ -66,12 +66,20 @@ export interface StatusBreakdownItem {
   volume: number;
 }
 
+/** Dev-only: per-row main delta vs amount+cashback (same rules as Balance column check). */
+export interface TransactionRowWalletRollups {
+  checks_out: number;
+  doesnt_check: number;
+}
+
 export interface TransactionAnalytics {
   overview: TransactionOverview;
   activity: TransactionActivity;
   by_status: Record<string, StatusBreakdownItem>;
   by_type: Record<string, StatusBreakdownItem>;
   by_channel: Record<string, StatusBreakdownItem>;
+  row_wallet_rollups?: TransactionRowWalletRollups;
+  row_wallet_rollups_capped?: boolean;
 }
 
 // --- User brief (embedded in transaction) ---
@@ -86,9 +94,17 @@ export interface TransactionUserBrief {
   role: string;
   account_status: string;
   profile_image: { secure_url: string } | null;
-  /** Live main wallet balance (now); snapshot at tx time is balance_before/after on the row */
-  wallet?: { current_balance: number } | null;
-  cashbackWallet?: { current_balance: number } | null;
+  /** Live wallet rollups (same shape as admin users list for Balance column parity) */
+  wallet?: {
+    current_balance: number;
+    all_time_fuunding?: number;
+    all_time_withdrawn?: number;
+  } | null;
+  cashbackWallet?: {
+    current_balance: number;
+    all_time_earned?: number;
+    all_time_withdrawn?: number;
+  } | null;
 }
 
 // --- Transaction item (list view) ---
@@ -134,7 +150,11 @@ export interface TransactionItem {
 // --- Transaction detail (single view) ---
 
 export interface TransactionDetailUser extends TransactionUserBrief {
-  wallet: { current_balance: number } | null;
+  wallet: {
+    current_balance: number;
+    all_time_fuunding?: number;
+    all_time_withdrawn?: number;
+  } | null;
   tier: { tier: string; name: string } | null;
 }
 
@@ -226,6 +246,8 @@ export interface TransactionFilters {
   date_to: string;
   sort_by: string;
   sort_order: string;
+  /** Dev-only: filter list by row wallet check (`ok` / `fail`). */
+  wallet_integrity: "" | "ok" | "fail";
 }
 
 // --- API Responses ---

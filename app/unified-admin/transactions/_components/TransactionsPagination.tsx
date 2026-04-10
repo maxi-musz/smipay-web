@@ -6,9 +6,10 @@ import type { TransactionListMeta } from "@/types/admin/transactions";
 interface TransactionsPaginationProps {
   meta: TransactionListMeta;
   onPageChange: (page: number) => void;
+  disabled?: boolean;
 }
 
-export function TransactionsPagination({ meta, onPageChange }: TransactionsPaginationProps) {
+export function TransactionsPagination({ meta, onPageChange, disabled = false }: TransactionsPaginationProps) {
   const { page, total_pages, total, limit } = meta;
   const from = (page - 1) * limit + 1;
   const to = Math.min(page * limit, total);
@@ -18,7 +19,7 @@ export function TransactionsPagination({ meta, onPageChange }: TransactionsPagin
   const pages = getPageNumbers(page, total_pages);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className={`flex flex-wrap items-center justify-between gap-2 ${disabled ? "opacity-60" : ""}`}>
       <p className="text-[10px] text-dashboard-muted tabular-nums">
         Showing {from}–{to} of {total.toLocaleString()}
       </p>
@@ -26,7 +27,7 @@ export function TransactionsPagination({ meta, onPageChange }: TransactionsPagin
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
+          disabled={disabled || page <= 1}
           className="p-1.5 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:bg-dashboard-bg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -42,7 +43,8 @@ export function TransactionsPagination({ meta, onPageChange }: TransactionsPagin
               key={p}
               type="button"
               onClick={() => onPageChange(p as number)}
-              className={`min-w-[28px] h-7 rounded-lg text-[10px] font-medium transition-colors ${
+              disabled={disabled}
+              className={`min-w-[28px] h-7 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none ${
                 p === page
                   ? "bg-brand-bg-primary text-white"
                   : "text-dashboard-muted hover:bg-dashboard-bg border border-dashboard-border/60"
@@ -56,7 +58,7 @@ export function TransactionsPagination({ meta, onPageChange }: TransactionsPagin
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
-          disabled={page >= total_pages}
+          disabled={disabled || page >= total_pages}
           className="p-1.5 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:bg-dashboard-bg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight className="h-3.5 w-3.5" />

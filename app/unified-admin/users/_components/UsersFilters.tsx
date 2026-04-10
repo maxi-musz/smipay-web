@@ -36,7 +36,8 @@ export function UsersFilters({ filters, onSearch, onFilterChange, onReset, total
     filters.min_wallet_balance?.trim() ||
     filters.max_wallet_balance?.trim() ||
     filters.min_cashback_balance?.trim() ||
-    filters.max_cashback_balance?.trim();
+    filters.max_cashback_balance?.trim() ||
+    filters.wallet_integrity;
 
   return (
     <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden">

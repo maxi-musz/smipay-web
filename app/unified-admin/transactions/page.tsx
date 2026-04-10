@@ -227,7 +227,13 @@ function TransactionsPageContent() {
           </motion.div>
         )}
 
-        {analytics && <TransactionsAnalytics analytics={analytics} />}
+        {analytics && (
+          <TransactionsAnalytics
+            analytics={analytics}
+            walletIntegrityFilter={filters.wallet_integrity}
+            onWalletIntegrityFilterChange={(wallet_integrity) => updateFilters({ wallet_integrity })}
+          />
+        )}
 
         {/* Status pills */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -271,12 +277,16 @@ function TransactionsPageContent() {
           onReset={resetFiltersAndUrl}
           total={meta?.total ?? 0}
           isLoading={isLoading}
+          filtersDisabled={isLoading}
         />
 
-        {meta && <TransactionsPagination meta={meta} onPageChange={setPage} />}
+        {meta && (
+          <TransactionsPagination meta={meta} onPageChange={setPage} disabled={isLoading} />
+        )}
 
         <TransactionsTable
           transactions={transactions}
+          isLoading={isLoading}
           hideUserColumn={Boolean(filters.user_id?.trim())}
         />
       </div>

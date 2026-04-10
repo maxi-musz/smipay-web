@@ -29,6 +29,9 @@ import {
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
 import type { TransactionDetail } from "@/types/admin/transactions";
 import { FlagTransactionModal } from "../_components/FlagTransactionModal";
+import { useAuth } from "@/hooks/useAuth";
+import { isDevAdminEmail } from "@/lib/dev-admin";
+import { DevOnlyBadge } from "@/components/DevOnlyBadge";
 
 function metaNum(v: unknown): number | null {
   if (v == null) return null;
@@ -147,6 +150,8 @@ function CopyText({ value }: { value: string }) {
 export default function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  const showDevWalletRows = isDevAdminEmail(authUser?.email);
   const [tx, setTx] = useState<TransactionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -328,10 +333,15 @@ export default function TransactionDetailPage() {
                   <span className="text-dashboard-muted">Ledger credits (success)</span>
                   <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.ledger_credits_total)}</span>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-dashboard-muted">Ledger debits (success)</span>
-                  <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.ledger_debits_total)}</span>
-                </div>
+                {showDevWalletRows && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-dashboard-muted inline-flex items-center">
+                      Ledger debits (success)
+                      <DevOnlyBadge />
+                    </span>
+                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.ledger_debits_total)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between gap-2">
                   <span className="text-dashboard-muted">Expected balance</span>
                   <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.expected_balance)}</span>
@@ -348,9 +358,14 @@ export default function TransactionDetailPage() {
                   <span className="text-dashboard-muted">Deposits (ledger)</span>
                   <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.main.deposit_credits_total)}</span>
                 </div>
-                <p className={`text-[10px] font-medium pt-1 ${tx.wallet_analysis.main.ok ? "text-emerald-700" : "text-amber-800"}`}>
-                  {tx.wallet_analysis.main.ok ? "Stored fields match ledger." : "Mismatch — investigate or run aggregate reconcile."}
-                </p>
+                {tx.wallet_analysis.main.ok ? (
+                  <p className="text-[10px] font-medium pt-1 text-emerald-700">Stored fields match ledger.</p>
+                ) : showDevWalletRows ? (
+                  <p className="text-[10px] font-medium pt-1 text-amber-800 inline-flex items-center flex-wrap gap-x-1">
+                    <span>Mismatch — investigate or run aggregate reconcile.</span>
+                    <DevOnlyBadge />
+                  </p>
+                ) : null}
               </div>
               {tx.wallet_analysis.cashback ? (
                 <div className="rounded-lg bg-white/70 border border-dashboard-border/30 p-3 space-y-1.5">
@@ -371,17 +386,27 @@ export default function TransactionDetailPage() {
                     <span className="text-dashboard-muted">Earned (history net)</span>
                     <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.earned_net)}</span>
                   </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-dashboard-muted">Used on success txs</span>
-                    <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.withdrawn_from_success_tx)}</span>
-                  </div>
-                  <p className={`text-[10px] font-medium pt-1 ${tx.wallet_analysis.cashback.ok ? "text-emerald-700" : "text-amber-800"}`}>
-                    {tx.wallet_analysis.cashback.ok
-                      ? "Cashback aggregates OK."
-                      : tx.wallet_analysis.cashback.tx_anomaly
-                        ? "Cashback used exceeds earned — anomaly."
-                        : "Cashback mismatch — investigate."}
-                  </p>
+                  {showDevWalletRows && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-dashboard-muted inline-flex items-center">
+                        Used on success txs
+                        <DevOnlyBadge />
+                      </span>
+                      <span className="font-mono tabular-nums">{formatNGN(tx.wallet_analysis.cashback.withdrawn_from_success_tx)}</span>
+                    </div>
+                  )}
+                  {tx.wallet_analysis.cashback.ok ? (
+                    <p className="text-[10px] font-medium pt-1 text-emerald-700">Cashback aggregates OK.</p>
+                  ) : showDevWalletRows ? (
+                    <p className="text-[10px] font-medium pt-1 text-amber-800 inline-flex items-center flex-wrap gap-x-1">
+                      <span>
+                        {tx.wallet_analysis.cashback.tx_anomaly
+                          ? "Cashback used exceeds earned — anomaly."
+                          : "Cashback mismatch — investigate."}
+                      </span>
+                      <DevOnlyBadge />
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="rounded-lg bg-white/40 border border-dashed border-dashboard-border/40 p-3 flex items-center text-dashboard-muted text-[11px]">

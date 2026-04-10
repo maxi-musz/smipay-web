@@ -71,6 +71,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "Smipay",
+    /** Comma-separated admin emails; DEV_EMAILS in .env is mapped here for client-side dev UI. */
+    NEXT_PUBLIC_DEV_EMAILS:
+      process.env.DEV_EMAILS ?? process.env.NEXT_PUBLIC_DEV_EMAILS ?? "",
   },
 };
 

@@ -31,6 +31,9 @@ function buildParams(filters: Partial<UserFilters>): Record<string, string | num
   if (filters.list_sort) params.list_sort = filters.list_sort;
   if (filters.sort_by) params.sort_by = filters.sort_by;
   if (filters.sort_order) params.sort_order = filters.sort_order;
+  if (filters.wallet_integrity === "ok" || filters.wallet_integrity === "fail") {
+    params.wallet_integrity = filters.wallet_integrity;
+  }
   return params;
 }
 

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useAdminUsersStore } from "@/store/admin/admin-users-store";
 import type { UserFilters } from "@/types/admin/users";
+import { useAuth } from "@/hooks/useAuth";
+import { isDevAdminEmail } from "@/lib/dev-admin";
 
 const DEBOUNCE_MS = 400;
 
@@ -21,8 +23,16 @@ export function useAdminUsers() {
     updateUser,
   } = useAdminUsersStore();
 
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const mounted = useRef(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (filters.wallet_integrity && !isDevAdminEmail(authUser?.email)) {
+      setFilters({ wallet_integrity: "" });
+    }
+  }, [authLoading, authUser?.email, filters.wallet_integrity, setFilters]);
 
   useEffect(() => {
     if (!mounted.current) {
@@ -48,6 +58,7 @@ export function useAdminUsers() {
     filters.list_sort,
     filters.sort_by,
     filters.sort_order,
+    filters.wallet_integrity,
   ]);
 
   const debouncedSearch = useCallback(

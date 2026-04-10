@@ -14,9 +14,13 @@ import {
   Gift,
   ShieldCheck,
   AlertTriangle,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { TransactionItem } from "@/types/admin/transactions";
+import { useAuth } from "@/hooks/useAuth";
+import { isDevAdminEmail } from "@/lib/dev-admin";
 
 function formatNGN(value: number | null): string {
   if (value == null) return "—";
@@ -79,6 +83,7 @@ function CopyRef({ value }: { value: string }) {
 
 interface Props {
   transactions: TransactionItem[];
+  isLoading?: boolean;
   /** When listing a single user’s txs (e.g. `?user_id=`), the User column is redundant. */
   hideUserColumn?: boolean;
 }
@@ -136,26 +141,19 @@ function txnBalanceIntegrity(tx: TransactionItem): "ok" | "warn" | "na" {
   return "na";
 }
 
-function BreakdownRow({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
+function WalletStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="py-2 border-b border-dashboard-border/40 last:border-b-0">
-      <p className="text-[10px] font-medium text-dashboard-muted uppercase tracking-wide">{label}</p>
-      <p className="text-sm font-semibold tabular-nums text-dashboard-heading mt-0.5">{value}</p>
-      {hint ? <p className="text-[11px] text-dashboard-muted mt-1 leading-relaxed">{hint}</p> : null}
+    <div className="min-w-0">
+      <p className="text-[9px] font-medium text-dashboard-muted uppercase tracking-wide leading-none">{label}</p>
+      <p className="text-xs font-semibold tabular-nums text-dashboard-heading mt-1 leading-tight">{value}</p>
     </div>
   );
 }
 
-/** Table cell: live main wallet balance + chevron opens plain-English breakdown (portal). */
+/** Table cell: same Balance column pattern as admin users list + compact breakdown popover. */
 function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
+  const { user: authUser } = useAuth();
+  const devIntegrityMark = isDevAdminEmail(authUser?.email);
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -183,8 +181,14 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
 
   const integrity = txnBalanceIntegrity(tx);
   const showLive = liveMainNum != null;
-  const displayAmount = showLive ? liveMainNum : ba;
   const integrityWarn = integrity === "warn";
+  const cashbackUsedOnTx = cbUsed > 0;
+  const rowIntegrityOk = integrity === "ok";
+  const showDevIntegrityCheck = devIntegrityMark && rowIntegrityOk;
+  const funding =
+    tx.user?.wallet?.all_time_fuunding != null && !Number.isNaN(Number(tx.user.wallet.all_time_fuunding))
+      ? Number(tx.user.wallet.all_time_fuunding)
+      : null;
 
   const updatePosition = useCallback(() => {
     const el = wrapRef.current;
@@ -240,97 +244,17 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
         role="dialog"
         aria-label="Wallet breakdown for this transaction"
       >
-        <div className="px-3 py-2.5 border-b border-dashboard-border/40 bg-dashboard-bg/50">
+        <div className="px-3 py-2 border-b border-dashboard-border/40 bg-dashboard-bg/50">
           <p className="text-xs font-bold text-dashboard-heading">Wallet breakdown</p>
-          <p className="text-[10px] text-dashboard-muted mt-0.5 leading-snug">
-            Numbers stored on this transaction row, plus the customer&apos;s live balances when loaded.
-          </p>
+          <p className="text-[10px] text-dashboard-muted mt-0.5 leading-snug">This row and live customer balances when loaded.</p>
         </div>
 
         <div
-          className="px-3 py-2 max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain"
+          className="px-3 py-2 max-h-[min(70vh,400px)] overflow-y-auto overscroll-contain"
           onWheel={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center gap-2 mb-1 text-violet-700">
-            <Wallet className="h-3.5 w-3.5 shrink-0" />
-            <span className="text-[11px] font-bold">Main wallet (NGN)</span>
-          </div>
-          <BreakdownRow
-            label="Balance before this transaction"
-            value={formatNGN(bb)}
-            hint="What the main wallet showed immediately before this line was saved."
-          />
-          <BreakdownRow
-            label="Balance after this transaction"
-            value={formatNGN(ba)}
-            hint="What the main wallet showed right after this line was saved."
-          />
-          <BreakdownRow
-            label="Change on main wallet (this row)"
-            value={`${mainDelta >= 0 ? "+" : ""}${formatNGN(mainDelta)}`}
-            hint={
-              tx.credit_debit === "credit"
-                ? "Money in: main wallet should increase by the credited amount."
-                : tx.credit_debit === "debit"
-                  ? "Money out: main wallet usually drops by (amount − cashback used from main)."
-                  : "Direction of this line in the ledger."
-            }
-          />
-          {showLive ? (
-            <BreakdownRow
-              label="Customer's main wallet now (live)"
-              value={formatNGN(liveMainNum)}
-              hint={
-                driftW != null && Math.abs(driftW) > 0.5
-                  ? `This is ${formatNGN(Math.abs(driftW))} ${driftW > 0 ? "higher" : "lower"} than the “after” figure above — normal if they have done other transactions since.`
-                  : "Matches the “after” balance on this row (no drift)."
-              }
-            />
-          ) : (
-            <p className="text-[10px] text-dashboard-muted py-2 italic">
-              Live wallet balance is not loaded in this list. The table shows the balance right after this transaction instead.
-            </p>
-          )}
-
-          {hasCb ? (
-            <>
-              <div className="flex items-center gap-2 mt-3 mb-1 text-amber-800">
-                <Gift className="h-3.5 w-3.5 shrink-0" />
-                <span className="text-[11px] font-bold">Cashback wallet</span>
-              </div>
-              <BreakdownRow
-                label="Cashback before"
-                value={formatNGN(cbb != null ? Number(cbb) : null)}
-              />
-              <BreakdownRow
-                label="Used from cashback on this purchase"
-                value={formatNGN(cbUsed > 0 ? cbUsed : null)}
-                hint="Part of the purchase paid from the separate cashback balance, not the main wallet."
-              />
-              <BreakdownRow
-                label="Cashback after"
-                value={formatNGN(cba != null ? Number(cba) : null)}
-              />
-              {curCNum != null ? (
-                <BreakdownRow
-                  label="Customer's cashback now (live)"
-                  value={formatNGN(curCNum)}
-                  hint={
-                    driftC != null && Math.abs(driftC) > 0.5
-                      ? `Differs from “after” by ${formatNGN(Math.abs(driftC))} — other activity since this transaction.`
-                      : "Matches the snapshot after this transaction."
-                  }
-                />
-              ) : null}
-            </>
-          ) : (
-            <p className="text-[10px] text-dashboard-muted mt-3 py-1">
-              No cashback movement recorded on this transaction.
-            </p>
-          )}
-
           <div
-            className={`mt-3 rounded-lg px-2.5 py-2 flex gap-2 ${
+            className={`rounded-lg px-2.5 py-2 flex gap-2 mb-3 ${
               integrityWarn ? "bg-amber-50 border border-amber-200/80" : "bg-emerald-50/80 border border-emerald-200/60"
             }`}
           >
@@ -339,26 +263,70 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
             ) : (
               <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             )}
-            <div>
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold text-dashboard-heading">
                 {integrityWarn ? "Review suggested" : "Row looks consistent"}
               </p>
-              <p className="text-[10px] text-dashboard-muted mt-0.5 leading-relaxed">
+              <p className="text-[9px] text-dashboard-muted mt-0.5 leading-snug">
                 {integrityWarn
-                  ? "The change on the main wallet does not match the transaction amount and cashback split we expect. Open the full transaction or check for refunds, double charges, or data entry issues."
+                  ? "Main delta doesn’t match amount + cashback split — open detail."
                   : integrity === "ok"
-                    ? "The main wallet movement on this row matches the transaction amount and cashback used (standard sanity check)."
-                    : "Not enough data on this row to run the debit/credit check."}
+                    ? "Main movement matches amount and cashback used."
+                    : "Not enough row data for this check."}
               </p>
             </div>
           </div>
 
+          <div className="rounded-lg border border-dashboard-border/30 bg-white/60 p-2.5">
+            <div className="flex items-center gap-1.5 mb-2 text-violet-700">
+              <Wallet className="h-3 w-3 shrink-0" />
+              <span className="text-[10px] font-bold">Main (this row)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+              <WalletStat label="Before" value={formatNGN(bb)} />
+              <WalletStat label="After" value={formatNGN(ba)} />
+              <WalletStat label="Δ Main" value={`${mainDelta >= 0 ? "+" : ""}${formatNGN(mainDelta)}`} />
+              <WalletStat label="Live now" value={showLive ? formatNGN(liveMainNum) : "—"} />
+            </div>
+            {!showLive ? (
+              <p className="text-[9px] text-dashboard-muted mt-1.5 leading-snug">
+                Live balance not in list payload; Balance column uses after-tx snapshot.
+              </p>
+            ) : driftW != null && Math.abs(driftW) > 0.5 ? (
+              <p className="text-[9px] text-dashboard-muted mt-1.5 leading-snug">
+                Live {driftW > 0 ? "above" : "below"} “after” by {formatNGN(Math.abs(driftW))} — later activity.
+              </p>
+            ) : null}
+          </div>
+
+          {hasCb ? (
+            <div className="rounded-lg border border-dashboard-border/30 bg-white/60 p-2.5 mt-2">
+              <div className="flex items-center gap-1.5 mb-2 text-amber-800">
+                <Gift className="h-3 w-3 shrink-0" />
+                <span className="text-[10px] font-bold">Cashback</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                <WalletStat label="Before" value={formatNGN(cbb != null ? Number(cbb) : null)} />
+                <WalletStat label="Used" value={formatNGN(cbUsed > 0 ? cbUsed : null)} />
+                <WalletStat label="After" value={formatNGN(cba != null ? Number(cba) : null)} />
+                <WalletStat label="Live now" value={curCNum != null ? formatNGN(curCNum) : "—"} />
+              </div>
+              {curCNum != null && driftC != null && Math.abs(driftC) > 0.5 ? (
+                <p className="text-[9px] text-dashboard-muted mt-1.5 leading-snug">
+                  Live differs from “after” by {formatNGN(Math.abs(driftC))}.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-[10px] text-dashboard-muted mt-2 py-0.5">No cashback on this row.</p>
+          )}
+
           <Link
             href={`/unified-admin/transactions/${tx.id}`}
-            className="mt-3 block text-center text-[11px] font-semibold text-brand-bg-primary hover:underline py-2"
+            className="mt-2.5 block text-center text-[10px] font-semibold text-brand-bg-primary hover:underline py-1.5"
             onClick={() => setOpen(false)}
           >
-            Open full transaction detail →
+            Full detail →
           </Link>
         </div>
       </div>,
@@ -366,12 +334,46 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
     );
 
   return (
-    <div ref={wrapRef} className="flex items-center justify-end gap-0.5 min-w-0">
+    <div ref={wrapRef} className="flex items-center justify-end gap-1 min-w-0">
+      {showDevIntegrityCheck ? (
+        <span className="shrink-0 inline-flex" title="Dev: row amount ↔ main/cashback movement OK">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+        </span>
+      ) : null}
       <div className="text-right min-w-0">
-        <p className="text-[11px] font-semibold tabular-nums text-emerald-800 leading-tight">{formatNGN(displayAmount)}</p>
-        <p className="text-[9px] text-dashboard-muted leading-tight">
-          {showLive ? "Current (main)" : "After this tx"}
-        </p>
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[10px] leading-tight">
+          <span className="text-dashboard-muted whitespace-nowrap">
+            Before -{" "}
+            <span className="font-semibold tabular-nums text-dashboard-heading">
+              {formatNGN(Number.isFinite(bb) ? bb : null)}
+            </span>
+          </span>
+          <span className="text-dashboard-muted whitespace-nowrap">
+            After -{" "}
+            <span className="font-semibold tabular-nums text-dashboard-heading">
+              {formatNGN(Number.isFinite(ba) ? ba : null)}
+            </span>
+          </span>
+          <span className="text-dashboard-muted whitespace-nowrap">
+            All time - <span className="font-semibold tabular-nums text-dashboard-heading">{formatNGN(funding)}</span>
+          </span>
+          {cashbackUsedOnTx ? (
+            <>
+              <span className="text-dashboard-muted whitespace-nowrap">
+                CB before -{" "}
+                <span className="font-semibold tabular-nums text-violet-700/90">
+                  {formatNGN(cbb != null && Number.isFinite(Number(cbb)) ? Number(cbb) : null)}
+                </span>
+              </span>
+              <span className="text-dashboard-muted whitespace-nowrap">
+                CB after -{" "}
+                <span className="font-semibold tabular-nums text-violet-700/90">
+                  {formatNGN(cba != null && Number.isFinite(Number(cba)) ? Number(cba) : null)}
+                </span>
+              </span>
+            </>
+          ) : null}
+        </div>
       </div>
       <button
         type="button"
@@ -396,8 +398,8 @@ function WalletBalanceCell({ tx }: { tx: TransactionItem }) {
   );
 }
 
-export function TransactionsTable({ transactions, hideUserColumn = false }: Props) {
-  if (!transactions.length) {
+export function TransactionsTable({ transactions, isLoading = false, hideUserColumn = false }: Props) {
+  if (!transactions.length && !isLoading) {
     return (
       <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-12 text-center">
         <p className="text-sm text-dashboard-muted">No transactions found</p>
@@ -406,7 +408,20 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
   }
 
   return (
-    <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden shadow-sm">
+    <div
+      className="relative bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden shadow-sm"
+      aria-busy={isLoading}
+    >
+      {isLoading && (
+        <div
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-dashboard-surface/70 backdrop-blur-[2px] rounded-xl"
+          aria-live="polite"
+          aria-label="Loading transactions"
+        >
+          <Loader2 className="h-7 w-7 animate-spin text-brand-bg-primary" />
+          <p className="text-xs font-medium text-dashboard-muted">Updating list…</p>
+        </div>
+      )}
       <p className="px-4 py-2.5 text-[11px] text-dashboard-muted border-b border-dashboard-border/30 bg-dashboard-bg/30 leading-relaxed">
         <span className="font-medium text-dashboard-heading/80">Ledger view:</span> each row is one distinct
         reference (separate attempt).
@@ -429,16 +444,16 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
                 Plan
               </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Status</th>
+              <th
+                className="text-right px-2 py-2.5 font-medium text-dashboard-muted min-w-[9rem] border-l border-dashboard-border/15 bg-dashboard-bg/30"
+                title="Before, after, all-time funded; if cashback used: CB before/after. Dev-only green check when row sanity passes. Chevron: full breakdown."
+              >
+                <span className="whitespace-nowrap">Balance</span>
+              </th>
               <th className="text-center px-4 py-2.5 font-medium text-dashboard-muted">Dir</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Channel</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Revenue</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted" title="Commission (Smipay earned)">Commission</th>
-              <th
-                className="text-right px-2 py-2.5 font-medium text-dashboard-muted min-w-[7.5rem]"
-                title="Customer main wallet: current balance when loaded, otherwise balance right after this transaction. Use the chevron for a full plain-English breakdown."
-              >
-                <span className="whitespace-nowrap">Balance</span>
-              </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Reference</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Date</th>
             </tr>
@@ -577,6 +592,9 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
                       </span>
                     )}
                   </td>
+                  <td className="px-2 py-2 align-middle border-l border-dashboard-border/15 bg-dashboard-bg/10 w-0 whitespace-nowrap">
+                    <WalletBalanceCell tx={tx} />
+                  </td>
                   <td className="px-4 py-2.5 text-center">
                     {tx.credit_debit === "credit" ? (
                       <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500 inline" />
@@ -613,9 +631,6 @@ export function TransactionsTable({ transactions, hideUserColumn = false }: Prop
                     ) : (
                       <span className="text-dashboard-muted">—</span>
                     )}
-                  </td>
-                  <td className="px-2 py-2 align-middle border-l border-dashboard-border/15 bg-dashboard-bg/10 w-0 whitespace-nowrap">
-                    <WalletBalanceCell tx={tx} />
                   </td>
                   <td className="px-4 py-2.5 text-dashboard-muted">
                     {tx.transaction_reference ? <CopyRef value={tx.transaction_reference} /> : "—"}

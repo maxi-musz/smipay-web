@@ -6,17 +6,18 @@ import type { UserListMeta } from "@/types/admin/users";
 interface Props {
   meta: UserListMeta;
   onPageChange: (page: number) => void;
+  disabled?: boolean;
   className?: string;
 }
 
-export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
+export function UsersPagination({ meta, onPageChange, disabled = false, className = "" }: Props) {
   const { page, total_pages, total, limit } = meta;
   const start = (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
 
   if (total_pages <= 1) {
     return (
-      <div className={`flex items-center text-xs text-dashboard-muted ${className}`.trim()}>
+      <div className={`flex items-center text-xs text-dashboard-muted ${disabled ? "opacity-60" : ""} ${className}`.trim()}>
         <span>
           {start}–{end} of {total.toLocaleString()}
         </span>
@@ -39,7 +40,7 @@ export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-2 text-xs min-w-0 ${className}`.trim()}
+      className={`flex flex-wrap items-center justify-between gap-2 text-xs min-w-0 ${disabled ? "opacity-60" : ""} ${className}`.trim()}
     >
       <span className="text-dashboard-muted">
         {start}–{end} of {total.toLocaleString()}
@@ -48,7 +49,7 @@ export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
+          disabled={disabled || page <= 1}
           className="p-1.5 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading disabled:opacity-30 transition-colors"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -61,7 +62,8 @@ export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
               key={p}
               type="button"
               onClick={() => onPageChange(p)}
-              className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ${
+              disabled={disabled}
+              className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none ${
                 p === page
                   ? "bg-brand-bg-primary text-white"
                   : "text-dashboard-muted hover:text-dashboard-heading hover:bg-dashboard-bg"
@@ -74,7 +76,7 @@ export function UsersPagination({ meta, onPageChange, className = "" }: Props) {
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
-          disabled={page >= total_pages}
+          disabled={disabled || page >= total_pages}
           className="p-1.5 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading disabled:opacity-30 transition-colors"
         >
           <ChevronRight className="h-3.5 w-3.5" />

@@ -79,7 +79,13 @@ export default function UsersPage() {
           </motion.div>
         )}
 
-        {analytics && <UsersAnalytics analytics={analytics} />}
+        {analytics && (
+          <UsersAnalytics
+            analytics={analytics}
+            walletIntegrityFilter={filters.wallet_integrity}
+            onWalletIntegrityFilterChange={(wallet_integrity) => updateFilters({ wallet_integrity })}
+          />
+        )}
 
         {/* Status pills */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -124,19 +130,21 @@ export default function UsersPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
           {meta ? (
-            <UsersPagination meta={meta} onPageChange={setPage} className="sm:flex-1 sm:min-w-0" />
+            <UsersPagination meta={meta} onPageChange={setPage} disabled={isLoading} className="sm:flex-1 sm:min-w-0" />
           ) : (
             <span className="text-xs text-dashboard-muted sm:flex-1" aria-hidden />
           )}
           <UsersListSort
             listSort={filters.list_sort}
             onChange={(list_sort) => updateFilters({ list_sort })}
+            disabled={isLoading}
             className="sm:justify-end"
           />
         </div>
 
         <UsersTable
           users={users}
+          isLoading={isLoading}
           onEditRole={(u) => setRoleTarget(u)}
           onEditStatus={(u) => setStatusTarget(u)}
           onEditTier={(u) => setTierTarget(u)}

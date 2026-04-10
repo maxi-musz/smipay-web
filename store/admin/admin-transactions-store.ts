@@ -38,6 +38,7 @@ const DEFAULT_FILTERS: TransactionFilters = {
   date_to: "",
   sort_by: "createdAt",
   sort_order: "desc",
+  wallet_integrity: "",
 };
 
 interface AdminTransactionsState {
@@ -74,31 +75,35 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
     const key = filtersKey(filters);
     const isNoSearch = !filters.search?.trim();
 
+    set({ isLoading: true, error: null });
+
     if (!force) {
       const cached = cache.get(key);
       if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         set({
           transactions: cached.data.transactions,
           analytics: cached.data.analytics,
           meta: cached.data.meta,
           error: null,
+          isLoading: false,
         });
         return;
       }
-      // When clearing search: restore from baseline immediately if same filter key (no loading)
       if (
         isNoSearch &&
         baselineCache &&
         baselineKey === key &&
         Date.now() - baselineCache.ts < CACHE_TTL
       ) {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         set({
           transactions: baselineCache.data.transactions,
           analytics: baselineCache.data.analytics,
           meta: baselineCache.data.meta,
           error: null,
+          isLoading: false,
         });
-        // Refresh in background (no loading state)
         try {
           const res = await adminTransactionsApi.list(filters);
           if (res.success && res.data) {
@@ -125,7 +130,6 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
       }
     }
 
-    set({ isLoading: true, error: null });
     try {
       const res = await adminTransactionsApi.list(filters);
       if (res.success && res.data) {

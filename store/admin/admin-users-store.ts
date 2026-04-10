@@ -40,6 +40,7 @@ const DEFAULT_FILTERS: UserFilters = {
   list_sort: "created_desc",
   sort_by: "createdAt",
   sort_order: "desc",
+  wallet_integrity: "",
 };
 
 interface AdminUsersState {
@@ -71,20 +72,23 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
     const { filters, cache } = get();
     const key = filtersKey(filters);
 
+    set({ isLoading: true, error: null });
+
     if (!force) {
       const cached = cache.get(key);
       if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         set({
           users: cached.data.users,
           analytics: cached.data.analytics,
           meta: cached.data.meta,
           error: null,
+          isLoading: false,
         });
         return;
       }
     }
 
-    set({ isLoading: true, error: null });
     try {
       const res = await adminUsersApi.list(filters);
       if (res.success && res.data) {

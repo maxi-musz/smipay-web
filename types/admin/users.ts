@@ -71,6 +71,12 @@ export interface RecentSignup {
   createdAt: string;
 }
 
+/** Main + cashback rollup invariant counts for the current list filters (max ~20k users scanned server-side). */
+export interface WalletRollupAnalytics {
+  checks_out: number;
+  doesnt_check: number;
+}
+
 export interface AdminUserAnalytics {
   overview: UserOverview;
   growth: UserGrowth;
@@ -78,6 +84,9 @@ export interface AdminUserAnalytics {
   by_role: Record<string, number>;
   by_tier: UserTierItem[];
   recent_signups: RecentSignup[];
+  wallet_rollups?: WalletRollupAnalytics;
+  /** True when the filtered cohort exceeds the server scan limit; rollup counts are omitted. */
+  wallet_rollups_capped?: boolean;
 }
 
 // --- Last activity ---
@@ -269,6 +278,8 @@ export interface UserFilters {
   list_sort: AdminUserListSort;
   sort_by: string;
   sort_order: string;
+  /** Filter by wallet rollup integrity (`ok` / `fail`). Empty = no filter. Cohort must be ≤20k users. */
+  wallet_integrity: "" | "ok" | "fail";
 }
 
 // --- API Responses ---
