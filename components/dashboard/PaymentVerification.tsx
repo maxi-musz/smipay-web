@@ -63,7 +63,7 @@ export function PaymentVerification({
           return;
         }
 
-        // Backend docs: success:false + data.status:"cancelled" = user cancelled on Paystack
+        // Backend docs: success:false + data.status:"cancelled" = user cancelled on Payment Provider
         if (dataStatus === "cancelled" || dataStatus === "abandoned") {
           setState("cancelled");
           setMessage(response.message || "You cancelled this payment on the checkout page.");
@@ -214,7 +214,7 @@ export function PaymentVerification({
         <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-sm text-dashboard-muted">
           <p className="font-medium text-dashboard-heading mb-1.5">What&apos;s happening?</p>
           <ul className="space-y-1 text-xs">
-            <li>Confirming payment with Paystack</li>
+            <li>Confirming your Deposit</li>
             <li>Updating your wallet balance</li>
             <li>Recording transaction</li>
           </ul>

@@ -234,10 +234,10 @@ export function FundWalletModal({
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[14px] sm:text-[15px] font-semibold text-dashboard-heading">
-                      Card Funding
+                      Bank Transfer
                     </h3>
                     <p className="text-[12px] sm:text-[13px] text-dashboard-muted mt-0.5">
-                      Instant funding with your debit/credit card
+                      Transfer from any bank to your Smipay Account
                     </p>
                   </div>
                   <span className="text-dashboard-muted/40 group-hover:text-brand-bg-primary text-lg shrink-0 transition-colors">

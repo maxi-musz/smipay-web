@@ -407,7 +407,7 @@ function DashboardContent() {
               balance={parseBalance(dashboardData.wallet_card.current_balance)}
               cashbackBalance={isCashbackActive ? cashbackWallet?.current_balance : undefined}
               isActive={primaryAccount?.isActive ?? true}
-              // onFundWallet={() => setIsFundWalletModalOpen(true)}
+              onFundWallet={() => setIsFundWalletModalOpen(true)}
               onViewHistory={() => router.push("/dashboard/transactions")}
             />
           </div>
