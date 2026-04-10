@@ -13,9 +13,12 @@ import { getLastUsed, saveRecentEntry } from "@/lib/recent-numbers";
 import { RecentNumbers } from "@/components/dashboard/RecentNumbers";
 import type { VtpassPurchaseResponse } from "@/services/vtpass/vtu/vtpass-airtime-api";
 import { doesPhoneMatchNigeriaService } from "@/lib/nigeria-network";
+import { isAirtimePhoneValidationRelaxed } from "@/lib/dev-phone-validation";
 
 const IS_NETWORK_CHECK_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_PHONE_NETWORK_CHECK === "true";
+
+const RELAX_PHONE_VALIDATION = isAirtimePhoneValidationRelaxed();
 
 function parseCashbackToNumber(val: string | undefined): number {
   if (!val) return 0;
@@ -125,6 +128,13 @@ const getPhoneError = (value: string): string | undefined => {
     return "Phone number is required";
   }
 
+  if (RELAX_PHONE_VALIDATION) {
+    if (value.length < 10 || value.length > 11) {
+      return "Enter 10–11 digits (relaxed validation for testing)";
+    }
+    return undefined;
+  }
+
   if (value.length !== 11) {
     return "Phone number must be 11 digits";
   }
@@ -137,6 +147,10 @@ const getPhoneError = (value: string): string | undefined => {
 };
 
 const getPhoneNetworkWarning = (value: string): string | undefined => {
+  if (RELAX_PHONE_VALIDATION) {
+    return undefined;
+  }
+
   if (!IS_NETWORK_CHECK_ENABLED || !selectedServiceId || services.length === 0) {
     return undefined;
   }

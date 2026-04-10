@@ -7,10 +7,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || "/api/v1";
 const BASE_URL = `${API_BASE_URL}${API_VERSION}`;
 
+// VTpass and similar flows often exceed 30s; aborting early hides real API errors behind a fake "network" message.
+const BACKEND_REQUEST_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 120_000,
+);
+
 // Create axios instance for backend API
 export const backendApi: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000,
+  timeout: BACKEND_REQUEST_TIMEOUT_MS,
   headers: {
     "Content-Type": "application/json",
   },
@@ -101,12 +106,34 @@ backendApi.interceptors.response.use(
       }
     }
 
-    // Handle network errors
+    // No HTTP response: browser timeout, offline, DNS, CORS, etc. — not the same as a failed purchase message from the API.
     if (!error.response) {
+      const ax = error as AxiosError;
+      const msg = (ax.message || "").toLowerCase();
+      if (ax.code === "ECONNABORTED" || msg.includes("timeout")) {
+        return Promise.reject({
+          success: false,
+          message:
+            "This request took too long and was stopped. Your payment may still be processing — check Transaction history before trying again. If your wallet was debited but the purchase did not complete, contact SmiPay support.",
+          statusCode: 408,
+          code: "CLIENT_TIMEOUT",
+        });
+      }
+      if (ax.code === "ERR_NETWORK" || msg.includes("network error")) {
+        return Promise.reject({
+          success: false,
+          message:
+            "Unable to reach our servers. Check your internet connection and try again.",
+          statusCode: 0,
+          code: "ERR_NETWORK",
+        });
+      }
       return Promise.reject({
         success: false,
-        message: "Network error. Please check your internet connection.",
+        message:
+          "We could not complete this request. Check your connection, or try again in a moment.",
         statusCode: 0,
+        code: "NO_RESPONSE",
       });
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { isAirtimePhoneValidationRelaxed } from "@/lib/dev-phone-validation";
 import { X } from "lucide-react";
 
 interface PhoneNumberInputProps {
@@ -33,7 +34,10 @@ export function PhoneNumberInput({
     return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
   };
 
-  const isValid = value.length === 11 && value.startsWith("0");
+  const relaxed = isAirtimePhoneValidationRelaxed();
+  const isValid = relaxed
+    ? value.length >= 10 && value.length <= 11
+    : value.length === 11 && value.startsWith("0");
 
   const inputField = (
     <div className="relative">

@@ -174,35 +174,25 @@ export interface TransactionCounterpart {
   };
 }
 
-/** Ledger vs stored wallet aggregates (admin transaction detail). */
+/** Wallet integrity check (admin transaction detail). */
 export interface AdminWalletAnalysis {
   enforcement_skipped: boolean;
   enforcement_skip_reason?: string;
   tolerance_ngn: number;
   main: {
     current_balance: number;
-    all_time_fuunding: number;
+    all_time_funding: number;
     all_time_withdrawn: number;
-    ledger_credits_total: number;
-    ledger_debits_total: number;
     expected_balance: number;
-    balance_delta: number;
-    stored_invariant: number;
-    deposit_credits_total: number;
-    referral_bonus_total: number;
-    first_tx_bonus_total: number;
+    delta: number;
     ok: boolean;
   };
   cashback: {
     current_balance: number;
     all_time_earned: number;
     all_time_withdrawn: number;
-    earned_net: number;
-    withdrawn_from_success_tx: number;
     expected_balance: number;
-    balance_delta: number;
-    stored_invariant: number;
-    tx_anomaly: boolean;
+    delta: number;
     ok: boolean;
   } | null;
 }

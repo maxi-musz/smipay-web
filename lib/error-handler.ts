@@ -44,7 +44,7 @@ export function handleApiError(error: unknown): ApiError {
     if (err.code === "ECONNABORTED" || (err.message as string)?.includes("timeout")) {
       return {
         message:
-          "Request timed out. Please check your internet connection and try again.",
+          "This request timed out. Your payment may still be processing — check Transaction history before trying again.",
         code: "TIMEOUT",
       };
     }

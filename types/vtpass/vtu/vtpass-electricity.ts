@@ -65,6 +65,8 @@ export interface VtpassElectricityPurchaseRequest {
   phone: string;
   request_id?: string;
   use_cashback?: boolean;
+  customer_name?: string;
+  customer_address?: string;
 }
 
 export interface VtpassElectricityTransactionContent {

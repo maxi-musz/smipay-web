@@ -18,6 +18,7 @@ import {
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
 import { mapNewAuthUserToUser } from "@/lib/auth-storage";
+import { AUTH_EMAIL_OTP_DIGITS } from "@/lib/auth-password";
 import { Loader2, ArrowLeft, Mail, CheckCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -112,7 +113,9 @@ export default function RegisterPage() {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     let next: string | boolean = value;
-    if (type !== "checkbox" && name === "referral_code") {
+    if (name === "otp") {
+      next = value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS);
+    } else if (type !== "checkbox" && name === "referral_code") {
       next = value.replace(/^@+/, "").replace(/[^A-Za-z0-9]/g, "");
     }
     setFormData((prev) => ({
@@ -336,7 +339,7 @@ export default function RegisterPage() {
           step === "verify-email"
             ? "Enter your email and we’ll send you a verification code"
             : step === "verify-otp"
-              ? `We sent a 4-digit code to ${formData.email || "your email"}`
+              ? `We sent a ${AUTH_EMAIL_OTP_DIGITS}-digit code to ${formData.email || "your email"}`
               : "Enter your details to finish registration"
         }
       >
@@ -481,7 +484,7 @@ export default function RegisterPage() {
               </motion.button>
               <div className="space-y-2">
                 <Label htmlFor="otp" className="label-auth">
-                  4-digit code
+                  {AUTH_EMAIL_OTP_DIGITS}-digit code
                 </Label>
                 <Input
                   id="otp"
@@ -489,12 +492,12 @@ export default function RegisterPage() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  placeholder="1234"
+                  placeholder="123456"
                   value={formData.otp}
                   onChange={handleChange}
                   disabled={isLoading}
-                  maxLength={4}
-                  className={`input-auth text-center text-xl tracking-[0.4em] ${errors.otp ? "input-auth-error" : ""}`}
+                  maxLength={AUTH_EMAIL_OTP_DIGITS}
+                  className={`input-auth text-center text-xl tracking-[0.35em] ${errors.otp ? "input-auth-error" : ""}`}
                 />
                 {errors.otp && (
                   <p className="text-xs text-red-600">{errors.otp}</p>

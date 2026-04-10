@@ -11,68 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/services/auth-api";
+import {
+  AUTH_EMAIL_OTP_DIGITS,
+  AUTH_PASSWORD_DIGITS,
+  isAuthPasswordValid,
+} from "@/lib/auth-password";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-
-type PasswordStrength = "weak" | "fair" | "good" | "strong";
-
-function getPasswordStrength(password: string): PasswordStrength {
-  if (!password.length) return "weak";
-  const hasLower = /[a-z]/.test(password);
-  const hasUpper = /[A-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSymbol = /[^A-Za-z0-9]/.test(password);
-  const types = [hasLower, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
-  if (password.length >= 8 && types >= 4) return "strong";
-  if (password.length >= 8 && types >= 3) return "good";
-  if (password.length >= 6 && types >= 2) return "fair";
-  return "weak";
-}
-
-function PasswordStrengthMeter({
-  strength,
-  className = "",
-}: {
-  strength: PasswordStrength;
-  className?: string;
-}) {
-  const labels: Record<PasswordStrength, string> = {
-    weak: "Weak",
-    fair: "Fair",
-    good: "Good",
-    strong: "Strong",
-  };
-  const colors: Record<PasswordStrength, string> = {
-    weak: "bg-red-500",
-    fair: "bg-amber-500",
-    good: "bg-sky-500",
-    strong: "bg-emerald-600",
-  };
-  const widths: Record<PasswordStrength, string> = {
-    weak: "w-1/4",
-    fair: "w-2/4",
-    good: "w-3/4",
-    strong: "w-full",
-  };
-  const textColors: Record<PasswordStrength, string> = {
-    weak: "text-red-600",
-    fair: "text-amber-600",
-    good: "text-sky-600",
-    strong: "text-emerald-600",
-  };
-  return (
-    <div className={className}>
-      <div className="flex gap-1 h-1.5 bg-dashboard-border rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-300 ${widths[strength]} ${colors[strength]}`}
-        />
-      </div>
-      <p className={`text-xs mt-1 font-medium ${textColors[strength]}`}>
-        {labels[strength]}
-      </p>
-    </div>
-  );
-}
 
 const emailSchema = (v: string) => {
   if (!v?.trim()) return "Email is required";
@@ -81,8 +26,12 @@ const emailSchema = (v: string) => {
 };
 
 const otpSchema = (v: string) => {
-  if (!v || v.length !== 4) return "OTP must be exactly 4 digits";
-  return /^\d{4}$/.test(v) ? null : "OTP must contain only numbers";
+  if (!v || v.length !== AUTH_EMAIL_OTP_DIGITS) {
+    return `OTP must be exactly ${AUTH_EMAIL_OTP_DIGITS} digits`;
+  }
+  return new RegExp(`^\\d{${AUTH_EMAIL_OTP_DIGITS}}$`).test(v)
+    ? null
+    : "OTP must contain only numbers";
 };
 
 export default function ForgotPasswordPage() {
@@ -91,14 +40,10 @@ export default function ForgotPasswordPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const strength = getPasswordStrength(newPassword);
-  const isStrong = strength === "strong";
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,25 +87,10 @@ export default function ForgotPasswordPage() {
       setErrors((prev) => ({ ...prev, otp: otpErr }));
       return;
     }
-    if (!isStrong) {
+    if (!isAuthPasswordValid(newPassword)) {
       setErrors((prev) => ({
         ...prev,
-        newPassword:
-          "Password must be strong: at least 8 characters with uppercase, lowercase, number and symbol.",
-      }));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrors((prev) => ({
-        ...prev,
-        confirmPassword: "Passwords do not match.",
-      }));
-      return;
-    }
-    if (newPassword.length < 4 || newPassword.length > 32) {
-      setErrors((prev) => ({
-        ...prev,
-        newPassword: "Password must be 4–32 characters.",
+        newPassword: `Use exactly ${AUTH_PASSWORD_DIGITS} digits (0–9), same as sign-in.`,
       }));
       return;
     }
@@ -187,7 +117,9 @@ export default function ForgotPasswordPage() {
   };
 
   const isResetReady =
-    otpSent && otp.length === 4 && isStrong && newPassword === confirmPassword;
+    otpSent &&
+    otp.length === AUTH_EMAIL_OTP_DIGITS &&
+    isAuthPasswordValid(newPassword);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
@@ -195,8 +127,8 @@ export default function ForgotPasswordPage() {
         title="Forgot password"
         description={
           !otpSent
-            ? "Enter your email to receive a 4-digit code"
-            : "Enter the code from your email and choose a new password"
+            ? `Enter your email to receive a ${AUTH_EMAIL_OTP_DIGITS}-digit code`
+            : "Enter the code from your email and choose a new 6-digit PIN"
         }
       >
         {serverError && <FormError message={serverError} />}
@@ -260,20 +192,24 @@ export default function ForgotPasswordPage() {
               className="space-y-5"
             >
               <div className="space-y-2">
-                <Label htmlFor="otp" className="label-auth">4-digit OTP</Label>
+                <Label htmlFor="otp" className="label-auth">
+                  {AUTH_EMAIL_OTP_DIGITS}-digit OTP
+                </Label>
                 <Input
                   id="otp"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  placeholder="1234"
+                  placeholder="123456"
                   value={otp}
                   onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    setOtp(
+                      e.target.value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS)
+                    )
                   }
                   disabled={isLoading}
-                  maxLength={4}
-                  className={`input-auth text-center text-xl tracking-[0.4em] ${errors.otp ? "input-auth-error" : ""}`}
+                  maxLength={AUTH_EMAIL_OTP_DIGITS}
+                  className={`input-auth text-center text-xl tracking-[0.35em] ${errors.otp ? "input-auth-error" : ""}`}
                 />
                 {errors.otp && (
                   <p className="text-xs text-red-600">{errors.otp}</p>
@@ -281,40 +217,29 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newPassword" className="label-auth">New password</Label>
+                <Label htmlFor="newPassword" className="label-auth">New PIN</Label>
                 <PasswordInput
                   id="newPassword"
                   name="newPassword"
-                  placeholder="At least 8 characters, with upper, lower, number & symbol"
+                  placeholder={`${AUTH_PASSWORD_DIGITS} digits`}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) =>
+                    setNewPassword(
+                      e.target.value.replace(/\D/g, "").slice(0, AUTH_PASSWORD_DIGITS)
+                    )
+                  }
                   disabled={isLoading}
                   error={errors.newPassword}
                   className="input-auth"
+                  inputMode="numeric"
+                  maxLength={AUTH_PASSWORD_DIGITS}
                 />
-                <PasswordStrengthMeter strength={strength} />
+                <p className="text-xs text-dashboard-muted">
+                  Exactly {AUTH_PASSWORD_DIGITS} numbers — same as registration and sign-in
+                </p>
                 {errors.newPassword && (
                   <p className="text-xs text-red-600">
                     {errors.newPassword}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="label-auth">Confirm new password</Label>
-                <PasswordInput
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  placeholder="Re-enter your new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isLoading}
-                  error={errors.confirmPassword}
-                  className="input-auth"
-                />
-                {errors.confirmPassword && (
-                  <p className="text-xs text-red-600">
-                    {errors.confirmPassword}
                   </p>
                 )}
               </div>

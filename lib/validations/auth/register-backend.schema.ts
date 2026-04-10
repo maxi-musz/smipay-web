@@ -27,8 +27,8 @@ export const verifyEmailOtpSchema = z.object({
   otp: z
     .string()
     .min(1, "OTP is required")
-    .length(4, "OTP must be exactly 4 digits")
-    .regex(/^\d{4}$/, "OTP must contain only numbers"),
+    .length(6, "OTP must be exactly 6 digits")
+    .regex(/^\d{6}$/, "OTP must contain only numbers"),
 });
 
 export type VerifyEmailOtpData = z.infer<typeof verifyEmailOtpSchema>;

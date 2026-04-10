@@ -138,7 +138,7 @@ export default function VtpassElectricityPage() {
     : null;
 
   const apiMin = verificationData?.Min_Purchase_Amount
-    ? parseFloat(verificationData.Min_Purchase_Amount.replace(/[,\s]/g, "")) || 0
+    ? parseFloat(String(verificationData.Min_Purchase_Amount).replace(/[,\s]/g, "")) || 0
     : 0;
   const fallbackMin = selectedServiceId ? (PROVIDER_FALLBACK_MIN[selectedServiceId] ?? 500) : 500;
   const providerMin = apiMin > 0 ? apiMin : fallbackMin;
@@ -295,6 +295,8 @@ export default function VtpassElectricityPage() {
         phone: phoneNumber,
         request_id: requestId,
         ...(useCashback ? { use_cashback: true } : {}),
+        ...(verificationData?.Customer_Name ? { customer_name: verificationData.Customer_Name } : {}),
+        ...(verificationData?.Address ? { customer_address: verificationData.Address } : {}),
       });
 
       if (response.success) {
@@ -610,7 +612,7 @@ export default function VtpassElectricityPage() {
                     <div className="flex items-center justify-between pt-2 border-t border-green-200/50">
                       <span className="text-[10px] sm:text-xs text-amber-700">Outstanding Arrears</span>
                       <span className="text-xs sm:text-sm font-bold text-amber-700">
-                        ₦{parseFloat(verificationData.Customer_Arrears.replace(/[,\s]/g, "")).toLocaleString()}
+                        ₦{parseFloat(String(verificationData.Customer_Arrears).replace(/[,\s]/g, "")).toLocaleString()}
                       </span>
                     </div>
                   )}

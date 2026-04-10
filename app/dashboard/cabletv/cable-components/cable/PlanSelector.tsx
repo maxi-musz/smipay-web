@@ -171,13 +171,16 @@ export function PlanSelector({
                   <span className={cn(isSelected ? "text-brand-bg-primary" : "text-dashboard-heading")}>{amount.toLocaleString()}</span>
                 </p>
 
-                <button
+                <span
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => toggleFavorite(variation.variation_code, e)}
-                  className="p-1.5 -mr-1 rounded-lg hover:bg-dashboard-border/40 transition-colors touch-manipulation shrink-0"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleFavorite(variation.variation_code, e as any); }}
+                  className="p-1.5 -mr-1 rounded-lg hover:bg-dashboard-border/40 transition-colors touch-manipulation shrink-0 cursor-pointer"
                   title={isFavorite(variation.variation_code) ? "Remove from favourites" : "Add to favourites"}
                 >
                   <Star className={cn("h-4 w-4 transition-colors", isFavorite(variation.variation_code) ? "fill-yellow-400 text-yellow-400" : "text-dashboard-muted/50 hover:text-yellow-400")} />
-                </button>
+                </span>
 
                 <ChevronRight className={cn("h-4 w-4 shrink-0", isSelected ? "text-brand-bg-primary" : "text-dashboard-muted/40")} />
               </button>
