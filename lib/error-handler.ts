@@ -8,6 +8,21 @@ export interface ApiError {
   statusCode?: number;
 }
 
+/** Nest may send `message` as a string or validation array */
+function messageFromPayload(data: Record<string, unknown> | undefined): string | undefined {
+  const m = data?.message;
+  if (typeof m === "string" && m.trim()) return m.trim();
+  if (Array.isArray(m)) {
+    const parts = m.filter((x): x is string => typeof x === "string");
+    if (parts.length) return parts.join(", ");
+  }
+  return undefined;
+}
+
+function isAxiosGenericStatusMessage(msg: string): boolean {
+  return /^Request failed with status code \d+$/i.test(msg);
+}
+
 /**
  * Convert API errors to user-friendly messages
  */
@@ -16,6 +31,7 @@ export function handleApiError(error: unknown): ApiError {
   if (err && typeof err.statusCode === "number" && typeof err.message === "string") {
     const status = err.statusCode as number;
     const rawMsg = err.message as string;
+    const data = err.data as Record<string, unknown> | undefined;
 
     if (status === 404 || rawMsg.startsWith("Cannot GET") || rawMsg.startsWith("Cannot POST")) {
       return {
@@ -26,6 +42,21 @@ export function handleApiError(error: unknown): ApiError {
     }
 
     if (status >= 500) {
+      const fromBody = messageFromPayload(data);
+      if (fromBody && !isAxiosGenericStatusMessage(fromBody)) {
+        return {
+          message: fromBody,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
+      if (rawMsg && !isAxiosGenericStatusMessage(rawMsg)) {
+        return {
+          message: rawMsg,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
       return {
         message: "Our servers are currently experiencing issues. Please try again in a few moments.",
         code: "SERVER_ERROR",
@@ -166,14 +197,22 @@ export function handleApiError(error: unknown): ApiError {
     case 500:
     case 502:
     case 503:
-    case 504:
-      // Server errors
+    case 504: {
+      const fromBody = messageFromPayload(responseData);
+      if (fromBody && !isAxiosGenericStatusMessage(fromBody)) {
+        return {
+          message: fromBody,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
       return {
         message:
           "Our servers are currently experiencing issues. Please try again in a few moments.",
         code: "SERVER_ERROR",
         statusCode: status,
       };
+    }
 
     default:
       return {
