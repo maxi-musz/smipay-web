@@ -1,12 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, MailPlus } from "lucide-react";
 import { CampaignBuilderForm } from "../_components/CampaignBuilderForm";
 
-export default function NewNotificationCampaignPage() {
+function NewNotificationCampaignInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromCampaignId = searchParams.get("from")?.trim() || undefined;
 
   return (
     <div className="min-h-screen bg-dashboard-bg">
@@ -24,9 +27,13 @@ export default function NewNotificationCampaignPage() {
               <MailPlus className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-dashboard-heading">New Email Campaign</h1>
+              <h1 className="text-base font-bold text-dashboard-heading">
+                {fromCampaignId ? "Send email again" : "New Email Campaign"}
+              </h1>
               <p className="text-xs text-dashboard-muted">
-                Compose a campaign, preview audience, then send or schedule
+                {fromCampaignId
+                  ? "Review subject, body, and audience — then preview and send."
+                  : "Compose a campaign, preview audience, then send or schedule"}
               </p>
             </div>
           </div>
@@ -35,11 +42,26 @@ export default function NewNotificationCampaignPage() {
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <CampaignBuilderForm
+          cloneSourceCampaignId={fromCampaignId}
           onCreated={(campaignId) => {
             router.push(`/unified-admin/notifications/${campaignId}`);
           }}
         />
       </div>
     </div>
+  );
+}
+
+export default function NewNotificationCampaignPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-dashboard-bg flex items-center justify-center text-sm text-dashboard-muted">
+          Loading…
+        </div>
+      }
+    >
+      <NewNotificationCampaignInner />
+    </Suspense>
   );
 }

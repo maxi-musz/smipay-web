@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Loader2, Eye, Send, CalendarClock } from "lucide-react";
@@ -13,6 +13,15 @@ import type {
 
 interface CampaignBuilderFormProps {
   onCreated: (campaignId: string) => void;
+  /** Pre-fill from an existing campaign ("Send again" from list). */
+  cloneSourceCampaignId?: string;
+}
+
+function asTargetFilters(value: unknown): NotificationTargetFilters {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return { ...(value as NotificationTargetFilters) };
+  }
+  return {};
 }
 
 const DEFAULT_MARKDOWN = `# Hi {{first_name}}!
@@ -36,10 +45,15 @@ function fromLocalDateTimeInput(input: string): string | null {
   return new Date(input).toISOString();
 }
 
-export function CampaignBuilderForm({ onCreated }: CampaignBuilderFormProps) {
+export function CampaignBuilderForm({
+  onCreated,
+  cloneSourceCampaignId,
+}: CampaignBuilderFormProps) {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [contentMarkdown, setContentMarkdown] = useState(DEFAULT_MARKDOWN);
+  const [contentMarkdown, setContentMarkdown] = useState(() =>
+    cloneSourceCampaignId ? "" : DEFAULT_MARKDOWN,
+  );
   const [targetType, setTargetType] = useState<NotificationTargetType>("all");
   const [targetFilters, setTargetFilters] = useState<NotificationTargetFilters>({});
   const [targetEmailsRaw, setTargetEmailsRaw] = useState("");
@@ -58,6 +72,63 @@ export function CampaignBuilderForm({ onCreated }: CampaignBuilderFormProps) {
     count: number;
     sample: string[];
   } | null>(null);
+  const [cloneLoading, setCloneLoading] = useState(!!cloneSourceCampaignId);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cloneSourceCampaignId) {
+      setCloneLoading(false);
+      setCloneError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCloneLoading(true);
+    setCloneError(null);
+
+    void (async () => {
+      try {
+        const res = await adminNotificationsApi.getCampaign(cloneSourceCampaignId);
+        const c = res.data;
+        if (cancelled || !c) return;
+
+        setTitle(c.title ?? "");
+        setSubject(c.subject ?? "");
+        setContentMarkdown(
+          c.content_markdown?.trim() ? c.content_markdown : DEFAULT_MARKDOWN,
+        );
+        setTargetType(c.target_type);
+        setTargetFilters(asTargetFilters(c.target_filters));
+        setPreviewResult(null);
+
+        const emails = c.target_emails;
+        setTargetEmailsRaw(
+          Array.isArray(emails) && emails.length > 0 ? emails.join(",\n") : "",
+        );
+
+        const alreadySent =
+          c.status === "sent" || c.status === "failed" || c.status === "cancelled";
+        if (alreadySent) {
+          setScheduleEnabled(false);
+        } else if (c.scheduled_for) {
+          setScheduleEnabled(true);
+          setScheduledForLocal(toLocalDateTimeInput(c.scheduled_for));
+        }
+      } catch {
+        if (!cancelled) {
+          setCloneError(
+            "Could not load that campaign. You can still compose a new email below.",
+          );
+        }
+      } finally {
+        if (!cancelled) setCloneLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cloneSourceCampaignId]);
 
   const normalizedEmails = useMemo(() => {
     return targetEmailsRaw
@@ -165,7 +236,30 @@ export function CampaignBuilderForm({ onCreated }: CampaignBuilderFormProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <>
+      {cloneSourceCampaignId && cloneLoading && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-xl border border-dashboard-border/60 bg-dashboard-surface">
+          <Loader2 className="h-10 w-10 animate-spin text-brand-bg-primary" />
+          <p className="text-sm text-dashboard-muted">Loading campaign to copy…</p>
+        </div>
+      )}
+
+      {cloneSourceCampaignId && !cloneLoading && cloneError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 mb-4">
+          {cloneError}
+        </div>
+      )}
+
+      {cloneSourceCampaignId && !cloneLoading && !cloneError && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 mb-4">
+          Title, subject, body, and audience were copied from a previous campaign. Run{" "}
+          <strong>Preview audience</strong> to confirm recipients, edit anything you need, then send or
+          schedule.
+        </div>
+      )}
+
+      {!cloneLoading && (
+        <div className="space-y-4">
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -579,5 +673,7 @@ export function CampaignBuilderForm({ onCreated }: CampaignBuilderFormProps) {
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 }

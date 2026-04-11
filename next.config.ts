@@ -42,7 +42,10 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value: (() => {
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+              const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL ||
+                process.env.EXPO_PUBLIC_API_BASE_URL ||
+                "http://localhost:3001";
               const wsUrl = apiUrl.replace(/^http/, "ws");
               return `
                 default-src 'self';
@@ -69,7 +72,11 @@ const nextConfig: NextConfig = {
 
   // Environment variables validation
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    /** Backend API origin. Prefer NEXT_PUBLIC_API_URL; else same as Expo app (EXPO_PUBLIC_API_BASE_URL in .env). */
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.EXPO_PUBLIC_API_BASE_URL ||
+      "",
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "Smipay",
     /** Comma-separated admin emails; DEV_EMAILS in .env is mapped here for client-side dev UI. */
     NEXT_PUBLIC_DEV_EMAILS:

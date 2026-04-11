@@ -125,6 +125,8 @@ export interface NotificationResendFailedResponse {
   };
 }
 
+export type NotificationResendSelectedResponse = NotificationResendFailedResponse;
+
 export const NOTIFICATION_CAMPAIGN_STATUSES: Array<{
   value: NotificationCampaignStatus;
   label: string;

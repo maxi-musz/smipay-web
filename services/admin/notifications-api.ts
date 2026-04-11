@@ -8,6 +8,7 @@ import type {
   NotificationDeliveryLogsResponse,
   NotificationPreviewResponse,
   NotificationResendFailedResponse,
+  NotificationResendSelectedResponse,
 } from "@/types/admin/notifications";
 
 function buildListParams(
@@ -78,11 +79,14 @@ export const adminNotificationsApi = {
     id: string,
     page = 1,
     limit = 50,
+    status?: "sent" | "failed",
   ): Promise<NotificationDeliveryLogsResponse> => {
     try {
+      const params: Record<string, string | number> = { page, limit };
+      if (status) params.status = status;
       const response = await backendApi.get<NotificationDeliveryLogsResponse>(
         `/unified-admin/notifications/campaigns/${id}/logs`,
-        { params: { page, limit } },
+        { params },
       );
       return response.data;
     } catch (error) {
@@ -105,6 +109,34 @@ export const adminNotificationsApi = {
     try {
       const response = await backendApi.post<NotificationResendFailedResponse>(
         `/unified-admin/notifications/campaigns/${id}/resend-failed`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  resendSelectedLogs: async (
+    id: string,
+    logIds: string[],
+  ): Promise<NotificationResendSelectedResponse> => {
+    try {
+      const response = await backendApi.post<NotificationResendSelectedResponse>(
+        `/unified-admin/notifications/campaigns/${id}/resend-logs`,
+        { log_ids: logIds },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  deleteCampaign: async (
+    id: string,
+  ): Promise<{ success: boolean; message: string; data: { deleted: boolean; id: string } }> => {
+    try {
+      const response = await backendApi.delete(
+        `/unified-admin/notifications/campaigns/${id}`,
       );
       return response.data;
     } catch (error) {

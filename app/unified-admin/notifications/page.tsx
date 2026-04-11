@@ -79,6 +79,19 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleDeleteCampaign = async (id: string) => {
+    setActionError(null);
+    setActionLoadingId(id);
+    try {
+      await adminNotificationsApi.deleteCampaign(id);
+      refetch();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete campaign");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   // ─── Push broadcasts ──────────────────────────────────────
   const [pushBroadcasts, setPushBroadcasts] = useState<PushBroadcast[]>([]);
   const [pushMeta, setPushMeta] = useState<PushBroadcastListMeta | null>(null);
@@ -179,6 +192,19 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleDeletePushBroadcast = async (id: string) => {
+    setPushActionError(null);
+    setPushActionLoadingId(id);
+    try {
+      await adminPushBroadcastsApi.deleteBroadcast(id);
+      void fetchPushBroadcasts({ force: true });
+    } catch (err) {
+      setPushActionError(err instanceof Error ? err.message : "Failed to delete broadcast");
+    } finally {
+      setPushActionLoadingId(null);
+    }
+  };
+
   const handleHeaderRefresh = () => {
     if (activeTab === "email") {
       void refetch();
@@ -203,19 +229,19 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-dashboard-bg">
       <header className="bg-dashboard-surface border-b border-dashboard-border/60 sticky top-0 z-10">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-lg bg-brand-bg-primary flex items-center justify-center">
+            <div className="h-9 w-9 rounded-lg bg-brand-bg-primary flex items-center justify-center shrink-0">
               <BellRing className="h-5 w-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-base font-bold text-dashboard-heading">Notifications</h1>
               <p className="text-xs text-dashboard-muted">
                 Email campaigns & push broadcasts
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleHeaderRefresh}
@@ -247,7 +273,7 @@ export default function NotificationsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-0 px-4 sm:px-6 lg:px-8 border-t border-dashboard-border/30">
+        <div className="flex items-center gap-0 overflow-x-auto overscroll-x-contain px-4 sm:px-6 lg:px-8 border-t border-dashboard-border/30">
           <button
             type="button"
             onClick={() => setActiveTab("email")}
@@ -311,7 +337,7 @@ export default function NotificationsPage() {
               <select
                 value={filters.status}
                 onChange={(e) => updateFilters({ status: e.target.value })}
-                className="h-10 min-w-[180px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
+                className="h-10 w-full md:w-auto md:min-w-[180px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
               >
                 <option value="">All statuses</option>
                 {NOTIFICATION_CAMPAIGN_STATUSES.map((status) => (
@@ -328,6 +354,7 @@ export default function NotificationsPage() {
             actionLoadingId={actionLoadingId}
             onCancel={handleCancel}
             onResendFailed={handleResendFailed}
+            onDelete={handleDeleteCampaign}
           />
 
           {meta && (
@@ -389,7 +416,7 @@ export default function NotificationsPage() {
                   <select
                     value={pushFilters.status}
                     onChange={(e) => setPushFilters((f) => ({ ...f, status: e.target.value, page: 1 }))}
-                    className="h-10 min-w-[180px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
+                    className="h-10 w-full md:w-auto md:min-w-[180px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
                   >
                     <option value="">All statuses</option>
                     {PUSH_BROADCAST_STATUSES.map((status) => (
@@ -406,6 +433,7 @@ export default function NotificationsPage() {
                 actionLoadingId={pushActionLoadingId}
                 onCancel={handlePushCancel}
                 onResendFailed={handlePushResendFailed}
+                onDelete={handleDeletePushBroadcast}
               />
 
               {pushMeta && pushMeta.pages > 1 && (

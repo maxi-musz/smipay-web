@@ -114,6 +114,17 @@ export const adminPushBroadcastsApi = {
     }
   },
 
+  deleteBroadcast: async (
+    id: string,
+  ): Promise<{ success: boolean; message: string; data: { deleted: boolean; id: string } }> => {
+    try {
+      const response = await backendApi.delete(`/unified-admin/notifications/push/broadcasts/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
   listDeviceTokens: async (
     filters: Partial<DeviceTokenFilters>,
   ): Promise<DeviceTokenListResponse> => {
