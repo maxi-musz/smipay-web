@@ -288,6 +288,57 @@ interface Props {
   onEditTier: (user: AdminUser) => void;
 }
 
+interface UserDeviceCellDevice {
+  id: string;
+  device_model: string | null;
+  device_name: string | null;
+  platform: "ios" | "android";
+  os_name: string | null;
+  os_version: string | null;
+  app_version: string | null;
+  is_active: boolean;
+  is_restricted: boolean;
+  last_ip_address: string | null;
+  last_location: string | null;
+  last_seen_at: string;
+}
+
+function UserDeviceCell({ userDevices }: { userDevices?: UserDeviceCellDevice[] }) {
+  const [open, setOpen] = useState(false);
+  const device = userDevices?.[0];
+  if (!device) return <span className="text-[11px] text-dashboard-muted/50">No device</span>;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="flex items-center gap-1.5 text-left group"
+      >
+        <span className={`inline-block h-1.5 w-1.5 rounded-full flex-shrink-0 ${device.platform === "ios" ? "bg-blue-500" : "bg-green-500"}`} />
+        <span className="text-[11px] text-dashboard-heading truncate max-w-[100px]">
+          {device.device_model || device.device_name || (device.platform === "ios" ? "iOS" : "Android")}
+        </span>
+        <ChevronDown className={`h-3 w-3 text-dashboard-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-30 w-64 bg-white border border-dashboard-border/60 rounded-lg shadow-lg p-3 text-xs space-y-1.5">
+          <div className="flex justify-between"><span className="text-dashboard-muted">Platform</span><span className="font-medium">{device.platform === "ios" ? "iOS" : "Android"}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">Model</span><span className="font-medium">{device.device_model || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">OS</span><span className="font-medium">{device.os_name ?? "—"} {device.os_version ?? ""}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">App Version</span><span className="font-medium">{device.app_version || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">Last IP</span><span className="font-mono text-[11px]">{device.last_ip_address || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">Location</span><span className="font-medium">{device.last_location || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">Last Seen</span><span className="font-medium">{new Date(device.last_seen_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></div>
+          <div className="flex justify-between"><span className="text-dashboard-muted">Status</span><span className={`font-semibold ${device.is_restricted ? "text-red-600" : device.is_active ? "text-emerald-600" : "text-slate-500"}`}>{device.is_restricted ? "Restricted" : device.is_active ? "Active" : "Inactive"}</span></div>
+          <div className="pt-1 border-t border-dashboard-border/30">
+            <Link href={`/unified-admin/devices/${device.id}`} className="text-[11px] font-semibold text-brand-bg-primary hover:underline">View device details →</Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus, onEditTier: _onEditTier }: Props) {
   void _onEditTier;
   if (!users.length && !isLoading) {
@@ -329,6 +380,7 @@ export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus,
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">KYC</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Tier</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Last Activity</th>
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Device</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Joined</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Actions</th>
             </tr>
@@ -397,6 +449,9 @@ export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus,
                     ) : (
                       <span className="text-[11px] text-dashboard-muted/50">No activity</span>
                     )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <UserDeviceCell userDevices={(user as any).userDevices} />
                   </td>
                   <td className="px-4 py-2.5 text-right text-dashboard-muted whitespace-nowrap" title={new Date(user.createdAt).toLocaleString()}>
                     {relativeTime(user.createdAt)}

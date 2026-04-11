@@ -1,14 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Eye, Send, CalendarClock, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Send, CalendarClock, Users, Search, X } from "lucide-react";
 import { adminPushBroadcastsApi } from "@/services/admin/push-broadcasts-api";
+import { backendApi } from "@/lib/api-client-backend";
 import type {
   PushBroadcastCreatePayload,
   PushBroadcastTargetFilters,
   PushBroadcastTargetType,
 } from "@/types/admin/push-broadcasts";
+
+interface SelectedUser {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  phone_number: string | null;
+  role: string;
+  profile_image: { secure_url: string } | null;
+}
 
 interface PushBroadcastBuilderFormProps {
   onCreated: (broadcastId: string) => void;
@@ -33,7 +44,11 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
   const [message, setMessage] = useState("");
   const [targetType, setTargetType] = useState<PushBroadcastTargetType>("all");
   const [targetFilters, setTargetFilters] = useState<PushBroadcastTargetFilters>({});
-  const [targetUserIdsRaw, setTargetUserIdsRaw] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<SelectedUser[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<SelectedUser[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduledForLocal, setScheduledForLocal] = useState(
     toLocalDateTimeInput(new Date(Date.now() + 60 * 60 * 1000).toISOString()),
@@ -45,12 +60,33 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
   const [success, setSuccess] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<{ count: number; sample: string[] } | null>(null);
 
-  const normalizedUserIds = useMemo(() => {
-    return targetUserIdsRaw
-      .split(/[,\n;]/)
-      .map((id) => id.trim())
-      .filter(Boolean);
-  }, [targetUserIdsRaw]);
+  const normalizedUserIds = useMemo(() => selectedUsers.map((u) => u.id), [selectedUsers]);
+
+  const searchUsers = useCallback(async (q: string) => {
+    if (q.length < 2) { setUserSearchResults([]); return; }
+    setUserSearchLoading(true);
+    try {
+      const res = await backendApi.get<{ data: { users: SelectedUser[] } }>("/unified-admin/users/search", { params: { q, limit: 10 } });
+      setUserSearchResults(res.data.data.users);
+    } catch { setUserSearchResults([]); }
+    finally { setUserSearchLoading(false); }
+  }, []);
+
+  const handleUserSearchInput = useCallback((val: string) => {
+    setUserSearchQuery(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => searchUsers(val.trim()), 350);
+  }, [searchUsers]);
+
+  const addUser = useCallback((user: SelectedUser) => {
+    setSelectedUsers((prev) => prev.some((u) => u.id === user.id) ? prev : [...prev, user]);
+    setUserSearchQuery("");
+    setUserSearchResults([]);
+  }, []);
+
+  const removeUser = useCallback((id: string) => {
+    setSelectedUsers((prev) => prev.filter((u) => u.id !== id));
+  }, []);
 
   const payload = useMemo<PushBroadcastCreatePayload>(() => {
     const base: PushBroadcastCreatePayload = {
@@ -234,16 +270,69 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
           </div>
 
           {targetType === "individual" && (
-            <div>
-              <label className="text-xs font-medium text-dashboard-muted block mb-1">User IDs (comma or newline separated)</label>
-              <textarea
-                value={targetUserIdsRaw}
-                onChange={(e) => setTargetUserIdsRaw(e.target.value)}
-                placeholder="user-uuid-1, user-uuid-2..."
-                rows={3}
-                className="w-full rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20 resize-none font-mono"
-              />
-              <p className="text-[11px] text-dashboard-muted mt-1">{normalizedUserIds.length} user(s)</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-dashboard-muted block mb-1">Search users by name, email, or phone</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-dashboard-muted" />
+                  <input
+                    value={userSearchQuery}
+                    onChange={(e) => handleUserSearchInput(e.target.value)}
+                    placeholder="Type a name, email, or phone number..."
+                    className="w-full h-10 rounded-lg border border-dashboard-border/60 bg-dashboard-bg pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
+                  />
+                  {userSearchLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-dashboard-muted" />
+                  )}
+                </div>
+                {userSearchResults.length > 0 && (
+                  <div className="mt-1 border border-dashboard-border/60 rounded-lg bg-white shadow-lg max-h-48 overflow-y-auto">
+                    {userSearchResults.map((user) => {
+                      const already = selectedUsers.some((u) => u.id === user.id);
+                      const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => addUser(user)}
+                          disabled={already}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left text-xs hover:bg-dashboard-bg/60 transition-colors border-b border-dashboard-border/20 last:border-0 ${already ? "opacity-40 cursor-not-allowed" : ""}`}
+                        >
+                          <div className="h-7 w-7 rounded-full bg-brand-bg-primary/10 flex items-center justify-center text-[10px] font-bold text-brand-bg-primary flex-shrink-0">
+                            {(user.first_name?.[0] || user.email[0]).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-slate-800 truncate">{name}</p>
+                            <p className="text-[11px] text-slate-500 truncate">{user.email}{user.phone_number ? ` · ${user.phone_number}` : ""}</p>
+                          </div>
+                          {already && <span className="text-[10px] text-dashboard-muted">Added</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {selectedUsers.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-dashboard-muted mb-1.5">{selectedUsers.length} user(s) selected</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedUsers.map((user) => {
+                      const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email;
+                      return (
+                        <span
+                          key={user.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-bg-primary/10 text-brand-bg-primary text-[11px] font-medium"
+                        >
+                          {name}
+                          <button type="button" onClick={() => removeUser(user.id)} className="hover:text-red-600 transition-colors">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

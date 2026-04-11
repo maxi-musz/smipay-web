@@ -7,6 +7,9 @@ import type {
   PushBroadcastFilters,
   PushBroadcastLogsResponse,
   PushBroadcastPreviewResponse,
+  DeviceTokenFilters,
+  DeviceTokenListResponse,
+  DeviceTokenStatsResponse,
 } from "@/types/admin/push-broadcasts";
 
 function buildListParams(
@@ -104,6 +107,37 @@ export const adminPushBroadcastsApi = {
     try {
       const response = await backendApi.post(
         `/unified-admin/notifications/push/broadcasts/${id}/resend-failed`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  listDeviceTokens: async (
+    filters: Partial<DeviceTokenFilters>,
+  ): Promise<DeviceTokenListResponse> => {
+    try {
+      const params: Record<string, string | number> = {};
+      if (filters.page) params.page = filters.page;
+      if (filters.limit) params.limit = filters.limit;
+      if (filters.platform) params.platform = filters.platform;
+      if (filters.is_active) params.is_active = filters.is_active;
+      if (filters.search) params.search = filters.search;
+      const response = await backendApi.get<DeviceTokenListResponse>(
+        "/unified-admin/notifications/push/device-tokens",
+        { params },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  getDeviceTokenStats: async (): Promise<DeviceTokenStatsResponse> => {
+    try {
+      const response = await backendApi.get<DeviceTokenStatsResponse>(
+        "/unified-admin/notifications/push/device-tokens/stats",
       );
       return response.data;
     } catch (error) {

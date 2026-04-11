@@ -126,3 +126,63 @@ export const PUSH_BROADCAST_STATUSES: Array<{
   { value: "failed", label: "Failed", color: "red" },
   { value: "cancelled", label: "Cancelled", color: "gray" },
 ];
+
+// ─── Device Tokens ──────────────────────────────────────────
+
+export interface DeviceTokenUser {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  role: string;
+  account_status: string;
+  createdAt: string;
+}
+
+export interface DeviceToken {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: "ios" | "android";
+  is_active: boolean;
+  device_id: string | null;
+  app_version: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: DeviceTokenUser;
+}
+
+export interface DeviceTokenFilters {
+  page: number;
+  limit: number;
+  platform: string;
+  is_active: string;
+  search: string;
+}
+
+export interface DeviceTokenStats {
+  total: number;
+  active: number;
+  inactive: number;
+  ios: number;
+  android: number;
+  unique_users: number;
+}
+
+export interface DeviceTokenListResponse {
+  success: boolean;
+  message: string;
+  data: {
+    tokens: DeviceToken[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
+export interface DeviceTokenStatsResponse {
+  success: boolean;
+  message: string;
+  data: DeviceTokenStats;
+}

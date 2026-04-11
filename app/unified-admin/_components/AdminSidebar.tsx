@@ -27,6 +27,7 @@ import {
   Percent,
   BellRing,
   Sparkles,
+  MonitorSmartphone,
 } from "lucide-react";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -90,6 +91,13 @@ const adminMenuItems: AdminMenuItem[] = [
     label: "Notifications",
     icon: BellRing,
     href: "/unified-admin/notifications",
+    enabled: true,
+  },
+  {
+    id: "devices",
+    label: "Device Management",
+    icon: MonitorSmartphone,
+    href: "/unified-admin/devices",
     enabled: true,
   },
   {

@@ -184,7 +184,7 @@ export default function NotificationsPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${(activeTab === "email" ? isLoading : pushLoading) ? "animate-spin" : ""}`} />
               Refresh
             </button>
-            {activeTab === "email" ? (
+            {activeTab === "email" && (
               <Link
                 href="/unified-admin/notifications/new"
                 className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90 transition-colors"
@@ -192,7 +192,8 @@ export default function NotificationsPage() {
                 <Plus className="h-3.5 w-3.5" />
                 New Campaign
               </Link>
-            ) : (
+            )}
+            {activeTab === "push" && (
               <Link
                 href="/unified-admin/notifications/push/new"
                 className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90 transition-colors"
@@ -346,6 +347,7 @@ export default function NotificationsPage() {
           )}
         </div>
       )}
+
     </div>
   );
 }

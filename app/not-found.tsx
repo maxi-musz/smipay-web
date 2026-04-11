@@ -49,14 +49,11 @@ export default function NotFound() {
             </div>
           </div>
 
-          <div className="relative mb-2">
+          <div className="relative mb-4">
             <p
-              className="text-[clamp(5rem,22vw,7.5rem)] font-extrabold leading-none tracking-tighter text-dashboard-border select-none"
+              className="text-[clamp(5rem,18vw,7rem)] font-extrabold leading-none tracking-tighter text-slate-200 select-none"
               aria-hidden
             >
-              404
-            </p>
-            <p className="absolute inset-0 flex items-center justify-center text-[clamp(5rem,22vw,7.5rem)] font-extrabold leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-300/90 to-slate-200/40 select-none pointer-events-none">
               404
             </p>
           </div>
@@ -65,16 +62,17 @@ export default function NotFound() {
             <div className="h-1 w-14 rounded-full bg-brand-bg-primary" />
           </div>
 
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-dashboard-bg border border-dashboard-border/60 px-3 py-1 text-[11px] font-medium text-dashboard-muted mb-4">
-            <Compass className="h-3.5 w-3.5 text-brand-bg-primary shrink-0" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-bg-primary/10 border border-brand-bg-primary/20 px-3 py-1.5 text-xs font-medium text-brand-bg-primary mb-4">
+            <Compass className="h-3.5 w-3.5 shrink-0" />
             Lost in the app?
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold text-dashboard-heading tracking-tight mb-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-3">
             Page not found
           </h1>
-          <p className="text-sm sm:text-[15px] text-dashboard-muted leading-relaxed mb-8 max-w-sm mx-auto">
-            This link may be broken, the page was removed, or the address was mistyped. Head home or open your dashboard to get back on track.
+          <p className="text-sm sm:text-[15px] text-slate-600 leading-relaxed mb-8 max-w-sm mx-auto">
+            This link may be broken, the page was removed, or the address was
+            mistyped. Head home or open your dashboard to get back on track.
           </p>
 
           <div className="flex flex-col gap-2.5">
@@ -103,11 +101,11 @@ export default function NotFound() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-dashboard-muted/80">
+        <p className="mt-6 text-center text-xs text-slate-500">
           Need help?{" "}
           <Link
             href="/dashboard/support"
-            className="text-brand-bg-primary font-medium hover:underline underline-offset-2"
+            className="text-brand-bg-primary font-semibold hover:underline underline-offset-2"
           >
             Visit support
           </Link>
