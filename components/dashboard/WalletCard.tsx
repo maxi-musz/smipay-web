@@ -115,16 +115,14 @@ export function WalletCard({
             </div>
           )} */}
 
-          {/* Fund button */}
-          {onFundWallet && (
-            <button
-              type="button"
-              onClick={onFundWallet}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-semibold bg-[#ea580c] text-white hover:bg-[#c2410c] transition-colors shadow-lg shadow-orange-500/20"
-            >
-              + Add Money
-            </button>
-          )}
+          {/* Fund button — disabled while funding is suspended */}
+          <button
+            type="button"
+            disabled
+            className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-semibold bg-slate-600 text-slate-400 cursor-not-allowed opacity-50"
+          >
+            + Add Money
+          </button>
         </div>
       </motion.div>
     );
@@ -219,15 +217,14 @@ export function WalletCard({
               <ArrowRight className="h-3 w-3" />
             </button>
           )}
-          {onFundWallet && (
-            <button
-              type="button"
-              onClick={onFundWallet}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#ea580c] text-white hover:bg-[#c2410c] transition-colors shadow-lg shadow-orange-500/20"
-            >
-              + Add Money
-            </button>
-          )}
+          {/* Fund button — disabled while funding is suspended */}
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-600 text-slate-400 cursor-not-allowed opacity-50"
+          >
+            + Add Money
+          </button>
         </div>
 
         {/* Bank name, account number, account name — hidden for now */}

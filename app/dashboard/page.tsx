@@ -407,7 +407,7 @@ function DashboardContent() {
               balance={parseBalance(dashboardData.wallet_card.current_balance)}
               cashbackBalance={isCashbackActive ? cashbackWallet?.current_balance : undefined}
               isActive={primaryAccount?.isActive ?? true}
-              onFundWallet={() => setIsFundWalletModalOpen(true)}
+              // onFundWallet={() => setIsFundWalletModalOpen(true)} // temporarily hidden while funding is suspended
               onViewHistory={() => router.push("/dashboard/transactions")}
             />
           </div>
@@ -658,7 +658,8 @@ function DashboardContent() {
         </section>
       </div>
 
-      <FundWalletModal
+      {/* FundWalletModal — temporarily hidden while funding is suspended */}
+      {/* <FundWalletModal
         isOpen={isFundWalletModalOpen}
         onClose={() => {
           setIsFundWalletModalOpen(false);
@@ -667,7 +668,7 @@ function DashboardContent() {
         }}
         bankAccounts={dashboardData?.accounts || []}
         initialReference={paymentReference}
-      />
+      /> */}
 
       {welcomeBonusTx && (
         <WelcomeBonusCongrats
