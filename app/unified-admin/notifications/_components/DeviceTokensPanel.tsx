@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, Fragment } from "react";
 import { motion } from "motion/react";
 import {
   Smartphone,
@@ -12,12 +12,8 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { adminPushBroadcastsApi } from "@/services/admin/push-broadcasts-api";
-import type {
-  DeviceToken,
-  DeviceTokenFilters,
-  DeviceTokenStats,
-} from "@/types/admin/push-broadcasts";
+import type { DeviceToken } from "@/types/admin/push-broadcasts";
+import { useAdminDeviceTokens } from "@/hooks/admin/useAdminDeviceTokens";
 import { NotificationsPagination } from "./NotificationsPagination";
 
 function StatCard({
@@ -147,60 +143,19 @@ function ExpandedDetails({ token }: { token: DeviceToken }) {
 }
 
 export function DeviceTokensPanel() {
-  const [tokens, setTokens] = useState<DeviceToken[]>([]);
-  const [stats, setStats] = useState<DeviceTokenStats | null>(null);
-  const [filters, setFilters] = useState<DeviceTokenFilters>({
-    page: 1,
-    limit: 20,
-    platform: "",
-    is_active: "",
-    search: "",
-  });
-  const [total, setTotal] = useState(0);
-  const [pages, setPages] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    tokens,
+    stats,
+    total,
+    pages,
+    filters,
+    isLoading,
+    error,
+    updateFilters,
+    searchInput,
+    setSearchInput,
+  } = useAdminDeviceTokens();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-
-  const fetchTokens = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await adminPushBroadcastsApi.listDeviceTokens(filters);
-      setTokens(res.data.tokens ?? []);
-      setTotal(res.data.total);
-      setPages(res.data.pages);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load device tokens");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await adminPushBroadcastsApi.getDeviceTokenStats();
-      setStats(res.data);
-    } catch {
-      // stats are non-critical
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters((f) => ({ ...f, search: searchInput.trim(), page: 1 }));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -245,7 +200,7 @@ export function DeviceTokensPanel() {
           </div>
           <select
             value={filters.platform}
-            onChange={(e) => setFilters((f) => ({ ...f, platform: e.target.value, page: 1 }))}
+            onChange={(e) => updateFilters({ platform: e.target.value, page: 1 })}
             className="h-10 min-w-[140px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
           >
             <option value="">All platforms</option>
@@ -254,7 +209,7 @@ export function DeviceTokensPanel() {
           </select>
           <select
             value={filters.is_active}
-            onChange={(e) => setFilters((f) => ({ ...f, is_active: e.target.value, page: 1 }))}
+            onChange={(e) => updateFilters({ is_active: e.target.value, page: 1 })}
             className="h-10 min-w-[140px] rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-3 text-sm outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
           >
             <option value="">All statuses</option>
@@ -289,7 +244,7 @@ export function DeviceTokensPanel() {
               </tr>
             </thead>
             <tbody>
-              {loading && tokens.length === 0 ? (
+              {isLoading && tokens.length === 0 ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-dashboard-border/20">
                     {Array.from({ length: 6 }).map((__, j) => (
@@ -366,7 +321,7 @@ export function DeviceTokensPanel() {
           <NotificationsPagination
             page={filters.page}
             pages={pages}
-            onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
+            onPageChange={(p) => updateFilters({ page: p })}
           />
         </div>
       )}

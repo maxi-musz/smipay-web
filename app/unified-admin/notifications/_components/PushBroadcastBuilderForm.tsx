@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Eye, Send, CalendarClock, Users, Search, X } from "lucide-react";
 import { adminPushBroadcastsApi } from "@/services/admin/push-broadcasts-api";
@@ -23,6 +23,20 @@ interface SelectedUser {
 
 interface PushBroadcastBuilderFormProps {
   onCreated: (broadcastId: string) => void;
+  /** Pre-fill from an existing broadcast (Send again from list). */
+  cloneSourceBroadcastId?: string;
+}
+
+function asTargetFilters(value: unknown): PushBroadcastTargetFilters {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return { ...(value as PushBroadcastTargetFilters) };
+  }
+  return {};
+}
+
+function asStringIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((x): x is string => typeof x === "string");
 }
 
 function toLocalDateTimeInput(iso: string | null): string {
@@ -37,7 +51,10 @@ function fromLocalDateTimeInput(input: string): string | null {
   return new Date(input).toISOString();
 }
 
-export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderFormProps) {
+export function PushBroadcastBuilderForm({
+  onCreated,
+  cloneSourceBroadcastId,
+}: PushBroadcastBuilderFormProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -59,6 +76,71 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<{ count: number; sample: string[] } | null>(null);
+  const [cloneLoading, setCloneLoading] = useState(!!cloneSourceBroadcastId);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cloneSourceBroadcastId) {
+      setCloneLoading(false);
+      setCloneError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCloneLoading(true);
+    setCloneError(null);
+
+    void (async () => {
+      try {
+        const res = await adminPushBroadcastsApi.getBroadcast(cloneSourceBroadcastId);
+        const b = res.data;
+        if (cancelled || !b) return;
+
+        setTitle(b.title ?? "");
+        setBody(b.body ?? "");
+        setMessage(typeof b.message === "string" ? b.message : "");
+        setTargetType(b.target_type);
+        setTargetFilters(asTargetFilters(b.target_filters));
+        setPreviewResult(null);
+
+        const alreadySent =
+          b.status === "sent" || b.status === "failed" || b.status === "cancelled";
+        if (alreadySent) {
+          setScheduleEnabled(false);
+        } else if (b.scheduled_for) {
+          setScheduleEnabled(true);
+          setScheduledForLocal(toLocalDateTimeInput(b.scheduled_for));
+        }
+
+        if (b.target_type === "individual") {
+          const ids = asStringIds(b.target_user_ids);
+          if (ids.length > 0) {
+            const lookup = await backendApi.post<{ data: { users: SelectedUser[] } }>(
+              "/unified-admin/users/lookup-by-ids",
+              { ids },
+            );
+            if (!cancelled) {
+              setSelectedUsers(lookup.data.data?.users ?? []);
+            }
+          } else {
+            setSelectedUsers([]);
+          }
+        } else {
+          setSelectedUsers([]);
+        }
+      } catch {
+        if (!cancelled) {
+          setCloneError("Could not load that broadcast. You can still compose a new push below.");
+        }
+      } finally {
+        if (!cancelled) setCloneLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cloneSourceBroadcastId]);
 
   const normalizedUserIds = useMemo(() => selectedUsers.map((u) => u.id), [selectedUsers]);
 
@@ -155,13 +237,42 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
             <ArrowLeft className="h-5 w-5 text-dashboard-heading" />
           </button>
           <div>
-            <h1 className="text-base font-bold text-dashboard-heading">New Push Broadcast</h1>
-            <p className="text-xs text-dashboard-muted">Send push notifications to mobile app users</p>
+            <h1 className="text-base font-bold text-dashboard-heading">
+              {cloneSourceBroadcastId ? "Send push again" : "New Push Broadcast"}
+            </h1>
+            <p className="text-xs text-dashboard-muted">
+              {cloneSourceBroadcastId
+                ? "Review message and audience — change recipients if needed, preview, then send."
+                : "Send push notifications to mobile app users"}
+            </p>
           </div>
         </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        {cloneSourceBroadcastId && cloneLoading && (
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <Loader2 className="h-10 w-10 animate-spin text-brand-bg-primary" />
+            <p className="text-sm text-dashboard-muted">Loading broadcast to copy…</p>
+          </div>
+        )}
+
+        {cloneSourceBroadcastId && !cloneLoading && cloneError && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-900">
+            {cloneError}
+          </div>
+        )}
+
+        {cloneSourceBroadcastId && !cloneLoading && !cloneError && (
+          <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-900">
+            Content and audience were copied from a previous broadcast. Use{" "}
+            <strong>Preview audience</strong> to confirm who will receive this send, edit recipients, then{" "}
+            <strong>Send now</strong> (or schedule).
+          </div>
+        )}
+
+        {!cloneLoading && (
+          <>
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{error}</div>
         )}
@@ -546,6 +657,8 @@ export function PushBroadcastBuilderForm({ onCreated }: PushBroadcastBuilderForm
             {scheduleEnabled ? "Schedule Broadcast" : "Send Now"}
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

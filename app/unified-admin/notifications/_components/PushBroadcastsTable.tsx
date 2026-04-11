@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RotateCcw, Ban } from "lucide-react";
+import { RotateCcw, Ban, CopyPlus } from "lucide-react";
 import type { PushBroadcast } from "@/types/admin/push-broadcasts";
 import { PushBroadcastStatusBadge } from "./PushBroadcastStatusBadge";
 
@@ -76,6 +76,10 @@ export function PushBroadcastsTable({
                 const canResend =
                   (broadcast.status === "sent" || broadcast.status === "failed") &&
                   broadcast.failed_count > 0;
+                const canSendAgain =
+                  broadcast.status === "sent" ||
+                  broadcast.status === "failed" ||
+                  broadcast.status === "cancelled";
                 const loadingThis = actionLoadingId === broadcast.id;
 
                 return (
@@ -152,7 +156,16 @@ export function PushBroadcastsTable({
                             Resend Failed
                           </button>
                         )}
-                        {!canCancel && !canResend && (
+                        {canSendAgain && (
+                          <Link
+                            href={`/unified-admin/notifications/push/new?from=${encodeURIComponent(broadcast.id)}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-amber-200 text-amber-900 bg-amber-50 hover:bg-amber-100 transition-colors"
+                          >
+                            <CopyPlus className="h-3.5 w-3.5" />
+                            Send again
+                          </Link>
+                        )}
+                        {!canCancel && !canResend && !canSendAgain && (
                           <span className="text-[11px] text-dashboard-muted">{"\u2014"}</span>
                         )}
                       </div>
