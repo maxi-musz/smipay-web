@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { SessionWarning } from "@/components/auth/SessionWarning";
+import { WebhookEventsSocketProvider } from "@/components/providers/WebhookEventsSocketProvider";
 import { isPaymentInProgress } from "@/lib/auth-storage";
 import Sidebar from "./Sidebar";
 import { Loader2 } from "lucide-react";
@@ -58,20 +59,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     }>
       <DashboardAuthGuard>
-        <div className="flex min-h-screen bg-gray-50">
-          <Sidebar />
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
-        </div>
+        {/* Webhook-driven realtime updates (wallet credits, etc.). Lives only
+            inside the authenticated dashboard tree so unauthenticated visitors
+            never open a socket. */}
+        <WebhookEventsSocketProvider>
+          <div className="flex min-h-screen bg-gray-50">
+            <Sidebar />
+            <main className="flex-1 overflow-auto">
+              {children}
+            </main>
+          </div>
 
-        {/* Session Warning Modal */}
-        <SessionWarning
-          showWarning={showWarning}
-          timeRemaining={timeRemaining}
-          onExtend={extendSession}
-          onLogout={() => handleLogout("You have been logged out.")}
-        />
+          {/* Session Warning Modal */}
+          <SessionWarning
+            showWarning={showWarning}
+            timeRemaining={timeRemaining}
+            onExtend={extendSession}
+            onLogout={() => handleLogout("You have been logged out.")}
+          />
+        </WebhookEventsSocketProvider>
       </DashboardAuthGuard>
     </Suspense>
   );

@@ -37,7 +37,11 @@ function SignInForm() {
     if (searchParams.get("registered") === "true") {
       setSuccessMessage("Registration successful! Please sign in to continue.");
     }
-    
+
+    if (searchParams.get("reset") === "true") {
+      setSuccessMessage("Password reset successfully. Please sign in with your new password.");
+    }
+
     // Check if session expired
     if (searchParams.get("expired") === "true") {
       const message = searchParams.get("message");
@@ -196,8 +200,20 @@ function SignInForm() {
               onChange={handleChange}
               disabled={isLoading}
               error={errors.password}
+              autoComplete="current-password"
             />
             {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
+            <p className="text-xs text-brand-text-secondary">
+              New accounts use a 6-digit password. If you signed up earlier, use your
+              existing password — or reset it via{" "}
+              <Link
+                href="/auth/forgot-password"
+                className="text-brand-bg-primary hover:underline"
+              >
+                forgot password
+              </Link>
+              .
+            </p>
           </div>
 
           <div className="flex items-center justify-end">

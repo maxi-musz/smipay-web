@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { FundWalletModal } from "@/components/dashboard/FundWalletModal";
+import { AddMoneyBottomSheet } from "@/components/dashboard/AddMoneyBottomSheet";
 import { Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, CreditCard, Zap, Smartphone, Tv, FileText, Users, ChevronRight, Copy, Check, Loader2 } from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { WalletAnalysisCards } from "@/components/dashboard/WalletAnalysisCards";
@@ -27,6 +28,10 @@ function DashboardContent() {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const { dashboardData, isLoading: loading, error, refetch } = useDashboard();
+  // Bottom-sheet "Add Money" modal — primary CTA on the dashboard.
+  const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
+  // FundWalletModal is now reserved for the Paystack-card-funding callback
+  // verification flow only.
   const [isFundWalletModalOpen, setIsFundWalletModalOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
 
@@ -127,12 +132,12 @@ function DashboardContent() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button 
+              <Button
                 className="bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-xs sm:text-sm h-8 sm:h-9 md:h-10 px-3 sm:px-4"
-                onClick={() => setIsFundWalletModalOpen(true)}
+                onClick={() => setIsAddMoneyOpen(true)}
               >
                 <ArrowDownLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                Fund Wallet
+                Add Money
               </Button>
             </div>
           </div>
@@ -375,7 +380,14 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Fund Wallet Modal */}
+      {/* Add Money — primary funding flow (account details + bank logo) */}
+      <AddMoneyBottomSheet
+        isOpen={isAddMoneyOpen}
+        onClose={() => setIsAddMoneyOpen(false)}
+        bankAccounts={dashboardData?.accounts || []}
+      />
+
+      {/* Card-funding verification — only reopened by the Paystack callback. */}
       <FundWalletModal
         isOpen={isFundWalletModalOpen}
         onClose={() => {
