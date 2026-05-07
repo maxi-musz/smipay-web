@@ -28,9 +28,7 @@ export function TransactionStatusModal({
 
   const copyTransactionId = () => {
     if (transactionData?.content?.transactions?.transactionId) {
-      navigator.clipboard.writeText(
-        transactionData.content.transactions.transactionId
-      );
+      navigator.clipboard.writeText(transactionData.content.transactions.transactionId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -45,7 +43,7 @@ export function TransactionStatusModal({
           bgColor: "bg-green-50",
           borderColor: "border-green-200",
           title: "Data Purchase Successful!",
-          description: "Your data bundle has been successfully credited to the phone number.",
+          description: "Your data bundle has been credited to the phone number.",
         };
       case "processing":
         return {
@@ -54,8 +52,7 @@ export function TransactionStatusModal({
           bgColor: "bg-yellow-50",
           borderColor: "border-yellow-200",
           title: "Transaction Processing",
-          description:
-            "Your transaction is being processed. This may take a few minutes. You'll receive a notification once it's completed. You don't need to wait on this page.",
+          description: "Your transaction is being processed. This may take a few minutes.",
         };
       case "error":
         return {
@@ -75,22 +72,21 @@ export function TransactionStatusModal({
   if (!config) return null;
 
   const Icon = config.icon;
-  const transactionId =
-    transactionData?.content?.transactions?.transactionId ||
-    transactionData?.requestId;
+  const transactionId = transactionData?.content?.transactions?.transactionId || transactionData?.requestId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className={`bg-white rounded-xl shadow-xl max-w-md w-full ${config.borderColor} border-2 overflow-hidden`}
+        className={`bg-dashboard-surface rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full ${config.borderColor} border-2 overflow-hidden max-h-[90dvh] sm:max-h-[85vh] flex flex-col`}
       >
         {/* Header */}
-        <div className={`${config.bgColor} p-4 sm:p-6 text-center relative`}>
+        <div className={`${config.bgColor} p-5 sm:p-6 text-center relative shrink-0`}>
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 -m-2 rounded-full hover:bg-black/10 transition-colors text-dashboard-muted"
+            aria-label="Close"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
           <div className="flex justify-center mb-3 sm:mb-4">
             {status === "processing" ? (
@@ -99,50 +95,48 @@ export function TransactionStatusModal({
               <Icon className={`h-12 w-12 sm:h-16 sm:w-16 ${config.iconColor}`} />
             )}
           </div>
-          <h2 className={`text-lg sm:text-2xl font-bold ${config.iconColor.replace("text-", "text-")} mb-1.5 sm:mb-2`}>
-            {config.title}
-          </h2>
-          <p className="text-gray-600 text-xs sm:text-sm">{config.description}</p>
+          <h2 className="text-lg sm:text-xl font-semibold text-dashboard-heading mb-1.5">{config.title}</h2>
+          <p className="text-xs sm:text-sm text-dashboard-muted">{config.description}</p>
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
           {status === "success" && transactionData?.content?.transactions && (
-            <div className="bg-gray-50 rounded-lg p-3 sm:p-4 space-y-2.5 sm:space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-gray-600">Product:</span>
-                <span className="font-semibold text-sm sm:text-base text-gray-900">
+            <div className="space-y-3 bg-dashboard-bg/60 rounded-xl border border-dashboard-border/80 p-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Product</span>
+                <span className="font-semibold text-sm text-dashboard-heading truncate max-w-[180px]">
                   {transactionData.content.transactions.product_name}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-gray-600">Phone Number:</span>
-                <span className="font-semibold text-sm sm:text-base text-gray-900 font-mono">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Phone</span>
+                <span className="font-semibold text-sm text-dashboard-heading font-mono">
                   {transactionData.content.transactions.unique_element}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-gray-600">Amount:</span>
-                <span className="font-semibold text-sm sm:text-base text-gray-900">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Amount</span>
+                <span className="font-semibold text-sm text-dashboard-heading">
                   ₦{parseFloat(String(transactionData.content.transactions.amount)).toLocaleString()}
                 </span>
               </div>
               {transactionId && (
-                <div className="flex justify-between items-center pt-2.5 sm:pt-3 border-t border-gray-200">
-                  <span className="text-xs sm:text-sm text-gray-600">Transaction ID:</span>
+                <div className="flex justify-between items-center gap-2 pt-3 border-t border-dashboard-border/80">
+                  <span className="text-xs text-dashboard-muted">Transaction ID</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] sm:text-xs text-gray-700 truncate max-w-[100px] sm:max-w-[120px]">
+                    <span className="font-mono text-[10px] sm:text-xs text-dashboard-heading truncate max-w-[120px]">
                       {transactionId}
                     </span>
                     <button
                       onClick={copyTransactionId}
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
-                      title="Copy Transaction ID"
+                      className="p-2 -m-2 rounded-lg hover:bg-dashboard-border/60 transition-colors"
+                      title="Copy transaction ID"
                     >
                       {copied ? (
-                        <Check className="h-4 w-4 text-green-600" />
+                        <Check className="h-4 w-4 text-[var(--tx-success-text)]" />
                       ) : (
-                        <Copy className="h-4 w-4 text-gray-600" />
+                        <Copy className="h-4 w-4 text-dashboard-muted" />
                       )}
                     </button>
                   </div>
@@ -152,42 +146,43 @@ export function TransactionStatusModal({
           )}
 
           {status === "processing" && transactionData && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4">
-              <p className="text-xs sm:text-sm text-yellow-800 mb-1.5 sm:mb-2">
-                <strong>Request ID:</strong> {transactionData.requestId}
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3 mt-2 sm:mt-3">
-                <p className="text-[10px] sm:text-xs text-blue-800">
-                  <strong>Note:</strong> You can close this window and continue using the app. 
-                  You'll receive a notification once the transaction is completed.
+            <div className="space-y-3 bg-dashboard-bg/60 rounded-xl border border-dashboard-border/80 p-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Request ID</span>
+                <span className="font-mono text-[10px] sm:text-xs text-dashboard-heading break-all">
+                  {transactionData.requestId}
+                </span>
+              </div>
+              <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/50 p-3 mt-3">
+                <p className="text-xs text-dashboard-muted">
+                  You can close this and keep using the app. We&apos;ll notify you when it&apos;s done.
                 </p>
               </div>
             </div>
           )}
 
-          {status === "error" && errorMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
-              <p className="text-xs sm:text-sm text-red-800 font-medium mb-0.5 sm:mb-1">Error Details:</p>
-              <p className="text-xs sm:text-sm text-red-700">{errorMessage}</p>
+          {status === "error" && (
+            <div className="rounded-xl border border-red-200 bg-red-50/80 p-4">
+              <p className="text-xs sm:text-sm text-red-800">{errorMessage || config.description}</p>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 sm:gap-3 pt-2">
+          <div className="flex gap-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-0">
             {status === "error" && onRetry && (
               <Button
                 variant="outline"
                 onClick={onRetry}
-                className="flex-1"
+                className="flex-1 min-h-12 rounded-xl border-dashboard-border touch-manipulation"
               >
-                Try Again
+                Try again
               </Button>
             )}
             <Button
               onClick={onClose}
-              className={status === "error" && onRetry ? "flex-1" : "w-full"}
+              className={`${status === "error" && onRetry ? "flex-1" : "w-full"} min-h-12 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 touch-manipulation`}
             >
-              {status === "processing" ? "Close & Continue" : "Close"}
+              {status === "processing" ? "Close & continue" : "Close"}
             </Button>
           </div>
         </div>

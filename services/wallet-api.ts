@@ -31,16 +31,21 @@ interface VerifyPaystackFundingResponse {
   success: boolean;
   message: string;
   data: {
-    id: string;
-    amount: string;
-    transaction_type: string;
-    credit_debit: string;
-    description: string;
     status: string;
-    payment_method: string;
-    date: string;
+    id?: string;
+    amount?: string;
+    transaction_type?: string;
+    credit_debit?: string;
+    description?: string;
+    payment_method?: string;
+    date?: string;
     balance_after?: string;
   } | null;
+}
+
+interface CancelPaystackFundingResponse {
+  success: boolean;
+  message: string;
 }
 
 export const walletApi = {
@@ -163,6 +168,25 @@ export const walletApi = {
       const response = await backendApi.post<VerifyPaystackFundingResponse>(
         "/banking/verify-paystack-funding",
         payload
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /**
+   * Cancel a pending Paystack funding transaction.
+   * Called when user explicitly cancels or abandons a payment.
+   * @param reference - Transaction reference from Paystack
+   */
+  cancelPaystackFunding: async (
+    reference: string
+  ): Promise<CancelPaystackFundingResponse> => {
+    try {
+      const response = await backendApi.post<CancelPaystackFundingResponse>(
+        "/banking/cancel-paystack-funding",
+        { reference }
       );
       return response.data;
     } catch (error) {

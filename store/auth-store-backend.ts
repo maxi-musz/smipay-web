@@ -7,7 +7,9 @@ import {
   clearAuth as clearAuthStorage,
   getUser,
   getToken,
+  isSessionExpired,
 } from "@/lib/auth-storage";
+import { authApi } from "@/services/auth-api";
 
 interface AuthState {
   user: User | null;
@@ -54,6 +56,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Fire-and-forget: invalidate refresh tokens server-side (§3.7).
+        // Local state is cleared immediately regardless of API outcome.
+        authApi.logout().catch(() => {});
         clearAuthStorage();
         set({
           user: null,
@@ -72,13 +77,16 @@ export const useAuthStore = create<AuthState>()(
         const token = getToken();
         const user = getUser();
 
-        if (token && user) {
+        if (token && user && !isSessionExpired()) {
           set({
             user,
             isAuthenticated: true,
             isLoading: false,
           });
         } else {
+          if (token || user) {
+            clearAuthStorage();
+          }
           set({
             user: null,
             isAuthenticated: false,
@@ -91,7 +99,6 @@ export const useAuthStore = create<AuthState>()(
       name: "smipay-auth",
       partialize: (state) => ({
         user: state.user,
-        isAuthenticated: state.isAuthenticated,
       }),
     }
   )

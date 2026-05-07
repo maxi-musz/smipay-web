@@ -1,9 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
 
 interface AmountInputProps {
   value: string;
@@ -14,6 +11,7 @@ interface AmountInputProps {
   max?: number;
   presetAmounts?: number[];
   required?: boolean;
+  cashbackPercent?: number;
 }
 
 export function AmountInput({
@@ -24,14 +22,8 @@ export function AmountInput({
   min = 50,
   max = 100000,
   presetAmounts = [100, 200, 500, 1000, 2000, 5000],
-  required = true,
+  cashbackPercent,
 }: AmountInputProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits
-    const input = e.target.value.replace(/\D/g, "");
-    onChange(input);
-  };
-
   const handlePresetClick = (amount: number) => {
     if (amount >= min && amount <= max) {
       onChange(amount.toString());
@@ -40,93 +32,85 @@ export function AmountInput({
 
   const numericValue = parseFloat(value) || 0;
   const isValid = numericValue >= min && numericValue <= max && value !== "";
+  const showCashback = cashbackPercent != null && cashbackPercent > 0;
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="amount" className="text-sm sm:text-base font-semibold">
-        Amount (₦)
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </Label>
-      <div className="relative">
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 text-brand-text-secondary font-semibold text-base">
-          ₦
+    <div className="space-y-3">
+      <div className="flex-1 min-w-0">
+        <label className="text-[11px] font-medium text-dashboard-muted uppercase tracking-wider mb-1 block">
+          Amount
+        </label>
+        <div className="relative">
+          <span className="absolute left-0 bottom-2.5 text-dashboard-heading font-bold text-[17px] sm:text-lg pointer-events-none select-none">
+            ₦
+          </span>
+          <input
+            id="amount"
+            type="text"
+            inputMode="numeric"
+            placeholder="0"
+            value={value}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              onChange(raw);
+            }}
+            disabled={disabled}
+            className={cn(
+              "w-full bg-transparent border-0 border-b-2 rounded-none pl-5 pr-0 py-2.5 text-[17px] sm:text-lg font-semibold text-dashboard-heading placeholder:text-dashboard-muted/40 placeholder:font-normal tabular-nums transition-colors duration-200",
+              "focus:outline-none",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              error
+                ? "border-red-400"
+                : isValid
+                  ? "border-emerald-400"
+                  : "border-dashboard-border focus:border-brand-bg-primary"
+            )}
+            aria-invalid={!!error}
+          />
         </div>
-        <input
-          id="amount"
-          type="text"
-          inputMode="numeric"
-          placeholder="Enter amount"
-          value={value}
-          onChange={handleChange}
-          disabled={disabled}
-          className={cn(
-            "w-full bg-transparent text-base py-2 pl-6 border-0 border-b-2 focus:outline-none focus:ring-0 transition-colors",
-            "placeholder:text-brand-text-secondary/50",
-            error 
-              ? "border-red-500 focus:border-red-500" 
-              : isValid && !error
-              ? "border-green-500 focus:border-green-500"
-              : "border-gray-300 focus:border-brand-bg-primary"
-          )}
-          aria-invalid={!!error}
-          aria-describedby={error ? "amount-error" : undefined}
-        />
-        {isValid && !error && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <svg
-              className="h-5 w-5 text-green-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
+        {error && (
+          <p className="text-[12px] text-red-500 font-medium mt-1.5">{error}</p>
         )}
       </div>
-      {error && (
-        <div
-          id="amount-error"
-          className="flex items-center gap-2 text-sm text-red-600"
-        >
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      {!error && value && !isValid && (
-        <p className="text-xs text-brand-text-secondary">
-          Amount must be between ₦{min.toLocaleString()} and ₦{max.toLocaleString()}
-        </p>
-      )}
 
-      {/* Preset Amount Buttons */}
       {presetAmounts.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
+        <div className="grid grid-cols-3 gap-2">
           {presetAmounts
-            .filter((amount) => amount >= min && amount <= max)
-            .map((amount) => (
-              <button
-                key={amount}
-                type="button"
-                onClick={() => handlePresetClick(amount)}
-                disabled={disabled}
-                className={cn(
-                  "px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm border rounded-lg transition-colors",
-                  "hover:border-brand-bg-primary hover:bg-brand-bg-primary/5",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  value === amount.toString()
-                    ? "border-brand-bg-primary bg-brand-bg-primary/10 text-brand-bg-primary font-semibold"
-                    : "border-gray-300 text-brand-text-primary"
-                )}
-              >
-                ₦{amount.toLocaleString()}
-              </button>
-            ))}
+            .filter((a) => a >= min && a <= max)
+            .map((a) => {
+              const isActive = value === a.toString();
+              const cashback = showCashback ? (a * cashbackPercent!) / 100 : 0;
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => handlePresetClick(a)}
+                  disabled={disabled}
+                  className={cn(
+                    "flex flex-col items-center justify-center rounded-xl py-2 px-2 transition-all duration-150",
+                    "disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] touch-manipulation",
+                    isActive
+                      ? "bg-brand-bg-primary/[0.06] ring-[1.5px] ring-brand-bg-primary"
+                      : "bg-dashboard-bg ring-1 ring-dashboard-border/50 hover:ring-dashboard-border"
+                  )}
+                >
+                  {showCashback && (
+                    <span className={cn(
+                      "text-[10px] sm:text-[11px] font-semibold leading-tight mb-0.5",
+                      isActive ? "text-emerald-600" : "text-emerald-500"
+                    )}>
+                      ₦{cashback % 1 === 0 ? cashback : cashback.toFixed(1)} Cashback
+                    </span>
+                  )}
+                  <span className={cn(
+                    "text-sm sm:text-[15px] font-bold tabular-nums",
+                    isActive ? "text-dashboard-heading" : "text-dashboard-heading/80"
+                  )}>
+                    ₦{a.toLocaleString()}
+                  </span>
+                </button>
+              );
+            })}
         </div>
       )}
     </div>

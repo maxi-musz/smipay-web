@@ -1,51 +1,283 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { FundWalletModal } from "@/components/dashboard/FundWalletModal";
 import { AddMoneyBottomSheet } from "@/components/dashboard/AddMoneyBottomSheet";
-import { Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, CreditCard, Zap, Smartphone, Tv, FileText, Users, ChevronRight, Copy, Check, Loader2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  Zap,
+  Phone,
+  Wifi,
+  Tv,
+  Receipt,
+  Landmark,
+  Hash,
+  Send,
+  GraduationCap,
+  Dices,
+  CreditCard,
+  Globe,
+} from "lucide-react";
+import { WalletCard } from "@/components/dashboard/WalletCard";
 import { useDashboard } from "@/hooks/useDashboard";
-import { WalletAnalysisCards } from "@/components/dashboard/WalletAnalysisCards";
-import type { DashboardData, Transaction as DashboardTransaction } from "@/types/dashboard";
+import { useAuth } from "@/hooks/useAuth";
+import { OnboardingWalkthrough } from "@/components/dashboard/OnboardingWalkthrough";
+import {
+  getPaymentReference,
+  clearPaymentReference,
+  clearPaymentInProgress,
+  isPaymentInProgress,
+} from "@/lib/auth-storage";
+import {
+  getWelcomeBonusCongratsShownTxId,
+  setWelcomeBonusCongratsShownTxId,
+} from "@/lib/welcome-bonus-storage";
+// import { WalletAnalysisCards } from "@/components/dashboard/WalletAnalysisCards";
+import type { Transaction as DashboardTransaction } from "@/types/dashboard";
+import {
+  WelcomeBonusCongrats,
+  FIRST_TX_BONUS_TYPE,
+} from "@/components/dashboard/WelcomeBonusCongrats";
+import { RewardBanners } from "@/components/dashboard/RewardBanners";
 import { getNetworkLogo } from "@/lib/network-logos";
+import { motion, AnimatePresence } from "motion/react";
 
-const QUICK_ACTIONS = [
-  { id: "airtime", name: "Buy Airtime", icon: Smartphone, color: "bg-blue-500", href: "/dashboard/airtime" },
-  { id: "data", name: "Buy Data", icon: Zap, color: "bg-purple-500", href: "/dashboard/data" },
-  { id: "cable", name: "Cable TV", icon: Tv, color: "bg-orange-500", href: "/dashboard/cable" },
-  { id: "electricity", name: "Electricity", icon: Zap, color: "bg-green-500", href: "/dashboard/electricity" },
-  { id: "transfer", name: "Transfer", icon: ArrowUpRight, color: "bg-indigo-500", href: "/dashboard/transfer" },
-  { id: "transactions", name: "Transactions", icon: FileText, color: "bg-pink-500", href: "/dashboard/transactions" },
+const TRANSFER_ACTIONS = [
+  { id: "to-smipay", name: "To Smipay", icon: Send, href: "/dashboard/transfer/smipay", comingSoon: true, bg: "var(--quick-action-1-bg)", color: "var(--quick-action-1)" },
+  { id: "to-bank", name: "To Bank", icon: Landmark, href: "/dashboard/transfer/bank", comingSoon: true, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
+  { id: "to-tag", name: "To Tag", icon: Hash, href: "/dashboard/transfer/tag", comingSoon: true, bg: "var(--quick-action-2-bg)", color: "var(--quick-action-2)" },
 ];
+
+const SERVICE_ACTIONS = [
+  { id: "airtime", name: "Airtime", icon: Phone, href: "/dashboard/airtime", comingSoon: false, bg: "var(--quick-action-3-bg)", color: "var(--quick-action-3)" },
+  { id: "data", name: "Data", icon: Wifi, href: "/dashboard/data", comingSoon: false, bg: "var(--quick-action-2-bg)", color: "var(--quick-action-2)" },
+  { id: "cable", name: "Cable TV", icon: Tv, href: "/dashboard/cabletv", comingSoon: false, bg: "var(--quick-action-5-bg)", color: "var(--quick-action-5)" },
+  { id: "education", name: "Education", icon: GraduationCap, href: "/dashboard/education/vtpass", comingSoon: false, bg: "var(--quick-action-1-bg)", color: "var(--quick-action-1)" },
+  { id: "electricity", name: "Electricity", icon: Zap, href: "/dashboard/electricity/vtpass", comingSoon: false, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
+  { id: "intl-airtime", name: "Intl. Airtime", icon: Globe, href: "/dashboard/intl-airtime/vtpass", comingSoon: false, bg: "var(--quick-action-2-bg)", color: "var(--quick-action-2)" },
+  { id: "cards", name: "Cards", icon: CreditCard, href: "/dashboard/cards", comingSoon: true, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
+  { id: "betting", name: "Betting", icon: Dices, href: "/dashboard/betting", comingSoon: true, bg: "var(--quick-action-6-bg)", color: "var(--quick-action-6)" },
+];
+
+const container = {
+  hidden: { opacity: 0 },
+  visible: () => ({
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+  }),
+};
+
+const item = {
+  hidden: { opacity: 0, y: 14 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35 },
+  },
+};
+
+const PROMO_LABELS: Record<string, string> = {
+  airtime: "Up to 9% off",
+  data: "Up to 7% off",
+};
+
+function DashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-dashboard-bg">
+      {/* Header skeleton matching new header layout */}
+      <header className="bg-dashboard-surface border-b border-dashboard-border/60 sticky top-0 z-10">
+        <div className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+          {/* Mobile menu avatar */}
+          <div className="lg:hidden shrink-0">
+            <div className="h-9 w-9 rounded-lg bg-dashboard-border/60 animate-pulse" />
+          </div>
+          {/* Desktop avatar */}
+          <div className="hidden lg:block shrink-0">
+            <div className="h-9 w-9 rounded-lg bg-dashboard-border/60 animate-pulse" />
+          </div>
+          {/* Greeting text */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="h-4 w-24 sm:w-28 bg-dashboard-border/70 rounded animate-pulse" />
+            <div className="h-3 w-32 sm:w-40 bg-dashboard-border/50 rounded animate-pulse" />
+          </div>
+        </div>
+      </header>
+
+      <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 space-y-6 sm:space-y-8">
+        {/* Top row: wallet card + user info card */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Wallet card skeleton */}
+          <div className="lg:col-span-2">
+            <div
+              className="rounded-2xl h-40 sm:h-44 animate-pulse"
+              style={{
+                background:
+                  "linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0f172a 100%)",
+              }}
+            />
+          </div>
+
+          {/* User info card skeleton (desktop only) */}
+          <div className="hidden lg:block">
+            <div className="bg-dashboard-surface rounded-2xl border border-dashboard-border/80 shadow-sm p-5 h-full animate-pulse">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-12 w-12 rounded-full bg-dashboard-border/50" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-32 bg-dashboard-border/50 rounded" />
+                  <div className="h-2.5 w-24 bg-dashboard-border/40 rounded" />
+                </div>
+              </div>
+              <div className="border-t border-dashboard-border/80 pt-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="h-2.5 w-12 bg-dashboard-border/40 rounded" />
+                  <div className="h-4 w-16 bg-dashboard-border/40 rounded-full" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="h-2.5 w-10 bg-dashboard-border/40 rounded" />
+                  <div className="h-4 w-18 bg-dashboard-border/40 rounded-full" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="h-2.5 w-9 bg-dashboard-border/40 rounded" />
+                  <div className="h-4 w-14 bg-dashboard-border/40 rounded-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Reward banners skeleton */}
+        <div className="flex gap-3 overflow-hidden">
+          <div className="flex-none w-[85%] sm:w-[320px] h-[62px] rounded-xl bg-dashboard-border/40 animate-pulse" />
+          <div className="flex-none w-[85%] sm:w-[320px] h-[62px] rounded-xl bg-dashboard-border/30 animate-pulse" />
+        </div>
+
+        {/* Service actions skeleton */}
+        <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-2 pt-5 pb-3 sm:px-4 sm:pt-5 sm:pb-4 lg:px-6 lg:pt-6 lg:pb-6 animate-pulse">
+          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-8 lg:gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center">
+                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-dashboard-border/50" />
+                <div className="h-2.5 w-12 mt-2 rounded bg-dashboard-border/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Transfer actions skeleton */}
+        <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-3 pt-5 pb-3 sm:p-4 sm:pt-5 animate-pulse">
+          <div className="grid grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center">
+                <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-full bg-dashboard-border/50" />
+                <div className="h-2.5 w-14 mt-2 rounded bg-dashboard-border/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent transactions skeleton */}
+        <section>
+          <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface overflow-hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className={`px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-3 ${
+                  i > 0 ? "border-t border-dashboard-border/40" : ""
+                }`}
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-dashboard-border/50 animate-pulse shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="h-3 w-28 sm:w-36 bg-dashboard-border/50 rounded animate-pulse" />
+                  <div className="h-2.5 w-20 bg-dashboard-border/40 rounded animate-pulse" />
+                </div>
+                <div className="text-right space-y-1.5">
+                  <div className="h-3 w-12 bg-dashboard-border/50 rounded animate-pulse ml-auto" />
+                  <div className="h-2.5 w-10 bg-dashboard-border/40 rounded animate-pulse ml-auto" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
 
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [copied, setCopied] = useState(false);
   const { dashboardData, isLoading: loading, error, refetch } = useDashboard();
-  // Bottom-sheet "Add Money" modal — primary CTA on the dashboard.
+  // Bottom-sheet "Add Money" modal — shows DVA bank-transfer details. Primary
+  // funding flow on web while Paystack-card funding is suspended on production.
   const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
-  // FundWalletModal is now reserved for the Paystack-card-funding callback
-  // verification flow only.
+  // FundWalletModal is reserved for the Paystack-card-funding callback flow.
   const [isFundWalletModalOpen, setIsFundWalletModalOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
+  const [showWelcomeBonusCongrats, setShowWelcomeBonusCongrats] = useState(false);
+  const [welcomeBonusTx, setWelcomeBonusTx] = useState<{ id: string; amount: number } | null>(null);
 
-  // Handle Paystack callback
+  const walletCardRef = useRef<HTMLDivElement>(null);
+  const quickLinksRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLDivElement>(null);
+  const rewardBannersRef = useRef<HTMLDivElement>(null);
+  const showOnboarding = user?.has_completed_onboarding === false;
+
+  // Show welcome-bonus congrats once per first_tx_bonus tx (scan recent txs so referral/other bonuses don't hide it)
+  useEffect(() => {
+    if (!dashboardData?.transaction_history?.length) return;
+    const recent = dashboardData.transaction_history.slice(0, 20);
+    const firstTxBonus = recent.find((tx) => tx.type === FIRST_TX_BONUS_TYPE);
+    if (!firstTxBonus) return;
+    if (getWelcomeBonusCongratsShownTxId() === firstTxBonus.id) return;
+    setWelcomeBonusTx({ id: firstTxBonus.id, amount: Number(firstTxBonus.amount) });
+    setShowWelcomeBonusCongrats(true);
+  }, [dashboardData?.transaction_history]);
+
+  useEffect(() => {
+    const handler = (e: PageTransitionEvent) => {
+      if (e.persisted && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("payment") === "callback") {
+          window.location.reload();
+          return;
+        }
+        if (isPaymentInProgress()) {
+          const ref = getPaymentReference();
+          if (ref) {
+            window.location.href = `${window.location.origin}/dashboard?payment=callback`;
+          } else {
+            clearPaymentInProgress();
+            clearPaymentReference();
+            window.location.reload();
+          }
+        }
+      }
+    };
+    window.addEventListener("pageshow", handler);
+    return () => window.removeEventListener("pageshow", handler);
+  }, []);
+
   useEffect(() => {
     const payment = searchParams.get("payment");
-    const reference = searchParams.get("reference") || searchParams.get("trxref");
+    const urlReference = searchParams.get("reference") || searchParams.get("trxref");
 
-    if (payment === "callback" && reference) {
-      // User returned from Paystack, trigger verification
-      setPaymentReference(reference);
-      setIsFundWalletModalOpen(true);
-      
-      // Don't clean up URL immediately - wait for modal to open
+    if (payment === "callback") {
+      const reference = urlReference || getPaymentReference();
+
+      if (reference) {
+        queueMicrotask(() => {
+          setPaymentReference(reference);
+          setIsFundWalletModalOpen(true);
+        });
+      } else {
+        clearPaymentInProgress();
+        clearPaymentReference();
+      }
+
       setTimeout(() => {
         const url = new URL(window.location.href);
         url.searchParams.delete("payment");
@@ -56,18 +288,29 @@ function DashboardContent() {
     }
   }, [searchParams, router]);
 
-  const copyAccountNumber = (accountNumber: string) => {
-    navigator.clipboard.writeText(accountNumber);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Safety net: if user navigated back from Paystack without bfcache (fresh load)
+  // and a payment was still in progress, open the verification modal.
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (!payment && isPaymentInProgress()) {
+      const ref = getPaymentReference();
+      if (ref) {
+        queueMicrotask(() => {
+          setPaymentReference(ref);
+          setIsFundWalletModalOpen(true);
+        });
+      } else {
+        clearPaymentInProgress();
+        clearPaymentReference();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Helper function to parse balance string to number
   const parseBalance = (balance: string): number => {
     return parseFloat(balance.replace(/,/g, ""));
   };
 
-  // Helper function to format date
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleString("en-US", {
@@ -79,35 +322,25 @@ function DashboardContent() {
     });
   };
 
-  // Helper to resolve a logo for a transaction based on provider or icon
   const getTransactionLogo = (transaction: DashboardTransaction): string | null => {
     if (transaction.provider) {
       const logo = getNetworkLogo(transaction.provider);
       if (logo) return logo;
     }
-    if (transaction.icon) {
-      return transaction.icon;
-    }
+    if (transaction.icon) return transaction.icon;
     return null;
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-brand-bg-primary mx-auto mb-4" />
-          <p className="text-brand-text-secondary">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error || !dashboardData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-dashboard-bg flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || "Failed to load dashboard"}</p>
-          <Button onClick={() => window.location.reload()}>
+          <p className="text-red-600 mb-4 text-sm">{error || "Failed to load dashboard"}</p>
+          <Button onClick={() => window.location.reload()} variant="outline">
             Retry
           </Button>
         </div>
@@ -116,300 +349,371 @@ function DashboardContent() {
   }
 
   const primaryAccount = dashboardData.accounts[0];
+  const isCashbackActive = dashboardData.cashback_rates?.some((r) => r.is_active) ?? false;
+  const cashbackWallet = dashboardData.cashback_wallet;
+
+  const profilePhotoUrl = dashboardData.user.profile_image?.trim() ?? "";
+  const hasProfilePhoto = profilePhotoUrl.length > 0;
+  const initialA = (dashboardData.user.first_name?.[0] || dashboardData.user.name?.[0] || "?").toUpperCase();
+  const initialB = (dashboardData.user.last_name?.[0] || "").toUpperCase();
+
+  const renderHeaderAvatar = () =>
+    hasProfilePhoto ? (
+      // eslint-disable-next-line @next/next/no-img-element -- user-uploaded URL (Cloudinary, etc.)
+      <img
+        src={profilePhotoUrl}
+        alt=""
+        className="h-9 w-9 rounded-full object-cover ring-1 ring-dashboard-border/50 bg-dashboard-bg shrink-0"
+      />
+    ) : (
+      <div className="h-9 w-9 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[11px] font-semibold shrink-0 ring-1 ring-dashboard-border/40">
+        {initialB ? `${initialA}${initialB}` : initialA}
+      </div>
+    );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-brand-text-primary">
-                Dashboard
-              </h1>
-              <p className="text-xs sm:text-sm text-brand-text-secondary mt-0.5 sm:mt-1">
-                Welcome back, {dashboardData.user.first_name}! 👋
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                className="bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-xs sm:text-sm h-8 sm:h-9 md:h-10 px-3 sm:px-4"
-                onClick={() => setIsAddMoneyOpen(true)}
+    <div className="min-h-screen bg-dashboard-bg min-w-0 w-full">
+      {/* Fixed: header + wallet card. On desktop (lg), starts at sidebar edge (left-72) */}
+      <div className="fixed top-0 left-0 right-0 lg:left-72 z-20 bg-dashboard-bg pb-4 sm:pb-6">
+        <motion.header
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="bg-dashboard-surface border-b border-dashboard-border/60"
+        >
+          <div className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-3.5 lg:pl-5 lg:pr-6">
+            <div ref={menuButtonRef} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("open-mobile-sidebar"))}
+                className="lg:hidden active:scale-95 transition-transform touch-manipulation rounded-full overflow-hidden"
+                aria-label="Open menu"
               >
-                <ArrowDownLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                Add Money
-              </Button>
+                {renderHeaderAvatar()}
+              </button>
+              <div className="hidden lg:block" aria-hidden>
+                {renderHeaderAvatar()}
+              </div>
             </div>
+            <p className="text-base sm:text-lg font-semibold text-dashboard-heading tracking-tight truncate">
+              Hi, {dashboardData.user.first_name}
+            </p>
+          </div>
+        </motion.header>
+
+        <div className="px-4 pt-5 sm:px-6 sm:pt-6 lg:pl-5 lg:pr-6 w-full min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-5">
+            {/* Virtual Account Card - shown first on mobile */}
+            <div ref={walletCardRef} className="lg:col-span-2 order-1">
+              <WalletCard
+              bankName={primaryAccount?.bank_name}
+              accountNumber={primaryAccount?.account_number}
+              accountHolderName={primaryAccount?.account_holder_name}
+              balance={parseBalance(dashboardData.wallet_card.current_balance)}
+              cashbackBalance={isCashbackActive ? cashbackWallet?.current_balance : undefined}
+              isActive={primaryAccount?.isActive ?? true}
+              onFundWallet={() => setIsAddMoneyOpen(true)}
+              onViewHistory={() => router.push("/dashboard/transactions")}
+            />
+          </div>
+
+          {/* User Info Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.18 }}
+            className="hidden lg:block order-2"
+          >
+            <div className="bg-dashboard-surface rounded-2xl border border-dashboard-border/80 shadow-sm p-5 h-full">
+              <div className="flex items-center gap-3 mb-5">
+                {dashboardData.user.profile_image ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- dynamic user avatar URL
+                  <img
+                    src={dashboardData.user.profile_image}
+                    alt={dashboardData.user.name}
+                    className="h-12 w-12 sm:h-14 sm:w-14 rounded-full object-cover ring-2 ring-dashboard-border"
+                  />
+                ) : (
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-lg font-semibold">
+                    {dashboardData.user.first_name[0]}
+                    {dashboardData.user.last_name[0]}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-dashboard-heading text-sm truncate">
+                    {dashboardData.user.first_name} {dashboardData.user.last_name}
+                  </p>
+                  <p className="text-xs text-dashboard-muted truncate">@{dashboardData.user.smipay_tag}</p>
+                </div>
+              </div>
+              <div className="space-y-0 border-t border-dashboard-border/80 pt-4">
+                <div className="flex items-center justify-between py-2.5 border-b border-dashboard-border/60">
+                  <span className="text-xs text-dashboard-muted">Email</span>
+                  <span
+                    className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium ${
+                      dashboardData.user.is_email_verified
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {dashboardData.user.is_email_verified ? "Verified" : "Unverified"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5 border-b border-dashboard-border/60">
+                  <span className="text-xs text-dashboard-muted">KYC</span>
+                  <span
+                    className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium ${
+                      dashboardData.kyc_verification.is_verified
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {dashboardData.kyc_verification.status}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-xs text-dashboard-muted">Tier</span>
+                  <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-sky-50 text-sky-700">
+                    {dashboardData.current_tier.tier}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           </div>
         </div>
       </div>
 
-      <div className="px-3 sm:px-4 py-4 sm:py-6 md:px-6 lg:px-8">
-        {/* Wallet Analysis Cards - Global Component */}
-        <WalletAnalysisCards />
+      {/* Spacer: reserves space so content doesn't hide under fixed block */}
+      <div className="h-[260px] sm:h-[280px] lg:h-[340px]" aria-hidden />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-          {/* Virtual Account Card */}
-          <div className="lg:col-span-2">
-            {primaryAccount ? (
-              <div className="bg-gradient-to-br from-brand-bg-primary to-indigo-700 rounded-xl shadow-lg p-4 sm:p-6 md:p-8 text-white">
-                <div className="flex items-start justify-between mb-3 sm:mb-6">
-                  <div>
-                    <p className="text-blue-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Bank Account</p>
-                    <p className="text-base sm:text-xl md:text-2xl font-bold">{primaryAccount.bank_name}</p>
-                  </div>
-                  <div className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold ${
-                    primaryAccount.isActive ? "bg-green-500" : "bg-red-500"
-                  }`}>
-                    {primaryAccount.isActive ? "ACTIVE" : "INACTIVE"}
-                  </div>
-                </div>
+      {/* Scrollable content — full width of main area, tight to sidebar */}
+      <div className="px-4 pt-3 pb-5 sm:px-6 sm:pt-4 sm:pb-6 lg:pl-5 lg:pr-6 w-full min-w-0 space-y-6 sm:space-y-8">
+        {/* Reward Banners — first in scrollable content, under wallet card */}
+        {dashboardData.reward_banners && dashboardData.reward_banners.length > 0 && (
+          <div
+            ref={rewardBannersRef}
+            className="min-w-0 overflow-visible lg:pt-3"
+          >
+            <RewardBanners
+              banners={dashboardData.reward_banners}
+              userTag={dashboardData.user.smipay_tag}
+            />
+          </div>
+        )}
 
-                <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-6">
-                  <div>
-                    <p className="text-blue-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Account Number</p>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <p className="text-lg sm:text-2xl md:text-3xl font-mono font-bold tracking-wider">
-                        {primaryAccount.account_number}
-                      </p>
-                      <button
-                        onClick={() => copyAccountNumber(primaryAccount.account_number)}
-                        className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
-                        title="Copy account number"
+        {/* Service Actions – quick links */}
+        <section
+          ref={quickLinksRef}
+          className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-2 pt-5 pb-3 sm:px-4 sm:pt-5 sm:pb-4 lg:px-6 lg:pt-6 lg:pb-6"
+        >
+          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-8 lg:gap-6">
+            {SERVICE_ACTIONS.map((action) => {
+              const promoLabel = PROMO_LABELS[action.id];
+              return (
+                <div key={action.id} className="flex flex-col items-center">
+                  {action.comingSoon ? (
+                    <div className="relative">
+                      <div
+                        className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-14 lg:w-14 items-center justify-center rounded-full opacity-75 cursor-not-allowed"
+                        style={{ backgroundColor: action.bg, color: action.color }}
                       >
-                        {copied ? (
-                          <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-300" />
-                        ) : (
-                          <Copy className="h-4 w-4 sm:h-5 sm:w-5" />
-                        )}
+                        <action.icon className="h-[17px] w-[17px] sm:h-[19px] sm:w-[19px] lg:h-[22px] lg:w-[22px]" strokeWidth={1.8} />
+                      </div>
+                      <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
+                        Soon
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {promoLabel && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-0 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] sm:text-[9px] font-bold leading-none whitespace-nowrap shadow-sm">
+                          {promoLabel}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => router.push(action.href)}
+                        className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-14 lg:w-14 items-center justify-center rounded-full transition-shadow hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-dashboard-accent touch-manipulation"
+                        style={{ backgroundColor: action.bg, color: action.color }}
+                      >
+                        <action.icon className="h-[17px] w-[17px] sm:h-[19px] sm:w-[19px] lg:h-[22px] lg:w-[22px]" strokeWidth={1.8} />
                       </button>
                     </div>
-                  </div>
-
-                  <div>
-                    <p className="text-blue-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Account Name</p>
-                    <p className="text-sm sm:text-lg md:text-xl font-semibold">
-                      {primaryAccount.account_holder_name}
-                    </p>
-                  </div>
+                  )}
+                  <span className="mt-1.5 text-xs sm:text-sm font-medium text-dashboard-heading leading-tight text-center">
+                    {action.name}
+                  </span>
                 </div>
-
-                <div className="pt-3 sm:pt-6 border-t border-white/20">
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p className="text-blue-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Account Balance</p>
-                      <p className="text-xl sm:text-2xl md:text-3xl font-bold">
-                        ₦{parseBalance(primaryAccount.balance).toLocaleString()}
-                      </p>
-                    </div>
-                    <CreditCard className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-white/30" />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gradient-to-br from-brand-bg-primary to-indigo-700 rounded-xl shadow-lg p-6 sm:p-8 text-white flex items-center justify-center">
-                <p>No bank account available</p>
-              </div>
-            )}
+              );
+            })}
           </div>
+        </section>
 
-          {/* User Info Card - hidden on mobile, sidebar already shows user info */}
-          <div className="hidden lg:block bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
-            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-              {dashboardData.user.profile_image ? (
-                <img
-                  src={dashboardData.user.profile_image}
-                  alt={dashboardData.user.name}
-                  className="h-12 w-12 sm:h-16 sm:w-16 rounded-full object-cover"
-                />
-              ) : (
-                <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-brand-bg-primary text-white flex items-center justify-center text-lg sm:text-2xl font-bold">
-                  {dashboardData.user.first_name[0]}{dashboardData.user.last_name[0]}
+        {/* Transfer Actions – 3 across, circular icons, no header */}
+        <section
+          className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-3 pt-5 pb-3 sm:p-4 sm:pt-5 lg:p-6 lg:pt-6"
+        >
+          <div className="grid grid-cols-3 lg:gap-4">
+            {TRANSFER_ACTIONS.map((action) => (
+              <div key={action.id} className="flex flex-col items-center">
+                <div className="relative">
+                  <button
+                    type="button"
+                    disabled
+                    className="flex h-11 w-11 sm:h-12 sm:w-12 lg:h-14 lg:w-14 items-center justify-center rounded-full opacity-75 cursor-not-allowed transition-transform"
+                    style={{ backgroundColor: action.bg, color: action.color }}
+                  >
+                    <action.icon className="h-[18px] w-[18px] sm:h-5 sm:w-5 lg:h-6 lg:w-6" strokeWidth={1.8} />
+                  </button>
+                  <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
+                    Soon
+                  </span>
                 </div>
-              )}
-              <div>
-                <p className="font-semibold text-brand-text-primary text-sm sm:text-base md:text-lg">
-                  {dashboardData.user.first_name} {dashboardData.user.last_name}
-                </p>
-                <p className="text-xs sm:text-sm text-brand-text-secondary">
-                  @{dashboardData.user.smipay_tag}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center justify-between py-1.5 sm:py-2 border-b border-gray-100">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Email</span>
-                <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full ${
-                  dashboardData.user.is_email_verified
-                    ? "bg-green-50 text-green-700"
-                    : "bg-orange-50 text-orange-700"
-                }`}>
-                  {dashboardData.user.is_email_verified ? "Verified" : "Unverified"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 sm:py-2 border-b border-gray-100">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">KYC Status</span>
-                <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full ${
-                  dashboardData.kyc_verification.is_verified
-                    ? "bg-green-50 text-green-700"
-                    : "bg-orange-50 text-orange-700"
-                }`}>
-                  {dashboardData.kyc_verification.status}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 sm:py-2">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Account Tier</span>
-                <span className="text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full bg-blue-50 text-blue-700">
-                  {dashboardData.current_tier.tier}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center justify-between mb-2 sm:mb-4">
-            <h2 className="text-sm sm:text-base md:text-lg font-semibold text-brand-text-primary">
-              Quick Actions
-            </h2>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-            {QUICK_ACTIONS.map((action) => (
-              <button
-                key={action.id}
-                onClick={() => router.push(action.href)}
-                className="bg-white rounded-xl shadow-sm p-3 sm:p-4 md:p-6 border border-gray-100 hover:shadow-md transition-shadow group"
-              >
-                <div className={`${action.color} w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center mb-1.5 sm:mb-2 md:mb-3 group-hover:scale-110 transition-transform`}>
-                  <action.icon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                </div>
-                <p className="text-[10px] sm:text-xs md:text-sm font-medium text-brand-text-primary text-left">
+                <span className="mt-1.5 text-xs sm:text-sm font-medium text-dashboard-heading leading-tight text-center">
                   {action.name}
-                </p>
-              </button>
+                </span>
+              </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Recent Transactions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm sm:text-base md:text-lg font-semibold text-brand-text-primary">
-                Recent Transactions
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/dashboard/transactions")}
-                className="text-brand-bg-primary hover:text-brand-bg-primary/80 text-xs sm:text-sm h-7 sm:h-8"
-              >
-                View All
-                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-0.5 sm:ml-1" />
-              </Button>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-100">
+        <section>
+          <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface overflow-hidden">
             {dashboardData.transaction_history.length > 0 ? (
-              dashboardData.transaction_history.slice(0, 5).map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="p-3 sm:p-4 md:p-6 hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() => router.push(`/dashboard/transactions/${transaction.id}${transaction.provider ? `?provider=${transaction.provider}` : ""}`)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
-                      {getTransactionLogo(transaction) ? (
-                        <img
-                          src={getTransactionLogo(transaction) as string}
-                          alt={transaction.description}
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${
-                          transaction.credit_debit === "credit"
-                            ? "bg-green-50"
-                            : "bg-red-50"
-                        }`}>
-                          {transaction.credit_debit === "credit" ? (
-                            <ArrowDownLeft className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
-                          )}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-brand-text-primary text-xs sm:text-sm truncate">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {dashboardData.transaction_history.slice(0, 5).map((transaction, idx) => {
+                  const logo = getTransactionLogo(transaction);
+                  const isCredit = transaction.credit_debit === "credit";
+                  const statusStyle =
+                    transaction.status === "success"
+                      ? "text-[var(--tx-success-text)]"
+                      : transaction.status === "pending"
+                        ? "text-[var(--tx-pending-text)]"
+                        : "text-[var(--tx-failed-text)]";
+                  return (
+                    <motion.button
+                      key={transaction.id}
+                      layout
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                      type="button"
+                      className={`flex w-full items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left hover:bg-dashboard-bg/50 active:bg-dashboard-bg/70 transition-colors focus:outline-none focus-visible:bg-dashboard-bg/50 touch-manipulation ${
+                        idx > 0 ? "border-t border-dashboard-border/40" : ""
+                      }`}
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/transactions/${transaction.id}${transaction.provider ? `?provider=${transaction.provider}` : ""}`
+                        )
+                      }
+                    >
+                      <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-dashboard-bg/80">
+                        {isCredit ? (
+                          <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
+                        ) : logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- dynamic network/transaction logo
+                          <img
+                            src={logo}
+                            alt=""
+                            className="h-full w-full object-contain p-[5px]"
+                          />
+                        ) : (
+                          <ArrowUpRight className="h-3.5 w-3.5 text-[var(--tx-failed-text)]" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-dashboard-heading text-xs sm:text-[13px] truncate leading-tight">
                           {transaction.description}
                         </p>
-                        <p className="text-[10px] sm:text-xs md:text-sm text-brand-text-secondary">
+                        <p className="text-[10px] sm:text-[11px] text-dashboard-muted mt-0.5 leading-tight">
                           {formatDate(transaction.date)}
                         </p>
                       </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className={`font-semibold text-xs sm:text-sm ${
-                        transaction.credit_debit === "credit"
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}>
-                        {transaction.credit_debit === "credit" ? "+" : "-"}₦{transaction.amount}
-                      </p>
-                      <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${
-                        transaction.status === "success"
-                          ? "bg-green-50 text-green-700"
-                          : transaction.status === "pending"
-                          ? "bg-yellow-50 text-yellow-700"
-                          : "bg-red-50 text-red-700"
-                      }`}>
-                        {transaction.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
+                      <div className="flex shrink-0 flex-col items-end gap-0.5">
+                        <p
+                          className={`text-xs sm:text-[13px] font-semibold tabular-nums leading-tight ${
+                            isCredit ? "text-[var(--tx-success-text)]" : "text-dashboard-heading"
+                          }`}
+                        >
+                          {isCredit ? "+" : "−"}₦{Number(transaction.amount).toLocaleString()}
+                        </p>
+                        <span
+                          className={`text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider ${statusStyle}`}
+                        >
+                          {transaction.status}
+                        </span>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </AnimatePresence>
             ) : (
-              <div className="p-8 sm:p-12 text-center text-brand-text-secondary">
-                <FileText className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-30" />
-                <p className="text-xs sm:text-sm">No transactions yet</p>
+              <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-dashboard-bg text-dashboard-muted">
+                  <Receipt className="h-4.5 w-4.5" />
+                </div>
+                <p className="mt-2.5 text-xs font-medium text-dashboard-heading">No transactions yet</p>
+                <p className="mt-0.5 text-[11px] text-dashboard-muted">Your recent activity will appear here</p>
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Add Money — primary funding flow (account details + bank logo) */}
+      {/* Primary funding flow — direct DVA bank-transfer details. */}
       <AddMoneyBottomSheet
         isOpen={isAddMoneyOpen}
         onClose={() => setIsAddMoneyOpen(false)}
         bankAccounts={dashboardData?.accounts || []}
       />
 
-      {/* Card-funding verification — only reopened by the Paystack callback. */}
-      <FundWalletModal
+      {/* FundWalletModal — temporarily hidden while Paystack card funding is suspended */}
+      {/* <FundWalletModal
         isOpen={isFundWalletModalOpen}
         onClose={() => {
           setIsFundWalletModalOpen(false);
           setPaymentReference(null);
-          // Refresh dashboard data after closing modal (in case payment was successful)
           refetch();
         }}
         bankAccounts={dashboardData?.accounts || []}
         initialReference={paymentReference}
-      />
+      /> */}
+
+      {welcomeBonusTx && (
+        <WelcomeBonusCongrats
+          isOpen={showWelcomeBonusCongrats}
+          onClose={() => {
+            setWelcomeBonusCongratsShownTxId(welcomeBonusTx.id);
+            setShowWelcomeBonusCongrats(false);
+          }}
+          amount={welcomeBonusTx.amount}
+          transactionId={welcomeBonusTx.id}
+        />
+      )}
+
+      {showOnboarding && dashboardData && (
+        <OnboardingWalkthrough
+          firstName={dashboardData.user.first_name}
+          walletCardRef={walletCardRef}
+          quickLinksRef={quickLinksRef}
+          menuButtonRef={menuButtonRef}
+          rewardBannersRef={rewardBannersRef}
+        />
+      )}
     </div>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-brand-bg-primary" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <DashboardSkeleton />
+      }
+    >
       <DashboardContent />
     </Suspense>
   );

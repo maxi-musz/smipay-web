@@ -9,6 +9,7 @@ const protectedRoutes = [
   "/transactions",
   "/settings",
   "/cards",
+  "/unified-admin",
 ];
 
 // Define auth routes (redirect to dashboard if already logged in)
@@ -17,7 +18,7 @@ const authRoutes = [
   "/auth/register",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Check if route is protected
@@ -28,12 +29,12 @@ export function middleware(request: NextRequest) {
 
   // Check if this is a payment callback (from Paystack, etc.)
   const isPaymentCallback = searchParams.get("payment") === "callback";
-  const hasPaymentReference = searchParams.has("reference") || searchParams.has("trxref");
+  void (searchParams.has("reference") || searchParams.has("trxref")); // reserved for payment callback handling
 
   // Get token from cookie or localStorage (handled client-side)
   // For server-side, we check if there's a token cookie
   const token = request.cookies.get("smipay-access-token")?.value;
-  
+
   // Check for payment-in-progress flag in localStorage (via cookie)
   const paymentInProgress = request.cookies.get("smipay-payment-in-progress")?.value;
 
@@ -44,7 +45,7 @@ export function middleware(request: NextRequest) {
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
   }
-  
+
   // If payment callback or payment in progress, allow through and let client handle it
   if ((isPaymentCallback || paymentInProgress) && isProtectedRoute) {
     return NextResponse.next();
@@ -73,7 +74,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Specify which routes should use this middleware
+// Specify which routes should use this proxy
 export const config = {
   matcher: [
     /*
@@ -87,4 +88,3 @@ export const config = {
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
-

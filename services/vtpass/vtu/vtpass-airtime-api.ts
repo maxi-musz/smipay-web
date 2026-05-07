@@ -21,6 +21,7 @@ export interface VtpassPurchaseRequest {
   amount: number;
   phone: string;
   request_id?: string;
+  use_cashback?: boolean;
 }
 
 export interface VtpassTransactionContent {

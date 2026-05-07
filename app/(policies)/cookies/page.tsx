@@ -23,7 +23,7 @@ export default function CookiesPolicyPage() {
               Cookies Policy
             </h1>
             <p className="mt-3 text-sm text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function CookiesPolicyPage() {
               Cookies Policy
             </h1>
             <p className="mt-3 text-sm text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function CookiesPolicyPage() {
               Cookies Policy
             </h1>
             <p className="mt-2 text-xs text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function CookiesPolicyPage() {
               Cookies Policy
             </h1>
             <p className="mt-2 text-xs text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>

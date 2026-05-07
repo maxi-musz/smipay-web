@@ -1,55 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
-
-// Get provider from env, default to 'vtpass'
-const getProvider = () => {
-  const provider = (process.env.NEXT_PUBLIC_AIRTIME_PROVIDER || "vtpass")
-    .toLowerCase()
-    .trim();
-  
-  const validProviders = ["vtpass", "sagecloud"];
-  return validProviders.includes(provider) ? provider : "vtpass";
-};
-
-// Dynamically import the provider component
-const VtpassElectricity = dynamic(
-  () => import("./vtpass/page"),
-  { 
-    loading: () => (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-brand-bg-primary mx-auto mb-4" />
-          <p className="text-brand-text-secondary">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-);
-
-const SagecloudElectricity = dynamic(
-  () => import("./sagecloud/page"),
-  { 
-    loading: () => (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-brand-bg-primary mx-auto mb-4" />
-          <p className="text-brand-text-secondary">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-);
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function ElectricityPage() {
-  const provider = getProvider();
+  const router = useRouter();
 
-  // Conditionally render the appropriate provider component
-  if (provider === "sagecloud") {
-    return <SagecloudElectricity />;
-  }
+  useEffect(() => {
+    router.replace("/dashboard/electricity/vtpass");
+  }, [router]);
 
-  // Default to vtpass
-  return <VtpassElectricity />;
+  return null;
 }

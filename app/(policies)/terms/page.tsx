@@ -23,7 +23,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h1>
             <p className="mt-3 text-sm text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h1>
             <p className="mt-3 text-sm text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h1>
             <p className="mt-2 text-xs text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h1>
             <p className="mt-2 text-xs text-[#9CA3AF]">
-              Last updated: November 21, 2025
+              Last updated: Febuary 26, 2026
             </p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function TermsOfServicePage() {
             <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed">
               Smipay is a digital platform that allows users to make everyday
               payments such as airtime, data, electricity bills, cable
-              subscriptions, education payments, betting funding, travel and
+              subscriptions, education payments, travel and
               homes agencies payments. Smipay is operated by Best Technologies
               Ltd., registered in Nigeria.
             </p>
@@ -217,7 +217,7 @@ export default function TermsOfServicePage() {
               </li>
             </ul>
 
-            <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
+            {/* <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
               Virtual Card Services
             </h2>
             <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mb-3">
@@ -236,7 +236,7 @@ export default function TermsOfServicePage() {
             <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mt-3">
               International transactions may attract additional fees or exchange
               rates determined by the card issuer.
-            </p>
+            </p> */}
 
             <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
               Service Availability
@@ -344,19 +344,30 @@ export default function TermsOfServicePage() {
             </ul>
 
             <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
-              Suspension or Termination
+              Suspension, Termination and Account Closure
             </h2>
             <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mb-3">
               Smipay may suspend or terminate your access if:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-sm md:text-base text-brand-text-secondary">
-              <li>You breach these Terms</li>
-              <li>Fraudulent activity is detected</li>
-              <li>Required by law or regulatory authorities</li>
-              <li>You misuse any part of the platform</li>
+              <li>You breach these Terms or any applicable law</li>
+              <li>Fraudulent or high‑risk activity is detected on your account</li>
+              <li>We are required to do so by law, a court order, or a regulator</li>
+              <li>You misuse any part of the platform or attempt to compromise security</li>
             </ul>
             <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mt-3">
-              You may also close your account at any time.
+              You may also close your Smipay account at any time. To close your
+              account, you can use any in‑app account‑closure option (where
+              available) or contact us via{" "}
+              <strong>support@smipay.com</strong> from your registered email
+              address. Once your account is closed, you will no longer be able to
+              access Smipay services. We may retain certain records as required
+              for legal, regulatory, accounting, or anti‑fraud purposes, in line
+              with our{" "}
+              <a href="/privacy" className="text-dashboard-accent hover:underline">
+                Privacy Policy
+              </a>
+              .
             </p>
 
             <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">

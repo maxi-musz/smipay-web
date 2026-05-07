@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
 
 interface PasswordInputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export function PasswordInput({ error, ...props }: PasswordInputProps) {
+export function PasswordInput({ error, className, ...props }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -17,12 +19,14 @@ export function PasswordInput({ error, ...props }: PasswordInputProps) {
       <Input
         {...props}
         type={showPassword ? "text" : "password"}
-        className={error ? "border-red-500 focus-visible:ring-red-500" : ""}
+        className={cn(className, "pr-10", error && "input-auth-error")}
       />
-      <button
+      <motion.button
         type="button"
         onClick={() => setShowPassword(!showPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-secondary hover:text-brand-text-primary transition-colors"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-dashboard-muted hover:text-dashboard-heading transition-colors"
         tabIndex={-1}
       >
         {showPassword ? (
@@ -30,8 +34,7 @@ export function PasswordInput({ error, ...props }: PasswordInputProps) {
         ) : (
           <Eye className="h-4 w-4" />
         )}
-      </button>
+      </motion.button>
     </div>
   );
 }
-

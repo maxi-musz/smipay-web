@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wallet, TrendingUp, ArrowUpRight, Copy, Check } from "lucide-react";
+import { TrendingUp, ArrowUpRight, Copy, Check } from "lucide-react";
 import { userApi } from "@/services/user-api";
 import type { WalletCard } from "@/types/dashboard";
 

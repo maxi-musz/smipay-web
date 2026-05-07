@@ -37,26 +37,33 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value:
-              "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+              "camera=(), microphone=(), geolocation=(self), interest-cohort=()",
           },
           {
             key: "Content-Security-Policy",
-            value: `
-              default-src 'self';
-              script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live;
-              style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-              img-src 'self' blob: data: https:;
-              font-src 'self' data: https://fonts.gstatic.com;
-              connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"} https://vercel.live;
-              frame-src 'self';
-              object-src 'none';
-              base-uri 'self';
-              form-action 'self';
-              frame-ancestors 'self';
-              upgrade-insecure-requests;
-            `
-              .replace(/\s{2,}/g, " ")
-              .trim(),
+            value: (() => {
+              const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL ||
+                process.env.EXPO_PUBLIC_API_BASE_URL ||
+                "http://localhost:3001";
+              const wsUrl = apiUrl.replace(/^http/, "ws");
+              return `
+                default-src 'self';
+                script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live;
+                style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                img-src 'self' blob: data: https:;
+                font-src 'self' data: https://fonts.gstatic.com;
+                connect-src 'self' ${apiUrl} ${wsUrl} https://vercel.live;
+                frame-src 'self';
+                object-src 'none';
+                base-uri 'self';
+                form-action 'self';
+                frame-ancestors 'self';
+                upgrade-insecure-requests;
+              `
+                .replace(/\s{2,}/g, " ")
+                .trim();
+            })(),
           },
         ],
       },
@@ -65,8 +72,15 @@ const nextConfig: NextConfig = {
 
   // Environment variables validation
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    /** Backend API origin. Prefer NEXT_PUBLIC_API_URL; else same as Expo app (EXPO_PUBLIC_API_BASE_URL in .env). */
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.EXPO_PUBLIC_API_BASE_URL ||
+      "",
     NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "Smipay",
+    /** Comma-separated admin emails; DEV_EMAILS in .env is mapped here for client-side dev UI. */
+    NEXT_PUBLIC_DEV_EMAILS:
+      process.env.DEV_EMAILS ?? process.env.NEXT_PUBLIC_DEV_EMAILS ?? "",
   },
 };
 

@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, KeyRound, Loader2, Mail } from "lucide-react";
-
 import { AuthCard } from "@/components/auth/AuthCard";
 import { FormError } from "@/components/auth/FormError";
 import { FormSuccess } from "@/components/auth/FormSuccess";
@@ -12,326 +10,271 @@ import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  AUTH_OTP_DIGITS,
-  AUTH_PASSWORD_DIGITS,
-} from "@/lib/validations/auth/register-backend.schema";
-import {
-  requestPasswordResetSchema,
-  resetPasswordSchema,
-} from "@/lib/validations/auth/forgot-password-backend.schema";
 import { authApi } from "@/services/auth-api";
+import {
+  AUTH_EMAIL_OTP_DIGITS,
+  AUTH_PASSWORD_DIGITS,
+  isAuthPasswordValid,
+} from "@/lib/auth-password";
+import { Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
-type Step = "email" | "reset";
-type Field = "email" | "otp" | "new_password";
+const emailSchema = (v: string) => {
+  if (!v?.trim()) return "Email is required";
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(v.trim()) ? null : "Invalid email address";
+};
 
-const RESEND_COOLDOWN_S = 60;
+const otpSchema = (v: string) => {
+  if (!v || v.length !== AUTH_EMAIL_OTP_DIGITS) {
+    return `OTP must be exactly ${AUTH_EMAIL_OTP_DIGITS} digits`;
+  }
+  return new RegExp(`^\\d{${AUTH_EMAIL_OTP_DIGITS}}$`).test(v)
+    ? null
+    : "OTP must contain only numbers";
+};
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-
-  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
-
-  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Tick the resend cooldown.
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const id = setInterval(
-      () => setResendCooldown((v) => (v > 0 ? v - 1 : 0)),
-      1000
-    );
-    return () => clearInterval(id);
-  }, [resendCooldown]);
-
-  function clearFieldError(field: Field) {
-    setErrors((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
-  }
-
-  async function handleRequestReset(e: React.FormEvent) {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
     setSuccessMessage("");
-    setErrors({});
-
-    const result = requestPasswordResetSchema.safeParse({ email });
-    if (!result.success) {
-      const fieldErrors: Partial<Record<Field, string>> = {};
-      result.error.issues.forEach((issue) => {
-        fieldErrors[issue.path[0] as Field] = issue.message;
-      });
-      setErrors(fieldErrors);
+    const err = emailSchema(email);
+    if (err) {
+      setErrors({ email: err });
       return;
     }
-
+    setErrors({});
     setIsLoading(true);
     try {
-      const response = await authApi.forgotPassword(result.data.email);
-      setSuccessMessage(
-        response?.message ||
-          `If an account exists for that email, we've sent a ${AUTH_OTP_DIGITS}-digit reset code.`
+      const response = await authApi.requestPasswordReset(
+        email.trim().toLowerCase()
       );
-      setStep("reset");
-      setResendCooldown(RESEND_COOLDOWN_S);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to send reset code. Please try again.";
-      setServerError(message);
+      setSuccessMessage(response.message || "OTP sent to your email.");
+      setOtpSent(true);
+      setTimeout(() => setSuccessMessage(""), 2500);
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error ? err.message : "Failed to send OTP. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
-  }
-
-  async function handleResendOtp() {
-    if (resendCooldown > 0 || isLoading || !email) return;
-    setServerError("");
-    setSuccessMessage("");
-    setIsLoading(true);
-    try {
-      await authApi.forgotPassword(email);
-      setOtp("");
-      setSuccessMessage("A new reset code has been sent.");
-      setResendCooldown(RESEND_COOLDOWN_S);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to resend code. Please try again.";
-      setServerError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleResetPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setServerError("");
-    setSuccessMessage("");
-    setErrors({});
-
-    const result = resetPasswordSchema.safeParse({
-      email,
-      otp,
-      new_password: newPassword,
-    });
-
-    if (!result.success) {
-      const fieldErrors: Partial<Record<Field, string>> = {};
-      result.error.issues.forEach((issue) => {
-        fieldErrors[issue.path[0] as Field] = issue.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await authApi.resetPassword({
-        email: result.data.email,
-        otp: result.data.otp,
-        new_password: result.data.new_password,
-      });
-      setSuccessMessage(
-        response?.message ||
-          "Password reset successfully. Sign in with your new password."
-      );
-      setTimeout(() => {
-        router.push("/auth/signin?reset=true");
-      }, 1500);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to reset password. Please try again.";
-      setServerError(message);
-      setIsLoading(false);
-    }
-  }
-
-  const goBackToEmail = () => {
-    setStep("email");
-    setOtp("");
-    setNewPassword("");
-    setErrors({});
-    setServerError("");
-    setSuccessMessage("");
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServerError("");
+    setSuccessMessage("");
+
+    const emailErr = emailSchema(email);
+    if (emailErr) {
+      setErrors((prev) => ({ ...prev, email: emailErr }));
+      return;
+    }
+    const otpErr = otpSchema(otp);
+    if (otpErr) {
+      setErrors((prev) => ({ ...prev, otp: otpErr }));
+      return;
+    }
+    if (!isAuthPasswordValid(newPassword)) {
+      setErrors((prev) => ({
+        ...prev,
+        newPassword: `Use exactly ${AUTH_PASSWORD_DIGITS} digits (0–9), same as sign-in.`,
+      }));
+      return;
+    }
+
+    setErrors({});
+    setIsLoading(true);
+    try {
+      await authApi.resetPassword({
+        email: email.trim().toLowerCase(),
+        otp,
+        new_password: newPassword,
+      });
+      setSuccessMessage("Password reset successfully. Redirecting to sign in...");
+      setTimeout(() => router.push("/auth/signin"), 2000);
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error
+          ? err.message
+          : "Failed to reset password. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isResetReady =
+    otpSent &&
+    otp.length === AUTH_EMAIL_OTP_DIGITS &&
+    isAuthPasswordValid(newPassword);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
       <AuthCard
-        title={step === "email" ? "Forgot Password?" : "Reset Password"}
+        title="Forgot password"
         description={
-          step === "email"
-            ? "Enter your email and we'll send you a reset code."
-            : `Enter the ${AUTH_OTP_DIGITS}-digit code sent to ${email} and your new ${AUTH_PASSWORD_DIGITS}-digit password.`
+          !otpSent
+            ? `Enter your email to receive a ${AUTH_EMAIL_OTP_DIGITS}-digit code`
+            : "Enter the code from your email and choose a new 6-digit PIN"
         }
       >
         {serverError && <FormError message={serverError} />}
         {successMessage && <FormSuccess message={successMessage} />}
 
-        {step === "email" && (
-          <form onSubmit={handleRequestReset} className="space-y-5 mt-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  clearFieldError("email");
-                }}
-                disabled={isLoading}
-                className={errors.email ? "border-red-500" : ""}
-                autoComplete="email"
-              />
-              {errors.email && (
-                <p className="text-xs text-red-600">{errors.email}</p>
-              )}
-            </div>
+        <motion.form
+          onSubmit={otpSent ? handleResetPassword : handleRequestOtp}
+          className="space-y-5 mt-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="email" className="label-auth">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={otpSent || isLoading}
+              readOnly={otpSent}
+              className={`input-auth ${errors.email ? "input-auth-error" : ""} ${otpSent ? "input-auth-readonly" : ""}`}
+            />
+            {errors.email && (
+              <p className="text-xs text-red-600">{errors.email}</p>
+            )}
+          </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending code...
-                </>
-              ) : (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send Reset Code
-                </>
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-brand-text-secondary">
-              Remembered it?{" "}
-              <Link
-                href="/auth/signin"
-                className="text-brand-bg-primary hover:underline font-medium"
+          <AnimatePresence mode="wait">
+            {!otpSent && (
+              <motion.div
+                key="send-otp"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
               >
-                Back to sign in
-              </Link>
-            </div>
-          </form>
-        )}
+                <Button
+                  type="submit"
+                  className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending OTP...
+                    </>
+                  ) : (
+                    "Send OTP"
+                  )}
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {step === "reset" && (
-          <form onSubmit={handleResetPassword} className="space-y-5 mt-6">
-            <button
-              type="button"
-              onClick={goBackToEmail}
-              className="flex items-center gap-2 text-sm text-brand-text-secondary hover:text-brand-text-primary"
-              disabled={isLoading}
+          {otpSent && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-5"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Use a different email
-            </button>
+              <div className="space-y-2">
+                <Label htmlFor="otp" className="label-auth">
+                  {AUTH_EMAIL_OTP_DIGITS}-digit OTP
+                </Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(
+                      e.target.value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS)
+                    )
+                  }
+                  disabled={isLoading}
+                  maxLength={AUTH_EMAIL_OTP_DIGITS}
+                  className={`input-auth text-center text-xl tracking-[0.35em] ${errors.otp ? "input-auth-error" : ""}`}
+                />
+                {errors.otp && (
+                  <p className="text-xs text-red-600">{errors.otp}</p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="otp">Reset Code</Label>
-              <Input
-                id="otp"
-                name="otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="000000"
-                value={otp}
-                onChange={(e) => {
-                  setOtp(e.target.value.replace(/\D/g, "").slice(0, AUTH_OTP_DIGITS));
-                  clearFieldError("otp");
-                }}
-                disabled={isLoading}
-                maxLength={AUTH_OTP_DIGITS}
-                className={`text-center text-2xl tracking-widest ${
-                  errors.otp ? "border-red-500" : ""
-                }`}
-              />
-              {errors.otp && <p className="text-xs text-red-600">{errors.otp}</p>}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword" className="label-auth">New PIN</Label>
+                <PasswordInput
+                  id="newPassword"
+                  name="newPassword"
+                  placeholder={`${AUTH_PASSWORD_DIGITS} digits`}
+                  value={newPassword}
+                  onChange={(e) =>
+                    setNewPassword(
+                      e.target.value.replace(/\D/g, "").slice(0, AUTH_PASSWORD_DIGITS)
+                    )
+                  }
+                  disabled={isLoading}
+                  error={errors.newPassword}
+                  className="input-auth"
+                  inputMode="numeric"
+                  maxLength={AUTH_PASSWORD_DIGITS}
+                />
+                <p className="text-xs text-dashboard-muted">
+                  Exactly {AUTH_PASSWORD_DIGITS} numbers — same as registration and sign-in
+                </p>
+                {errors.newPassword && (
+                  <p className="text-xs text-red-600">
+                    {errors.newPassword}
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="new_password">New Password</Label>
-              <PasswordInput
-                id="new_password"
-                name="new_password"
-                placeholder="••••••"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(
-                    e.target.value.replace(/\D/g, "").slice(0, AUTH_PASSWORD_DIGITS)
-                  );
-                  clearFieldError("new_password");
-                }}
-                disabled={isLoading}
-                error={errors.new_password}
-                inputMode="numeric"
-                autoComplete="new-password"
-                maxLength={AUTH_PASSWORD_DIGITS}
-              />
-              {errors.new_password && (
-                <p className="text-xs text-red-600">{errors.new_password}</p>
-              )}
-              <p className="text-xs text-brand-text-secondary">
-                Exactly {AUTH_PASSWORD_DIGITS} digits (0–9) — same as your sign-in password.
-              </p>
-            </div>
+              <Button
+                type="submit"
+                className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
+                disabled={isLoading || !isResetReady}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Resetting password...
+                  </>
+                ) : (
+                  "Reset password"
+                )}
+              </Button>
+            </motion.div>
+          )}
+        </motion.form>
 
-            <Button
-              type="submit"
-              className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              disabled={
-                isLoading ||
-                otp.length !== AUTH_OTP_DIGITS ||
-                newPassword.length !== AUTH_PASSWORD_DIGITS
-              }
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resetting password...
-                </>
-              ) : (
-                <>
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  Reset Password
-                </>
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={handleResendOtp}
-              disabled={isLoading || resendCooldown > 0}
-            >
-              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
-            </Button>
-          </form>
-        )}
+        <motion.p
+          className="text-center text-sm text-dashboard-muted mt-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Link
+            href="/auth/signin"
+            className="text-dashboard-accent hover:underline"
+          >
+            Back to sign in
+          </Link>
+        </motion.p>
       </AuthCard>
     </div>
   );

@@ -20,14 +20,13 @@ export function NetworkSelector({
 }: NetworkSelectorProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-[280px] sm:max-w-none mx-auto sm:mx-0">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl border-2 border-gray-200 animate-pulse bg-gray-50"
+            className="aspect-square w-full max-w-[56px] sm:max-w-[64px] mx-auto rounded-full border border-dashboard-border/80 animate-pulse bg-dashboard-bg/60 flex items-center justify-center"
           >
-            <div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-lg bg-gray-200 mb-1 sm:mb-2 mx-auto"></div>
-            <div className="h-3 sm:h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-dashboard-border/60" />
           </div>
         ))}
       </div>
@@ -36,20 +35,16 @@ export function NetworkSelector({
 
   if (services.length === 0) {
     return (
-      <div className="text-center py-8 text-brand-text-secondary">
-        <p>No network providers available at the moment.</p>
+      <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/50 py-8 text-center">
+        <p className="text-sm text-dashboard-muted">No network providers available.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+    <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-[280px] sm:max-w-none mx-auto sm:mx-0">
       {services.map((service) => {
         const isSelected = selectedServiceId === service.serviceID;
-        const minAmount = parseFloat(service.minimium_amount);
-        const maxAmount = parseFloat(service.maximum_amount);
-        
-        // Get local logo path, fallback to API image if local logo not found
         const localLogo = getNetworkLogo(service.serviceID);
         const logoPath = localLogo || service.image;
 
@@ -59,46 +54,42 @@ export function NetworkSelector({
             type="button"
             onClick={() => onSelect(service.serviceID)}
             disabled={isLoading}
+            title={service.name.replace(" Data", "").replace(" (SME)", "")}
             className={cn(
-              "p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left",
-              "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-bg-primary focus:ring-offset-1 sm:focus:ring-offset-2",
+              "aspect-square w-full max-w-[56px] sm:max-w-[64px] min-w-0 mx-auto rounded-full border-2 transition-all duration-200 flex items-center justify-center p-1.5 sm:p-2 overflow-hidden",
+              "min-h-[44px] touch-manipulation",
+              "focus:outline-none focus:ring-2 focus:ring-dashboard-accent focus:ring-offset-2 focus:ring-offset-dashboard-surface",
               "disabled:opacity-50 disabled:cursor-not-allowed",
+              "active:scale-[0.98]",
               isSelected
-                ? "border-brand-bg-primary bg-brand-bg-primary/5 shadow-md ring-2 ring-brand-bg-primary/20"
-                : "border-gray-200 hover:border-gray-300 bg-white"
+                ? "border-brand-bg-primary bg-brand-bg-primary/10 shadow-sm"
+                : "border-dashboard-border/80 bg-dashboard-surface hover:border-dashboard-border hover:shadow-sm"
             )}
           >
-            <div className="flex flex-col items-center text-center">
-              {logoPath ? (
-                <div className="relative h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 sm:mb-1.5 md:mb-2">
-                  <Image
-                    src={logoPath}
-                    alt={service.name}
-                    fill
-                    className="object-contain rounded-lg"
-                    unoptimized={!localLogo}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = '<div class="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-lg bg-gray-100 flex items-center justify-center"><span class="text-base sm:text-xl md:text-2xl">📱</span></div>';
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-lg bg-gray-100 mb-1 sm:mb-1.5 md:mb-2 flex items-center justify-center">
-                  <span className="text-base sm:text-xl md:text-2xl">📱</span>
-                </div>
-              )}
-              <p className="font-semibold text-[11px] sm:text-xs md:text-sm text-slate-800">
-                {service.name.replace(" Data", "").replace(" (SME)", "")}
-              </p>
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-slate-500 mt-0.5 sm:mt-1">
-                ₦{minAmount.toLocaleString()} - ₦{maxAmount.toLocaleString()}
-              </p>
-            </div>
+            {logoPath ? (
+              <div className="relative h-full w-full min-h-8 min-w-8 sm:min-h-9 sm:min-w-9 rounded-full overflow-hidden">
+                <Image
+                  src={logoPath}
+                  alt={service.name}
+                  fill
+                  className="object-cover"
+                  unoptimized={!localLogo}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML =
+                        '<div class="h-full w-full min-h-8 min-w-8 rounded-full bg-dashboard-border/50 flex items-center justify-center"><span class="text-lg sm:text-xl">📱</span></div>';
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-dashboard-border/50 flex items-center justify-center flex-shrink-0">
+                <span className="text-lg sm:text-xl">📱</span>
+              </div>
+            )}
           </button>
         );
       })}

@@ -13,7 +13,7 @@ const cards = [
     badge: "Airtime & Data",
     title: "Always Stay Connected",
     description:
-      "Buy airtime and data anytime without stress. Top up for yourself, friends, or family in seconds, across all major networks in Nigeria. No need to rush out or look for a vendor — fast, reliable, and transparent payments that keep you talking, browsing, and online whenever you need it.",
+      "Top up airtime and data in seconds across all major networks. For you, friends, or family — fast, reliable, and always available.",
     image: "/imgs/stack-card-01.png",
   },
   {
@@ -21,7 +21,7 @@ const cards = [
     badge: "Electricity",
     title: "Power Your Home Smoothly",
     description:
-      "No more darkness or last-minute panic. Pay your electricity bills instantly, whether for home or business, and get your token immediately. We support major electricity providers nationwide, making it easy to stay powered and in control with secure payments and complete transaction history.",
+      "Pay electricity bills and get your token instantly. All major providers supported — no queues, no panic, just power when you need it.",
     image: "/imgs/stack-card-02.png",
   },
   {
@@ -29,7 +29,7 @@ const cards = [
     badge: "Cable TV",
     title: "Entertainment Without Interruptions",
     description:
-      "Renew your cable subscription in a few taps and keep the movies, sports, news, and family programming running. Quick payments, instant activation, and no queues or customer service stress. Just smooth access to your favorite channels, whenever you want.",
+      "Renew your cable subscription in a few taps. Instant activation, no queues — just uninterrupted access to your favorite channels.",
     image: "/imgs/stack-card-03.png",
   },
   {
@@ -37,25 +37,25 @@ const cards = [
     badge: "Education",
     title: "Learning Made Easy",
     description:
-      "Pay for school fees and educational services across the country without paperwork or long lines. From WAEC and JAMB to institutional fees and learning platforms, everything happens in one place — secure, fast, and stress-free. Helping students focus on learning while we handle the payments.",
+      "Pay WAEC, JAMB, school fees, and more in one place. Secure, fast, and paperwork-free — so students can focus on learning.",
     image: "/imgs/stack-card-04.png",
   },
   {
     bgColor: "bg-[#E9F2FE]",
     badge: "Travel Payments",
-    title: "Your Easy Way to Pay for Trips",
+    title: "Pay for Trips with Ease",
     description:
-      "Pay for flights, hotels, and travel services directly from the app without stress. Handle your travel expenses smoothly, whether you are booking locally or internationally. Enjoy secure payments, fast processing, and full transaction tracking — making every trip easier from planning to takeoff.",
+      "Book and pay for flights, hotels, and travel services right from the app. Local or international — fast, secure, and fully tracked.",
     image: "/imgs/stack-card-05.png",
   },
-  {
-    bgColor: "bg-[#F0F7F6]",
-    badge: "Betting Wallet Funding",
-    title: "Your Simple Way to Fund Your Betting Accounts",
-    description:
-      "Fund your favorite betting platforms quickly and securely from one place. No delays, no failed payments, and no switching between apps. Enjoy fast top-ups, reliable processing, and clear transaction history — so you can focus on the game, not the payment.",
-    image: "/imgs/stack-card-06.png",
-  },
+  // {
+  //   bgColor: "bg-[#F0F7F6]",
+  //   badge: "Betting Wallet Funding",
+  //   title: "Quick Betting Top-Ups",
+  //   description:
+  //     "Fund your betting accounts instantly from one place. No delays, no failed payments — just fast, reliable top-ups.",
+  //   image: "/imgs/stack-card-06.png",
+  // },
 ];
 
 export default function StackCard() {
@@ -82,7 +82,7 @@ export default function StackCard() {
               <StackingCardItem
                 key={index}
                 index={index}
-                className="h-[420px] sm:h-[500px] md:h-[480px] lg:h-[460px] mb-4 sm:mb-6 md:mb-8"
+                className="h-[480px] sm:h-[500px] md:h-[480px] lg:h-[460px] mb-4 sm:mb-6 md:mb-8"
               >
                 <div
                   className={cn(
@@ -95,13 +95,13 @@ export default function StackCard() {
                 >
                   {/* Text Content */}
                   <div className="flex-1 flex flex-col justify-center z-10 space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-6 sm:px-0">
-                    <div className="inline-flex items-center justify-center sm:justify-start w-fit px-2.5 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-full bg-brand-bg-primary text-white text-[10px] sm:text-xs md:text-sm mb-1 sm:mb-3 md:mb-4 lg:mb-5">
+                    <div className="inline-flex items-center justify-center sm:justify-start w-fit px-2.5 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-full bg-brand-bg-primary text-white text-xs sm:text-xs md:text-sm mb-1 sm:mb-3 md:mb-4 lg:mb-5">
                       {badge}
                     </div>
-                    <h3 className="font-semibold text-sm sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-brand-text-primary">
+                    <h3 className="font-semibold text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-brand-text-primary">
                       {title}
                     </h3>
-                    <p className="text-[11px] sm:text-xs md:text-sm leading-relaxed text-brand-text-secondary">
+                    <p className="text-xs sm:text-xs md:text-sm leading-relaxed text-brand-text-secondary">
                       {description}
                     </p>
                   </div>

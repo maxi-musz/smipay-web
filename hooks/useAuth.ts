@@ -43,6 +43,7 @@ export function useAuth() {
     setLoading,
     setError,
     clearError,
+    initializeAuth,
   };
 }
 

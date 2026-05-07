@@ -12,14 +12,18 @@ export default function Header() {
   return (
     <header className="w-full bg-[#F9FAFB] text-brand-text-primary">
       <div className="mx-auto flex h-header max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/smipay-logo.png"
-            alt="Smipay Logo"
-            width={118}
-            height={6}
-            className="object-contain"
+            src="/smipay-icon.jpg"
+            alt="Smipay"
+            width={36}
+            height={36}
+            className="rounded-lg"
+            priority
           />
+          <span className="text-lg font-bold tracking-tight text-slate-900">
+            Smi<span className="text-brand-bg-primary">pay</span>
+          </span>
         </Link>
 
         {/* Desktop Navigation */}

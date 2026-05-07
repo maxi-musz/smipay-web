@@ -13,9 +13,49 @@ export interface User {
   is_email_verified: boolean;
   is_phone_verified: boolean;
   account_status: string;
+  role: string;
+  has_completed_onboarding?: boolean;
   wallet?: {
     current_balance: number;
     isActive: boolean;
+  };
+}
+
+/** New-auth API user shape (§3.3 / §3.5 FRONTEND_DEVICE_METADATA.md) */
+export interface NewAuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string | null;
+  is_email_verified: boolean;
+  role?: string;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  profile_image?: string | null;
+  kyc_verified?: boolean;
+  isTransactionPinSetup?: boolean;
+  has_completed_onboarding?: boolean;
+  created_at?: string;
+}
+
+/** Map new-auth user to app User */
+export function mapNewAuthUserToUser(api: NewAuthUser): User {
+  const ext = api as unknown as Record<string, unknown>;
+  return {
+    id: api.id,
+    email: api.email,
+    phone_number: api.phone_number ?? "",
+    smipay_tag: (typeof ext.smipay_tag === "string" ? ext.smipay_tag : ""),
+    first_name: api.first_name,
+    last_name: api.last_name,
+    is_email_verified: api.is_email_verified,
+    is_phone_verified: ext.is_phone_verified === true,
+    account_status: (typeof ext.account_status === "string" ? ext.account_status : "active"),
+    role: api.role ?? "user",
+    has_completed_onboarding: api.has_completed_onboarding ?? true,
+    wallet: ext.wallet as User["wallet"] | undefined,
   };
 }
 
@@ -24,12 +64,12 @@ const USER_KEY = "smipay-user";
 const LAST_ACTIVITY_KEY = "smipay-last-activity";
 const TOKEN_EXPIRY_KEY = "smipay-token-expiry";
 const PAYMENT_IN_PROGRESS_KEY = "smipay-payment-in-progress";
+const PAYMENT_REFERENCE_KEY = "smipay-payment-reference";
 
-// Session timeout: 30 minutes of inactivity (fintech security standard)
-// Increased to 30 mins to accommodate external payment flows (Paystack, etc.)
-export const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
-// Warning before timeout: 5 minutes before expiry
-export const SESSION_WARNING_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+// Session timeout: 7 days (aligns with backend JWT lifetime)
+export const SESSION_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+// Warning before timeout: 1 hour before expiry
+export const SESSION_WARNING_TIME = 5 * 60 * 1000; //this should be 5 minutes in milliseconds
 
 /**
  * Save authentication token
@@ -223,6 +263,30 @@ export function isPaymentInProgress(): boolean {
     return elapsed < 15 * 60 * 1000; // 15 minutes
   }
   return false;
+}
+
+/**
+ * Persist payment reference across page redirects (Paystack redirect flow).
+ * Stored in localStorage so it survives the full-page redirect to Paystack
+ * and the redirect back to the app.
+ */
+export function savePaymentReference(reference: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(PAYMENT_REFERENCE_KEY, reference);
+  }
+}
+
+export function getPaymentReference(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem(PAYMENT_REFERENCE_KEY);
+  }
+  return null;
+}
+
+export function clearPaymentReference(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(PAYMENT_REFERENCE_KEY);
+  }
 }
 
 /**

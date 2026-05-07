@@ -1,54 +1,97 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PhoneNumberInput } from "@/app/dashboard/airtime/airtime-components/airtime/PhoneNumberInput";
 import { FormError } from "@/components/auth/FormError";
 import { Loader2 } from "lucide-react";
 import { vtpassDataApi } from "@/services/vtpass/vtu/vtpass-data-api";
+import { saveRecentEntry } from "@/lib/recent-numbers";
+import { RecentNumbers } from "@/components/dashboard/RecentNumbers";
 import type { VtpassDataVariation, VtpassDataPurchaseResponse } from "@/types/vtpass/vtu/vtpass-data";
 import { PurchaseConfirmationModal } from "./PurchaseConfirmationModal";
+import { doesPhoneMatchNigeriaService } from "@/lib/nigeria-network";
+
+const IS_NETWORK_CHECK_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_PHONE_NETWORK_CHECK === "true";
 
 interface DataPurchaseFormProps {
   selectedServiceId: string;
   selectedVariation: VtpassDataVariation;
   serviceName: string;
+  serviceImage?: string;
   onSuccess: (data: VtpassDataPurchaseResponse) => void;
   onError: (error: string) => void;
   walletBalance: number;
+  cashbackBalance?: string;
+  cashbackPercent?: number;
 }
 
 export function DataPurchaseForm({
   selectedServiceId,
   selectedVariation,
   serviceName,
+  serviceImage,
   onSuccess,
   onError,
   walletBalance,
+  cashbackBalance,
+  cashbackPercent,
 }: DataPurchaseFormProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [errors, setErrors] = useState<{
-    phoneNumber?: string;
-  }>({});
+  const [errors, setErrors] = useState<{ phoneNumber?: string }>({});
+  const [phoneNetworkWarning, setPhoneNetworkWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const amount = parseFloat(selectedVariation.variation_amount);
+  const cashbackBalanceNum = parseFloat((cashbackBalance || "0").replace(/[₦,]/g, "")) || 0;
+  const maxPayable = walletBalance + cashbackBalanceNum;
+
+  const getPhoneError = (value: string): string | undefined => {
+    if (!value) {
+      return "Phone number is required";
+    }
+
+    if (value.length !== 11) {
+      return "Phone number must be 11 digits";
+    }
+
+    if (!value.startsWith("0")) {
+      return "Phone number must start with 0";
+    }
+
+    return undefined;
+  };
+
+  const getPhoneNetworkWarning = (value: string): string | undefined => {
+    if (!IS_NETWORK_CHECK_ENABLED) {
+      return undefined;
+    }
+
+    // Only run network check when number is structurally valid
+    if (value.length !== 11 || !value.startsWith("0")) {
+      return undefined;
+    }
+
+    if (!doesPhoneMatchNigeriaService(value, serviceName)) {
+      return "This number may not belong to the selected network. You can still continue.";
+    }
+
+    return undefined;
+  };
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
 
-    if (!phoneNumber) {
-      newErrors.phoneNumber = "Phone number is required";
-    } else if (phoneNumber.length !== 11) {
-      newErrors.phoneNumber = "Phone number must be 11 digits";
-    } else if (!phoneNumber.startsWith("0")) {
-      newErrors.phoneNumber = "Phone number must start with 0";
+    const phoneError = getPhoneError(phoneNumber);
+    if (phoneError) {
+      newErrors.phoneNumber = phoneError;
     }
 
-    if (amount > walletBalance) {
-      setServerError("Insufficient wallet balance");
+    if (amount > maxPayable) {
+      setServerError("Insufficient wallet and cashback balance");
       return false;
     }
 
@@ -56,24 +99,30 @@ export function DataPurchaseForm({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setServerError("");
-
-    if (!validateForm()) {
+  useEffect(() => {
+    if (!phoneNumber) {
+      setPhoneNetworkWarning(null);
       return;
     }
 
-    // Show confirmation modal instead of submitting directly
+    const phoneError = getPhoneError(phoneNumber);
+    const warning = !phoneError ? getPhoneNetworkWarning(phoneNumber) : undefined;
+
+    setErrors((prev) => ({ ...prev, phoneNumber: phoneError }));
+    setPhoneNetworkWarning(warning || null);
+  }, [serviceName, phoneNumber]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServerError("");
+    if (!validateForm()) return;
     setShowConfirmation(true);
   };
 
-  const handleConfirmPurchase = async () => {
+  const handleConfirmPurchase = async (useCashback: boolean) => {
     setIsSubmitting(true);
     setShowConfirmation(false);
-
     try {
-      // Generate request ID for idempotency (format: YYYYMMDDHHII<random>)
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 16).replace(/[-:T]/g, "");
       const randomStr = Math.random().toString(36).substring(2, 8);
@@ -83,15 +132,15 @@ export function DataPurchaseForm({
         serviceID: selectedServiceId,
         billersCode: phoneNumber,
         variation_code: selectedVariation.variation_code,
-        amount: amount,
+        amount,
         phone: phoneNumber,
         request_id: requestId,
+        use_cashback: useCashback || undefined,
       });
 
       if (response.success) {
+        saveRecentEntry("data", selectedServiceId, phoneNumber);
         onSuccess(response.data);
-        // Reset form on success
-        setPhoneNumber("");
         setErrors({});
       } else {
         const errorMsg = response.message || "Transaction failed. Please try again.";
@@ -99,8 +148,7 @@ export function DataPurchaseForm({
         onError(errorMsg);
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An error occurred. Please try again.";
+      const errorMessage = error instanceof Error ? error.message : "An error occurred. Please try again.";
       setServerError(errorMessage);
       onError(errorMessage);
     } finally {
@@ -109,74 +157,83 @@ export function DataPurchaseForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-      {/* Phone Number Input */}
-      <div className="flex gap-3 sm:gap-4 items-end">
-        <div className="flex-1">
-          <PhoneNumberInput
-            value={phoneNumber}
-            onChange={setPhoneNumber}
-            error={errors.phoneNumber}
-            disabled={isSubmitting}
-          />
-        </div>
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+      <RecentNumbers type="data" onSelect={(entry) => setPhoneNumber(entry.number)} />
 
-      {/* Server Error */}
-      {serverError && (
-        <div>
-          <FormError message={serverError} />
-        </div>
+      <PhoneNumberInput
+        value={phoneNumber}
+        onChange={(value) => {
+          setPhoneNumber(value);
+          const phoneError = getPhoneError(value);
+          const warning = !phoneError ? getPhoneNetworkWarning(value) : undefined;
+          setErrors((prev) => ({ ...prev, phoneNumber: phoneError }));
+          setPhoneNetworkWarning(warning || null);
+        }}
+        error={errors.phoneNumber}
+        disabled={isSubmitting}
+      />
+
+      {!errors.phoneNumber && phoneNetworkWarning && (
+        <p className="text-[11px] text-amber-600 font-medium -mt-3">
+          {phoneNetworkWarning}
+        </p>
       )}
 
-      {/* Selected Plan Info */}
-      <div className="bg-slate-50 rounded-lg p-3 sm:p-4 border border-slate-200">
-        <div className="flex items-center justify-between gap-2">
+      {serverError && <FormError message={serverError} />}
+
+      {/* Selected plan recap */}
+      <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/60 p-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm text-slate-600 mb-0.5 sm:mb-1">Selected Plan</p>
-            <p className="font-semibold text-xs sm:text-sm text-slate-800 truncate">{selectedVariation.name}</p>
+            <p className="text-xs text-dashboard-muted mb-0.5">Plan</p>
+            <p className="font-semibold text-sm text-dashboard-heading truncate">{selectedVariation.name}</p>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-xs sm:text-sm text-slate-600 mb-0.5 sm:mb-1">Amount</p>
-            <p className="text-base sm:text-xl font-bold text-slate-800">₦{amount.toLocaleString()}</p>
+            <p className="text-xs text-dashboard-muted mb-0.5">Amount</p>
+            <p className="text-base sm:text-lg font-bold text-dashboard-heading tabular-nums">₦{amount.toLocaleString()}</p>
           </div>
         </div>
       </div>
 
-      {/* Submit Button */}
       <Button
         type="submit"
-        disabled={isSubmitting || !phoneNumber || phoneNumber.length !== 11}
-        className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-        size="lg"
+        disabled={
+          isSubmitting ||
+          !phoneNumber ||
+          phoneNumber.length !== 11 ||
+          Boolean(errors.phoneNumber)
+        }
+        className="w-full min-h-12 h-12 sm:min-h-[52px] sm:h-[52px] rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white text-base sm:text-lg font-semibold shadow-sm transition-all active:scale-[0.99] touch-manipulation"
       >
         {isSubmitting ? (
           <>
             <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-            Processing...
+            Processing…
           </>
         ) : (
           "Purchase Data"
         )}
       </Button>
 
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-        <p className="text-xs sm:text-sm text-blue-800">
-          <strong>Note:</strong> Data will be delivered instantly to the phone number
-          provided. Make sure the number is correct before proceeding.
+      <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/80 p-3 sm:p-4">
+        <p className="text-xs sm:text-sm text-dashboard-muted">
+          <strong className="text-dashboard-heading">Note:</strong> Data is delivered instantly. Double-check the number before paying.
         </p>
       </div>
 
-      {/* Purchase Confirmation Modal */}
       <PurchaseConfirmationModal
         isOpen={showConfirmation}
         onClose={() => setShowConfirmation(false)}
         onConfirm={handleConfirmPurchase}
         networkName={serviceName}
+        serviceID={selectedServiceId}
+        networkImage={serviceImage}
         planName={selectedVariation.name}
         phoneNumber={phoneNumber}
         amount={amount}
+        walletBalance={walletBalance}
+        cashbackBalance={cashbackBalance}
+        cashbackPercent={cashbackPercent}
         isLoading={isSubmitting}
       />
     </form>

@@ -1,586 +1,795 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { FormError } from "@/components/auth/FormError";
 import { FormSuccess } from "@/components/auth/FormSuccess";
-import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  AUTH_OTP_DIGITS,
-  AUTH_PASSWORD_DIGITS,
   requestEmailOtpSchema,
+  newAuthRegisterSchema,
   verifyEmailOtpSchema,
-  completeRegistrationSchema,
+  type NewAuthRegisterData,
 } from "@/lib/validations/auth/register-backend.schema";
 import { authApi } from "@/services/auth-api";
-import { Loader2, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { mapNewAuthUserToUser } from "@/lib/auth-storage";
+import { AUTH_EMAIL_OTP_DIGITS } from "@/lib/auth-password";
+import { Loader2, ArrowLeft, Mail, CheckCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
-type Step = "email" | "verify-otp" | "complete";
+/** Three-step registration flow per FRONTEND_DEVICE_METADATA.md §3.0 */
+type Step = "verify-email" | "verify-otp" | "register";
 
-interface RegistrationState {
-  email: string;
-  otp: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  password: string;
-  referral_code: string;
-  has_referral_code: boolean;
-  agree_to_terms: boolean;
+const formVariants = {
+  hidden: { opacity: 0 },
+  visible: () => ({
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.08 },
+  }),
+};
+
+const fieldVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
+
+const STEPS: { id: Step; label: string }[] = [
+  { id: "verify-email", label: "Verify email" },
+  { id: "verify-otp", label: "Enter OTP" },
+  { id: "register", label: "Create account" },
+];
+
+function stepIndex(step: Step): number {
+  const i = STEPS.findIndex((s) => s.id === step);
+  return i >= 0 ? i : 0;
 }
 
-type FieldErrors = Partial<Record<keyof RegistrationState, string>>;
+const OTP_COUNTDOWN_SECONDS = 3 * 60; // 3 minutes
 
-export default function RegisterNewPage() {
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const PIN_LENGTH = 6;
+
+export default function RegisterPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("email");
-  const [formData, setFormData] = useState<RegistrationState>({
+  const { login } = useAuth();
+  const [step, setStep] = useState<Step>("verify-email");
+  const [formData, setFormData] = useState<
+    NewAuthRegisterData & { otp: string }
+  >({
     email: "",
-    otp: "",
+    password: "",
     first_name: "",
     last_name: "",
     phone_number: "",
-    password: "",
-    referral_code: "",
-    has_referral_code: false,
     agree_to_terms: false,
+    country: "",
+    referral_code: "",
+    otp: "",
   });
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [otpExpiresIn, setOtpExpiresIn] = useState(300);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [showReferralCode, setShowReferralCode] = useState(false);
+  const [pinFieldBlurred, setPinFieldBlurred] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof RegistrationState]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
+  // 3-minute countdown when on verify-otp step
+  useEffect(() => {
+    if (step !== "verify-otp" || otpCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [step, otpCountdown]);
+
+  /** 6-digit PIN only; max length enforced in handler */
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, PIN_LENGTH);
+    setFormData((prev) => ({ ...prev, password: digitsOnly }));
+    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
   };
 
-  // Numeric-only inputs (OTP + password): strip non-digits and clamp to length.
-  const handleNumericChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    maxLength: number
+  useEffect(() => {
+    if (formData.password.length !== PIN_LENGTH) return;
+    const el = document.getElementById("password") as HTMLInputElement | null;
+    if (el && document.activeElement === el) el.blur();
+  }, [formData.password]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
-    const cleaned = value.replace(/\D/g, "").slice(0, maxLength);
-    setFormData((prev) => ({ ...prev, [name]: cleaned }));
-    if (errors[name as keyof RegistrationState]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    let next: string | boolean = value;
+    if (name === "otp") {
+      next = value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS);
+    } else if (type !== "checkbox" && name === "referral_code") {
+      next = value.replace(/^@+/, "").replace(/[^A-Za-z0-9]/g, "");
     }
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : (next as string),
+    }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
-  // Step 1: Request Email OTP
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  /** Step 1: Request email verification → backend sends OTP */
+  const handleRequestEmailVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
     setSuccessMessage("");
     setErrors({});
 
-    const result = requestEmailOtpSchema.safeParse({ email: formData.email });
-
-    if (!result.success) {
-      const fieldErrors: FieldErrors = {};
-      result.error.issues.forEach((error) => {
-        fieldErrors[error.path[0] as keyof RegistrationState] = error.message;
+    const parsed = requestEmailOtpSchema.safeParse({
+      email: formData.email.trim().toLowerCase(),
+    });
+    if (!parsed.success) {
+      const fieldErrors: Partial<Record<string, string>> = {};
+      parsed.error.issues.forEach((err) => {
+        const path = err.path[0] as string;
+        fieldErrors[path] = err.message;
       });
       setErrors(fieldErrors);
       return;
     }
 
     setIsLoading(true);
-
     try {
-      const response = await authApi.requestEmailOtp(formData.email);
-
-      // Backend signals already-verified accounts via this flag.
-      if (response.data?.email_already_verified) {
-        setServerError(
-          response.data.message || "Email is already registered. Please sign in."
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      setSuccessMessage(response.message);
-      setOtpExpiresIn(response.data?.otp_expires_in || 300);
+      await authApi.requestEmailVerification(parsed.data.email);
+      setFormData((prev) => ({ ...prev, email: parsed.data.email }));
+      setSuccessMessage("OTP sent to your email. Enter it below.");
+      setOtpCountdown(OTP_COUNTDOWN_SECONDS);
       setTimeout(() => {
         setStep("verify-otp");
         setSuccessMessage("");
-        setIsLoading(false);
-      }, 1200);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to send OTP.";
-      setServerError(message);
+      }, 1500);
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error ? err.message : "Failed to send OTP. Please try again."
+      );
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Step 2: Verify Email OTP
+  /** Step 2: Verify OTP → email marked verified, user can submit step 3 */
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
     setSuccessMessage("");
     setErrors({});
 
-    const result = verifyEmailOtpSchema.safeParse({
+    const parsed = verifyEmailOtpSchema.safeParse({
       email: formData.email,
       otp: formData.otp,
     });
-
-    if (!result.success) {
-      const fieldErrors: FieldErrors = {};
-      result.error.issues.forEach((error) => {
-        fieldErrors[error.path[0] as keyof RegistrationState] = error.message;
+    if (!parsed.success) {
+      const fieldErrors: Partial<Record<string, string>> = {};
+      parsed.error.issues.forEach((err) => {
+        const path = err.path[0] as string;
+        fieldErrors[path] = err.message;
       });
       setErrors(fieldErrors);
       return;
     }
 
     setIsLoading(true);
-
     try {
-      const response = await authApi.verifyEmailOtp(
-        formData.email,
-        formData.otp
-      );
-
-      if (response.data?.email_already_verified) {
-        setServerError(
-          response.data.message || "Email is already registered. Please sign in."
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      setSuccessMessage(response.message);
+      await authApi.verifyEmailForRegistration(parsed.data.email, parsed.data.otp);
+      setSuccessMessage("Email verified. Complete your profile below.");
       setTimeout(() => {
-        setStep("complete");
+        setStep("register");
         setSuccessMessage("");
-        setIsLoading(false);
-      }, 900);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to verify OTP.";
-      setServerError(message);
+      }, 1200);
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error ? err.message : "Invalid or expired OTP. Request a new code."
+      );
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Step 3: Complete Registration
-  const handleCompleteRegistration = async (e: React.FormEvent) => {
+  /** Step 3: Register with full payload (email already verified) */
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
     setSuccessMessage("");
     setErrors({});
 
-    const trimmedReferral = formData.has_referral_code
-      ? formData.referral_code.trim()
-      : "";
-
-    const result = completeRegistrationSchema.safeParse({
+    const parsed = newAuthRegisterSchema.safeParse({
+      email: formData.email,
+      password: formData.password,
       first_name: formData.first_name,
       last_name: formData.last_name,
-      email: formData.email,
       phone_number: formData.phone_number,
-      password: formData.password,
       agree_to_terms: formData.agree_to_terms,
-      referral_code: trimmedReferral,
-      country: "Nigeria",
+      referral_code: formData.referral_code || undefined,
+      middle_name: undefined,
+      gender: undefined,
+      updates_opt_in: formData.updates_opt_in,
     });
-
-    if (!result.success) {
-      const fieldErrors: FieldErrors = {};
-      result.error.issues.forEach((error) => {
-        fieldErrors[error.path[0] as keyof RegistrationState] = error.message;
+    if (!parsed.success) {
+      const fieldErrors: Partial<Record<string, string>> = {};
+      parsed.error.issues.forEach((err) => {
+        const path = err.path[0] as string;
+        fieldErrors[path] = err.message;
       });
       setErrors(fieldErrors);
       return;
     }
 
     setIsLoading(true);
-
     try {
       const response = await authApi.register({
-        first_name: result.data.first_name,
-        last_name: result.data.last_name,
-        email: result.data.email,
-        phone_number: result.data.phone_number,
-        password: result.data.password,
+        email: parsed.data.email,
+        password: parsed.data.password,
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
+        phone_number: parsed.data.phone_number,
         agree_to_terms: true,
-        country: "Nigeria",
-        ...(result.data.referral_code
-          ? { referral_code: result.data.referral_code }
-          : {}),
+        referral_code: parsed.data.referral_code || undefined,
+        updates_opt_in: parsed.data.updates_opt_in ?? false,
       });
 
-      setSuccessMessage(
-        response.message || "Registration completed successfully!"
+      if (response.success && response.data?.access_token) {
+        const { access_token, user: apiUser } = response.data;
+        const user = mapNewAuthUserToUser(apiUser);
+        login(user, access_token);
+        setSuccessMessage("Account created! Redirecting to dashboard...");
+        setTimeout(() => {
+          router.push("/dashboard");
+          router.refresh();
+        }, 1200);
+      } else {
+        setSuccessMessage("Account created. Redirecting to sign in...");
+        setTimeout(() => router.push("/auth/signin?registered=true"), 1500);
+      }
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error ? err.message : "Registration failed. Please try again."
       );
-      setTimeout(() => {
-        router.push("/auth/signin?registered=true");
-      }, 1500);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to complete registration.";
-      setServerError(message);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const goBack = () => {
+  const goBackToEmail = () => {
     setServerError("");
     setSuccessMessage("");
     setErrors({});
-    if (step === "verify-otp") {
-      setStep("email");
-    } else if (step === "complete") {
-      setStep("verify-otp");
+    setFormData((prev) => ({ ...prev, otp: "" }));
+    setOtpCountdown(0);
+    setStep("verify-email");
+  };
+
+  /** Resend OTP (same as step 1 request-email-verification) */
+  const handleResendOtp = async () => {
+    if (!formData.email || otpCountdown > 0 || isResendingOtp) return;
+    setServerError("");
+    setSuccessMessage("");
+    setIsResendingOtp(true);
+    try {
+      await authApi.requestEmailVerification(formData.email.trim().toLowerCase());
+      setSuccessMessage("New code sent to your email.");
+      setOtpCountdown(OTP_COUNTDOWN_SECONDS);
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err: unknown) {
+      setServerError(
+        err instanceof Error ? err.message : "Failed to resend code. Try again."
+      );
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
+  const goBackToOtp = () => {
+    setServerError("");
+    setSuccessMessage("");
+    setErrors({});
+    setFormData((prev) => ({ ...prev, otp: "" }));
+    setStep("verify-otp");
+  };
+
+  const currentStepIndex = stepIndex(step);
+
+  const registerSubmitBlockedReason = useMemo(() => {
+    if (step !== "register") return null;
+    if (isLoading) return null;
+    if (!formData.first_name.trim()) return "Enter your first name.";
+    if (!formData.last_name.trim()) return "Enter your last name.";
+    if (!formData.phone_number.trim()) return "Enter your phone number.";
+    if (formData.password.length !== PIN_LENGTH) return "Enter a 6-digit PIN.";
+    if (!formData.agree_to_terms) return "Tick the box to agree to the Terms and Privacy Policy.";
+    return null;
+  }, [step, isLoading, formData]);
+
+  const isRegisterSubmitDisabled =
+    step === "register" &&
+    (isLoading ||
+      !formData.first_name.trim() ||
+      !formData.last_name.trim() ||
+      !formData.phone_number.trim() ||
+      formData.password.length !== PIN_LENGTH ||
+      !formData.agree_to_terms);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
       <AuthCard
         title={
-          step === "email"
-            ? "Create Your Smipay Account"
+          step === "verify-email"
+            ? "Create your Smipay account"
             : step === "verify-otp"
-            ? "Verify Your Email"
-            : "Complete Your Registration"
+              ? "Verify your email"
+              : "Complete your profile"
         }
         description={
-          step === "email"
-            ? "Enter your email to get started"
+          step === "verify-email"
+            ? "Enter your email and we’ll send you a verification code"
             : step === "verify-otp"
-            ? `We've sent a ${AUTH_OTP_DIGITS}-digit code to ${formData.email}`
-            : "Fill in your details to complete registration"
+              ? `We sent a ${AUTH_EMAIL_OTP_DIGITS}-digit code to ${formData.email || "your email"}`
+              : "Enter your details to finish registration"
         }
       >
-        {/* Progress Indicator */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between text-xs">
-            <div className={`flex items-center gap-2 ${step === "email" ? "text-brand-bg-primary" : "text-green-600"}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${step === "email" ? "bg-brand-bg-primary text-white" : "bg-green-600 text-white"}`}>
-                {step === "email" ? "1" : <CheckCircle className="h-4 w-4" />}
-              </div>
-              <span>Email</span>
-            </div>
-            <div className={`flex-1 h-0.5 mx-2 ${step === "verify-otp" || step === "complete" ? "bg-green-600" : "bg-gray-200"}`} />
-            <div className={`flex items-center gap-2 ${step === "verify-otp" ? "text-brand-bg-primary" : step === "complete" ? "text-green-600" : "text-gray-400"}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${step === "verify-otp" ? "bg-brand-bg-primary text-white" : step === "complete" ? "bg-green-600 text-white" : "bg-gray-200"}`}>
-                {step === "complete" ? <CheckCircle className="h-4 w-4" /> : "2"}
-              </div>
-              <span>Verify</span>
-            </div>
-            <div className={`flex-1 h-0.5 mx-2 ${step === "complete" ? "bg-green-600" : "bg-gray-200"}`} />
-            <div className={`flex items-center gap-2 ${step === "complete" ? "text-brand-bg-primary" : "text-gray-400"}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${step === "complete" ? "bg-brand-bg-primary text-white" : "bg-gray-200"}`}>
-                3
-              </div>
-              <span>Details</span>
-            </div>
+        {/* 3-step progress */}
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center gap-0 text-xs">
+            {STEPS.map((s, i) => {
+              const isActive = step === s.id;
+              const isComplete = currentStepIndex > i;
+              return (
+                <div key={s.id} className="flex items-center flex-1 min-w-0">
+                  {i > 0 && (
+                    <div
+                      className={`flex-1 h-0.5 mx-0.5 rounded-full transition-colors ${
+                        currentStepIndex > i ? "bg-emerald-500" : "bg-dashboard-border"
+                      }`}
+                    />
+                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isComplete
+                          ? "bg-emerald-600 text-white"
+                          : isActive
+                            ? "bg-dashboard-heading text-white"
+                            : "bg-dashboard-border text-dashboard-muted"
+                      }`}
+                    >
+                      {isComplete ? (
+                        <CheckCircle className="h-3.5 w-3.5" />
+                      ) : (
+                        i + 1
+                      )}
+                    </div>
+                    <span
+                      className={`font-medium truncate hidden sm:inline ${
+                        isActive ? "text-dashboard-heading" : "text-dashboard-muted"
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                  {i < STEPS.length - 1 && (
+                    <div
+                      className={`flex-1 h-0.5 mx-0.5 rounded-full transition-colors ${
+                        currentStepIndex > i ? "bg-emerald-500" : "bg-dashboard-border"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </motion.div>
 
         {serverError && <FormError message={serverError} />}
         {successMessage && <FormSuccess message={successMessage} />}
 
-        {/* Step 1: Enter Email */}
-        {step === "email" && (
-          <form onSubmit={handleRequestOtp} className="space-y-5 mt-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={isLoading}
-                className={errors.email ? "border-red-500" : ""}
-              />
-              {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              disabled={isLoading}
+        <AnimatePresence mode="wait">
+          {/* Step 1: Email only → request-email-verification */}
+          {step === "verify-email" && (
+            <motion.form
+              key="verify-email"
+              onSubmit={handleRequestEmailVerification}
+              className="space-y-5 mt-6"
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending OTP...
-                </>
-              ) : (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send OTP
-                </>
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-brand-text-secondary">
-              Already have an account?{" "}
-              <Link href="/auth/signin" className="text-brand-bg-primary hover:underline font-medium">
-                Sign in
-              </Link>
-            </div>
-          </form>
-        )}
-
-        {/* Step 2: Verify OTP */}
-        {step === "verify-otp" && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5 mt-6">
-            <button
-              type="button"
-              onClick={goBack}
-              className="flex items-center gap-2 text-sm text-brand-text-secondary hover:text-brand-text-primary"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Change email
-            </button>
-
-            <div className="space-y-2">
-              <Label htmlFor="otp">Enter {AUTH_OTP_DIGITS}-digit code</Label>
-              <Input
-                id="otp"
-                name="otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="000000"
-                value={formData.otp}
-                onChange={(e) => handleNumericChange(e, AUTH_OTP_DIGITS)}
-                disabled={isLoading}
-                maxLength={AUTH_OTP_DIGITS}
-                className={`text-center text-2xl tracking-widest ${errors.otp ? "border-red-500" : ""}`}
-              />
-              {errors.otp && <p className="text-xs text-red-600">{errors.otp}</p>}
-              <p className="text-xs text-brand-text-secondary text-center">
-                OTP expires in {Math.floor(otpExpiresIn / 60)} minutes
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              disabled={isLoading || formData.otp.length !== AUTH_OTP_DIGITS}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "Verify OTP"
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() =>
-                handleRequestOtp({ preventDefault: () => {} } as React.FormEvent)
-              }
-              disabled={isLoading}
-            >
-              Resend OTP
-            </Button>
-          </form>
-        )}
-
-        {/* Step 3: Complete Registration */}
-        {step === "complete" && (
-          <form onSubmit={handleCompleteRegistration} className="space-y-4 mt-6">
-            <button
-              type="button"
-              onClick={goBack}
-              className="flex items-center gap-2 text-sm text-brand-text-secondary hover:text-brand-text-primary"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="first_name">First Name</Label>
+                <Label htmlFor="email" className="label-auth">
+                  Email address
+                </Label>
                 <Input
-                  id="first_name"
-                  name="first_name"
-                  placeholder="John"
-                  value={formData.first_name}
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={formData.email}
                   onChange={handleChange}
                   disabled={isLoading}
-                  className={errors.first_name ? "border-red-500" : ""}
+                  className={`input-auth ${errors.email ? "input-auth-error" : ""}`}
                 />
-                {errors.first_name && <p className="text-xs text-red-600">{errors.first_name}</p>}
+                {errors.email && (
+                  <p className="text-xs text-red-600">{errors.email}</p>
+                )}
               </div>
+              <Button
+                type="submit"
+                className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending code...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Verify email
+                  </>
+                )}
+              </Button>
+              <p className="text-center text-sm text-dashboard-muted">
+                Already have an account?{" "}
+                <Link
+                  href="/auth/signin"
+                  className="text-dashboard-accent hover:underline font-medium"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </motion.form>
+          )}
 
+          {/* Step 2: OTP → verify-email-for-registration */}
+          {step === "verify-otp" && (
+            <motion.form
+              key="verify-otp"
+              onSubmit={handleVerifyOtp}
+              className="space-y-5 mt-6"
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              transition={{ duration: 0.25 }}
+            >
+              <motion.button
+                type="button"
+                onClick={goBackToEmail}
+                className="flex items-center gap-2 text-sm text-dashboard-muted hover:text-dashboard-heading transition-colors"
+                whileHover={{ x: -2 }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Change email
+              </motion.button>
               <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
+                <Label htmlFor="otp" className="label-auth">
+                  {AUTH_EMAIL_OTP_DIGITS}-digit code
+                </Label>
                 <Input
-                  id="last_name"
-                  name="last_name"
-                  placeholder="Doe"
-                  value={formData.last_name}
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={formData.otp}
                   onChange={handleChange}
                   disabled={isLoading}
-                  className={errors.last_name ? "border-red-500" : ""}
+                  maxLength={AUTH_EMAIL_OTP_DIGITS}
+                  className={`input-auth text-center text-xl tracking-[0.35em] ${errors.otp ? "input-auth-error" : ""}`}
                 />
-                {errors.last_name && <p className="text-xs text-red-600">{errors.last_name}</p>}
+                {errors.otp && (
+                  <p className="text-xs text-red-600">{errors.otp}</p>
+                )}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone_number">Phone Number</Label>
-              <Input
-                id="phone_number"
-                name="phone_number"
-                type="tel"
-                placeholder="08012345678 or 2348012345678"
-                value={formData.phone_number}
-                onChange={handleChange}
-                disabled={isLoading}
-                className={errors.phone_number ? "border-red-500" : ""}
-              />
-              {errors.phone_number && <p className="text-xs text-red-600">{errors.phone_number}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <PasswordInput
-                id="password"
-                name="password"
-                placeholder="••••••"
-                value={formData.password}
-                onChange={(e) => handleNumericChange(e, AUTH_PASSWORD_DIGITS)}
-                disabled={isLoading}
-                error={errors.password}
-                inputMode="numeric"
-                autoComplete="new-password"
-                maxLength={AUTH_PASSWORD_DIGITS}
-              />
-              {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
-              <p className="text-xs text-brand-text-secondary">
-                Exactly {AUTH_PASSWORD_DIGITS} digits (0–9) — your app password
-              </p>
-            </div>
-
-            {/* Optional referral code, hidden behind a checkbox to avoid clutter — same UX as mobile */}
-            <div className="space-y-2">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-bg-primary focus:ring-brand-bg-primary"
-                  checked={formData.has_referral_code}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      has_referral_code: e.target.checked,
-                      referral_code: e.target.checked ? prev.referral_code : "",
-                    }))
-                  }
-                  disabled={isLoading}
-                />
-                <span className="text-xs text-brand-text-secondary">
-                  I have a referral code
-                </span>
-              </label>
-
-              {formData.has_referral_code && (
-                <div className="space-y-1.5">
-                  <Input
-                    id="referral_code"
-                    name="referral_code"
-                    placeholder="e.g. @janedoe"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    value={formData.referral_code}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\s+/g, "");
-                      setFormData((prev) => ({ ...prev, referral_code: v }));
-                      if (errors.referral_code) {
-                        setErrors((prev) => ({ ...prev, referral_code: undefined }));
-                      }
-                    }}
-                    disabled={isLoading}
-                    className={errors.referral_code ? "border-red-500" : ""}
-                  />
-                  {errors.referral_code && (
-                    <p className="text-xs text-red-600">{errors.referral_code}</p>
-                  )}
-                  <p className="text-xs text-brand-text-secondary">
-                    Got invited? Enter your friend&apos;s code so you both get a welcome bonus.
+              <div className="flex flex-col items-center gap-2">
+                {otpCountdown > 0 ? (
+                  <p className="text-sm text-dashboard-muted">
+                    Resend code in <span className="font-medium tabular-nums text-dashboard-heading">{formatCountdown(otpCountdown)}</span>
                   </p>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendOtp}
+                    disabled={isResendingOtp || isLoading}
+                    className="text-sky-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-lg"
+                  >
+                    {isResendingOtp ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Resend OTP
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
 
-            {/* Terms */}
-            <div className="space-y-1.5">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-bg-primary focus:ring-brand-bg-primary"
-                  checked={formData.agree_to_terms}
-                  onChange={(e) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      agree_to_terms: e.target.checked,
-                    }));
-                    if (errors.agree_to_terms) {
-                      setErrors((prev) => ({ ...prev, agree_to_terms: undefined }));
-                    }
-                  }}
-                  disabled={isLoading}
-                />
-                <span className="text-xs text-brand-text-secondary">
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-brand-bg-primary hover:underline">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-brand-bg-primary hover:underline">
-                    Privacy Policy
-                  </Link>
-                  .
-                </span>
-              </label>
-              {errors.agree_to_terms && (
-                <p className="text-xs text-red-600">{errors.agree_to_terms}</p>
-              )}
-            </div>
+              <Button
+                type="submit"
+                className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Verify & continue"
+                )}
+              </Button>
+            </motion.form>
+          )}
 
-            <Button
-              type="submit"
-              className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              disabled={isLoading}
+          {/* Step 3: Full form → register (email pre-filled, read-only) */}
+          {step === "register" && (
+            <motion.form
+              key="register"
+              onSubmit={handleRegister}
+              className="mt-6"
+              variants={formVariants}
+              initial="hidden"
+              animate="visible"
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.2 }}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                "Complete Registration"
-              )}
-            </Button>
-          </form>
-        )}
+              <motion.button
+                type="button"
+                onClick={goBackToOtp}
+                className="flex items-center gap-2 text-xs text-dashboard-muted hover:text-dashboard-heading transition-colors mb-4"
+                whileHover={{ x: -2 }}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Change email or code
+              </motion.button>
+
+              <div className="space-y-3">
+                {/* Personal: name + email */}
+                <motion.div className="space-y-2" variants={fieldVariants}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="first_name" className="label-auth">
+                        First name
+                      </Label>
+                      <Input
+                        id="first_name"
+                        name="first_name"
+                        placeholder="John"
+                        value={formData.first_name}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className={`input-auth ${errors.first_name ? "input-auth-error" : ""}`}
+                      />
+                      {errors.first_name && (
+                        <p className="text-xs text-red-600">{errors.first_name}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="last_name" className="label-auth">
+                        Last name
+                      </Label>
+                      <Input
+                        id="last_name"
+                        name="last_name"
+                        placeholder="Doe"
+                        value={formData.last_name}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className={`input-auth ${errors.last_name ? "input-auth-error" : ""}`}
+                      />
+                      {errors.last_name && (
+                        <p className="text-xs text-red-600">{errors.last_name}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="label-auth">Email</Label>
+                    <div className="input-auth input-auth-readonly flex items-center">
+                      <span className="text-sm text-slate-600 truncate">{formData.email}</span>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Phone + Password side by side */}
+                <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={fieldVariants}>
+                  <div className="space-y-1">
+                    <Label htmlFor="phone_number" className="label-auth">
+                      Phone number
+                    </Label>
+                    <Input
+                      id="phone_number"
+                      name="phone_number"
+                      type="tel"
+                      placeholder="08012345678"
+                      value={formData.phone_number}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      className={`input-auth ${errors.phone_number ? "input-auth-error" : ""}`}
+                    />
+                    {errors.phone_number && (
+                      <p className="text-xs text-red-600">{errors.phone_number}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="password" className="label-auth">
+                      6-digit PIN
+                    </Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={PIN_LENGTH}
+                      placeholder="••••••"
+                      value={formData.password}
+                      onChange={handlePinChange}
+                      onFocus={() => setPinFieldBlurred(false)}
+                      onBlur={() => setPinFieldBlurred(true)}
+                      disabled={isLoading}
+                      className={`input-auth font-mono tracking-widest tabular-nums ${
+                        errors.password ||
+                        (pinFieldBlurred &&
+                          formData.password.length > 0 &&
+                          formData.password.length < PIN_LENGTH)
+                          ? "input-auth-error"
+                          : ""
+                      }`}
+                    />
+                    {(errors.password ||
+                      (pinFieldBlurred &&
+                        formData.password.length > 0 &&
+                        formData.password.length < PIN_LENGTH)) && (
+                      <p className="text-xs text-red-600" role="alert">
+                        {errors.password ?? "6 digits required"}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Collapsed referral */}
+                <motion.div variants={fieldVariants}>
+                  <button
+                    type="button"
+                    onClick={() => setShowReferralCode((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm text-dashboard-muted hover:text-dashboard-heading transition-colors"
+                  >
+                    {showReferralCode ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    {showReferralCode ? "Hide referral code" : "Have a referral code?"}
+                  </button>
+                  {showReferralCode && (
+                    <div className="mt-2 space-y-1">
+                      <Label htmlFor="referral_code" className="label-auth">
+                        Referral code
+                      </Label>
+                      <Input
+                        id="referral_code"
+                        name="referral_code"
+                        placeholder="e.g. SMILE123"
+                        value={formData.referral_code}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className="input-auth"
+                      />
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Terms — checkbox + text/links split so label clicks toggle reliably */}
+                <motion.div className="space-y-1 pt-0.5" variants={fieldVariants}>
+                  <div className="flex items-start gap-3">
+                    <input
+                      id="agree_to_terms"
+                      name="agree_to_terms"
+                      type="checkbox"
+                      checked={formData.agree_to_terms}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-dashboard-border text-brand-bg-primary focus:ring-2 focus:ring-brand-bg-primary/20 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <p className="text-sm text-dashboard-muted leading-snug">
+                      <label htmlFor="agree_to_terms" className="cursor-pointer">
+                        I agree to the{" "}
+                      </label>
+                      <Link
+                        href="/terms"
+                        className="text-dashboard-accent hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms and Conditions
+                      </Link>{" "}
+                      and{" "}
+                      <Link
+                        href="/privacy"
+                        className="text-dashboard-accent hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Privacy Policy
+                      </Link>
+                    </p>
+                  </div>
+                  {errors.agree_to_terms && (
+                    <p className="text-xs text-red-600">{errors.agree_to_terms}</p>
+                  )}
+                </motion.div>
+              </div>
+
+              <motion.div
+                className="relative z-10 mt-4 space-y-2"
+                variants={fieldVariants}
+              >
+                <Button
+                  type="submit"
+                  className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isRegisterSubmitDisabled}
+                  title={
+                    registerSubmitBlockedReason ?? undefined
+                  }
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create account"
+                  )}
+                </Button>
+                {registerSubmitBlockedReason && (
+                  <p className="text-center text-xs text-amber-700 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">
+                    {registerSubmitBlockedReason}
+                  </p>
+                )}
+                <p className="text-center text-sm text-dashboard-muted">
+                  Already have an account?{" "}
+                  <Link
+                    href="/auth/signin"
+                    className="text-dashboard-accent hover:underline font-medium"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </motion.div>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </AuthCard>
     </div>
   );

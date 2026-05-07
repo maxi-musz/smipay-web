@@ -8,21 +8,79 @@ export interface ApiError {
   statusCode?: number;
 }
 
+/** Nest may send `message` as a string or validation array */
+function messageFromPayload(data: Record<string, unknown> | undefined): string | undefined {
+  const m = data?.message;
+  if (typeof m === "string" && m.trim()) return m.trim();
+  if (Array.isArray(m)) {
+    const parts = m.filter((x): x is string => typeof x === "string");
+    if (parts.length) return parts.join(", ");
+  }
+  return undefined;
+}
+
+function isAxiosGenericStatusMessage(msg: string): boolean {
+  return /^Request failed with status code \d+$/i.test(msg);
+}
+
 /**
  * Convert API errors to user-friendly messages
  */
-export function handleApiError(error: any): ApiError {
-  // Network errors (server down, no internet, etc.)
-  if (!error.response) {
-    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+export function handleApiError(error: unknown): ApiError {
+  const err = error as Record<string, unknown>;
+  if (err && typeof err.statusCode === "number" && typeof err.message === "string") {
+    const status = err.statusCode as number;
+    const rawMsg = err.message as string;
+    const data = err.data as Record<string, unknown> | undefined;
+
+    if (status === 404 || rawMsg.startsWith("Cannot GET") || rawMsg.startsWith("Cannot POST")) {
+      return {
+        message: "This service is temporarily unavailable. Please try again later.",
+        code: "SERVICE_UNAVAILABLE",
+        statusCode: status,
+      };
+    }
+
+    if (status >= 500) {
+      const fromBody = messageFromPayload(data);
+      if (fromBody && !isAxiosGenericStatusMessage(fromBody)) {
+        return {
+          message: fromBody,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
+      if (rawMsg && !isAxiosGenericStatusMessage(rawMsg)) {
+        return {
+          message: rawMsg,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
+      return {
+        message: "Our servers are currently experiencing issues. Please try again in a few moments.",
+        code: "SERVER_ERROR",
+        statusCode: status,
+      };
+    }
+
+    return {
+      message: rawMsg,
+      code: "API_ERROR",
+      statusCode: status,
+    };
+  }
+
+  if (!err.response) {
+    if (err.code === "ECONNABORTED" || (err.message as string)?.includes("timeout")) {
       return {
         message:
-          "Request timed out. Please check your internet connection and try again.",
+          "This request timed out. Your payment may still be processing — check Transaction history before trying again.",
         code: "TIMEOUT",
       };
     }
 
-    if (error.code === "ERR_NETWORK" || error.message?.includes("Network Error")) {
+    if (err.code === "ERR_NETWORK" || (err.message as string)?.includes("Network Error")) {
       return {
         message:
           "Unable to connect to our servers. Please check your internet connection and try again.",
@@ -37,23 +95,24 @@ export function handleApiError(error: any): ApiError {
     };
   }
 
-  const status = error.response?.status;
-  const responseData = error.response?.data;
+  const response = err.response as { status?: number; data?: Record<string, unknown> } | undefined;
+  const status = response?.status;
+  const responseData = response?.data;
 
   // Handle specific HTTP status codes
   switch (status) {
     case 400:
       // Bad request - validation errors
       if (responseData?.message) {
-        if (Array.isArray(responseData.message)) {
-          return {
-            message: responseData.message.join(", "),
+      if (Array.isArray(responseData.message)) {
+        return {
+          message: (responseData.message as string[]).join(", "),
             code: "VALIDATION_ERROR",
             statusCode: 400,
           };
         }
         return {
-          message: responseData.message,
+          message: responseData.message as string,
           code: "BAD_REQUEST",
           statusCode: 400,
         };
@@ -68,7 +127,7 @@ export function handleApiError(error: any): ApiError {
       // Unauthorized
       return {
         message:
-          responseData?.message ||
+          (responseData?.message as string) ||
           "Invalid credentials. Please check your email/phone and password.",
         code: "UNAUTHORIZED",
         statusCode: 401,
@@ -78,7 +137,7 @@ export function handleApiError(error: any): ApiError {
       // Forbidden
       return {
         message:
-          responseData?.message ||
+          (responseData?.message as string) ||
           "You don't have permission to perform this action.",
         code: "FORBIDDEN",
         statusCode: 403,
@@ -94,48 +153,71 @@ export function handleApiError(error: any): ApiError {
       };
 
     case 409:
-      // Conflict (e.g., email already exists)
       return {
         message:
-          responseData?.message ||
+          (responseData?.message as string) ||
           "This information is already registered. Please use different details.",
         code: "CONFLICT",
         statusCode: 409,
       };
 
-    case 429:
-      // Too many requests
-      const retryAfter = responseData?.data?.retry_after || 120;
+    case 429: {
+      // Too many requests (Nest may put payload on `data` or at top level)
+      const nested = (responseData?.data as Record<string, unknown>)?.retry_after;
+      const top = responseData?.retry_after;
+      const retryAfter =
+        (typeof nested === "number" ? nested : undefined) ??
+        (typeof top === "number" ? top : undefined) ??
+        120;
       const retryMessage =
         retryAfter > 60
-          ? `${Math.ceil(retryAfter / 60)} minutes`
+          ? `${Math.ceil(retryAfter / 60)} minute${Math.ceil(retryAfter / 60) === 1 ? "" : "s"}`
           : `${retryAfter} seconds`;
 
+      const isTxCooldown = responseData?.error === "TX_FAILURE_COOLDOWN";
+      const baseMsg =
+        (responseData?.message as string) ||
+        (isTxCooldown
+          ? "Too many failed purchases recently."
+          : "Too many attempts.");
+
+      const message = isTxCooldown
+        ? `${baseMsg} You can try again in ${retryMessage}.`
+        : baseMsg.includes("try again")
+          ? baseMsg
+          : `${baseMsg} Please try again in ${retryMessage}.`;
+
       return {
-        message:
-          responseData?.message ||
-          `Too many attempts. Please try again in ${retryMessage}.`,
-        code: "RATE_LIMIT_EXCEEDED",
+        message,
+        code: isTxCooldown ? "TX_FAILURE_COOLDOWN" : "RATE_LIMIT_EXCEEDED",
         statusCode: 429,
       };
+    }
 
     case 500:
     case 502:
     case 503:
-    case 504:
-      // Server errors
+    case 504: {
+      const fromBody = messageFromPayload(responseData);
+      if (fromBody && !isAxiosGenericStatusMessage(fromBody)) {
+        return {
+          message: fromBody,
+          code: status === 503 ? "SERVICE_UNAVAILABLE" : "SERVER_ERROR",
+          statusCode: status,
+        };
+      }
       return {
         message:
           "Our servers are currently experiencing issues. Please try again in a few moments.",
         code: "SERVER_ERROR",
         statusCode: status,
       };
+    }
 
     default:
-      // Unknown error
       return {
         message:
-          responseData?.message ||
+          (responseData?.message as string) ||
           "Something went wrong. Please try again or contact support if the issue persists.",
         code: "UNKNOWN_ERROR",
         statusCode: status,
@@ -146,7 +228,7 @@ export function handleApiError(error: any): ApiError {
 /**
  * Format error message for display
  */
-export function formatErrorMessage(error: any): string {
+export function formatErrorMessage(error: unknown): string {
   const apiError = handleApiError(error);
   return apiError.message;
 }
@@ -154,13 +236,14 @@ export function formatErrorMessage(error: any): string {
 /**
  * Check if error is a network/connectivity issue
  */
-export function isNetworkError(error: any): boolean {
-  if (!error.response) {
+export function isNetworkError(error: unknown): boolean {
+  const err = error as Record<string, unknown>;
+  if (!err.response) {
     return (
-      error.code === "ERR_NETWORK" ||
-      error.code === "ECONNABORTED" ||
-      error.message?.includes("Network Error") ||
-      error.message?.includes("timeout")
+      err.code === "ERR_NETWORK" ||
+      err.code === "ECONNABORTED" ||
+      (err.message as string)?.includes("Network Error") ||
+      (err.message as string)?.includes("timeout")
     );
   }
   return false;
@@ -169,17 +252,19 @@ export function isNetworkError(error: any): boolean {
 /**
  * Check if error is a server error (5xx)
  */
-export function isServerError(error: any): boolean {
-  const status = error.response?.status;
-  return status >= 500 && status < 600;
+export function isServerError(error: unknown): boolean {
+  const err = error as { response?: { status?: number } };
+  const status = err.response?.status;
+  return typeof status === "number" && status >= 500 && status < 600;
 }
 
 /**
  * Check if error is a client error (4xx)
  */
-export function isClientError(error: any): boolean {
-  const status = error.response?.status;
-  return status >= 400 && status < 500;
+export function isClientError(error: unknown): boolean {
+  const err = error as { response?: { status?: number } };
+  const status = err.response?.status;
+  return typeof status === "number" && status >= 400 && status < 500;
 }
 
 

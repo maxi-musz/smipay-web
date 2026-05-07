@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { WalletAnalysisCards } from "@/components/dashboard/WalletAnalysisCards";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,8 +38,9 @@ export default function SagecloudEducationPage() {
 
       {/* Content */}
       <div className="px-4 py-6 sm:px-6 lg:px-8">
-        {/* Wallet Analysis Cards - Global Component */}
-        <WalletAnalysisCards />
+        <div className="hidden sm:block">
+          <WalletAnalysisCards />
+        </div>
         
         <div className="max-w-4xl">
           <div className="bg-white rounded-xl shadow-sm p-6 md:p-8 border border-gray-100">

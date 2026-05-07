@@ -71,7 +71,7 @@ export const userApi = {
    * Update user settings
    * @param data - Settings to update
    */
-  updateSettings: async (data: Record<string, any>) => {
+  updateSettings: async (data: Record<string, unknown>) => {
     try {
       const response = await backendApi.put("/user/settings", data);
       return response.data;
@@ -87,6 +87,34 @@ export const userApi = {
   getAppHomepageDetails: async () => {
     try {
       const response = await backendApi.get<DashboardResponse>("/user/fetch-app-homepage-details");
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /**
+   * Request permanent account deletion
+   * @param reason - Optional feedback from the user (max 500 characters)
+   */
+  requestAccountDeletion: async (reason?: string) => {
+    try {
+      const payload = reason?.trim()
+        ? { reason: reason.trim().slice(0, 500) }
+        : undefined;
+      const response = await backendApi.post("/user/request-account-deletion", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /**
+   * Cancel a pending account deletion request
+   */
+  cancelAccountDeletionRequest: async () => {
+    try {
+      const response = await backendApi.post("/user/cancel-account-deletion-request");
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));

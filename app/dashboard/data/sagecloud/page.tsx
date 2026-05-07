@@ -23,13 +23,15 @@ export default function SagecloudDataPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <div>
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-brand-text-primary flex items-center gap-2">
-                <Zap className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600 sm:h-9 sm:w-9">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-semibold text-dashboard-heading tracking-tight">
                 Buy Data
               </h1>
-              <p className="text-xs sm:text-sm text-brand-text-secondary mt-0.5 sm:mt-1">
-                Purchase data bundles using Sagecloud provider
+              <p className="text-xs sm:text-sm text-dashboard-muted mt-0.5 truncate">
+                Purchase data bundles via Sagecloud
               </p>
             </div>
           </div>
@@ -38,8 +40,9 @@ export default function SagecloudDataPage() {
 
       {/* Content */}
       <div className="px-4 py-6 sm:px-6 lg:px-8">
-        {/* Wallet Analysis Cards - Global Component */}
-        <WalletAnalysisCards />
+        <div className="hidden sm:block">
+          <WalletAnalysisCards />
+        </div>
         
         <div className="max-w-4xl">
 

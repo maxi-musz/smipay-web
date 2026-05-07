@@ -11,8 +11,8 @@ export interface VtpassCableService {
   commission?: string;
   minimum_amount?: string;
   maximum_amount?: string;
-  minimium_amount?: string; // API typo - keeping both for compatibility
-  maximium_amount?: string; // API typo - keeping both for compatibility
+  minimium_amount?: string;
+  maximium_amount?: string;
   convinience_fee?: string;
   product_type?: string;
   image?: string;
@@ -33,7 +33,7 @@ export interface VtpassCableVariationCodesResponse {
     serviceID: string;
     convinience_fee: string;
     variations: VtpassCableVariation[];
-    varations?: VtpassCableVariation[]; // API typo - keeping both for compatibility
+    varations?: VtpassCableVariation[];
   };
 }
 
@@ -51,13 +51,15 @@ export interface VtpassCableVerifyRequest {
 
 export interface VtpassCableVerifyContent {
   Customer_Name: string;
-  Status: string;
-  Due_Date: string;
-  Customer_Number: string;
-  Customer_Type: string;
-  Current_Bouquet: string;
-  Renewal_Amount: string;
-  commission_details: {
+  Status?: string;
+  Due_Date?: string;
+  Customer_Number?: string;
+  Customer_Type?: string;
+  Current_Bouquet?: string;
+  Renewal_Amount?: string;
+  Balance?: number;
+  Smartcard_Number?: string;
+  commission_details?: {
     amount: number | null;
     rate: string;
     rate_type: string;
@@ -79,16 +81,17 @@ export interface VtpassCablePurchaseRequest {
   request_id?: string;
   serviceID: string;
   billersCode: string;
-  variation_code?: string; // Required for DSTV/GOTV change, Startimes/Showmax always
-  amount?: number; // Required for DSTV/GOTV renew
+  variation_code?: string;
+  amount?: number;
   phone?: string;
-  subscription_type?: "change" | "renew"; // DSTV/GOTV only
-  quantity?: number; // DSTV/GOTV only, default 1
+  subscription_type?: "change" | "renew";
+  quantity?: number;
+  use_cashback?: boolean;
 }
 
 export interface VtpassCableTransactionContent {
   transactions: {
-    status: "delivered" | "pending" | "initiated" | "failed";
+    status: "delivered" | "pending" | "initiated" | "failed" | "reversed";
     product_name: string;
     unique_element: string;
     unit_price: string | number;
@@ -110,12 +113,32 @@ export interface VtpassCablePurchaseResponse {
   requestId: string;
   amount: number;
   transaction_date?: string;
-  purchased_code?: string; // Showmax voucher code
-  Voucher?: string[]; // Showmax voucher codes array
+  purchased_code?: string;
+  Voucher?: string[];
+  voucher_code?: string;
+  voucher_codes?: string[];
 }
 
 export interface VtpassCablePurchaseApiResponse {
   success: boolean;
   message: string;
   data: VtpassCablePurchaseResponse;
+}
+
+// Query Transaction Types
+export interface VtpassCableQueryRequest {
+  request_id: string;
+}
+
+export interface VtpassCableQueryResponse {
+  success: boolean;
+  message: string;
+  data: {
+    code: string;
+    response_description: string;
+    content?: VtpassCableTransactionContent;
+    requestId?: string;
+    amount?: number;
+    transaction_date?: string;
+  };
 }

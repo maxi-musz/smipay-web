@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { X, CheckCircle2, Clock, AlertCircle, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { getNetworkLogo } from "@/lib/network-logos";
 import type { VtpassCablePurchaseResponse } from "@/types/vtpass/vtu/vtpass-cable";
 
 interface TransactionStatusModalProps {
@@ -12,6 +14,7 @@ interface TransactionStatusModalProps {
   transactionData?: VtpassCablePurchaseResponse;
   errorMessage?: string;
   onRetry?: () => void;
+  serviceID?: string;
 }
 
 export function TransactionStatusModal({
@@ -21,175 +24,125 @@ export function TransactionStatusModal({
   transactionData,
   errorMessage,
   onRetry,
+  serviceID,
 }: TransactionStatusModalProps) {
   const [copied, setCopied] = useState(false);
   const [voucherCopied, setVoucherCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const copyTransactionId = () => {
-    if (transactionData?.content?.transactions?.transactionId) {
-      navigator.clipboard.writeText(
-        transactionData.content.transactions.transactionId
-      );
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const copyToClipboard = (text: string, setter: (v: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
   };
 
-  const copyVoucherCode = () => {
-    const voucherCode = transactionData?.purchased_code || transactionData?.Voucher?.[0];
-    if (voucherCode) {
-      navigator.clipboard.writeText(voucherCode);
-      setVoucherCopied(true);
-      setTimeout(() => setVoucherCopied(false), 2000);
-    }
-  };
+  const voucherCode = transactionData?.voucher_code || transactionData?.purchased_code || transactionData?.Voucher?.[0];
+  const isShowmax = !!voucherCode;
+  const transactionId = transactionData?.content?.transactions?.transactionId || transactionData?.requestId;
+  const logo = serviceID ? getNetworkLogo(serviceID) : null;
 
-  const getStatusConfig = () => {
-    switch (status) {
-      case "success":
-        return {
-          icon: CheckCircle2,
-          iconColor: "text-green-600",
-          bgColor: "bg-green-50",
-          borderColor: "border-green-200",
-          title: "Cable Subscription Successful!",
-          description: "Your subscription has been successfully activated.",
-        };
-      case "processing":
-        return {
-          icon: Clock,
-          iconColor: "text-yellow-600",
-          bgColor: "bg-yellow-50",
-          borderColor: "border-yellow-200",
-          title: "Transaction Processing",
-          description:
-            "Your transaction is being processed. This may take a few minutes. You'll receive a notification once it's completed. You don't need to wait on this page.",
-        };
-      case "error":
-        return {
-          icon: AlertCircle,
-          iconColor: "text-red-600",
-          bgColor: "bg-red-50",
-          borderColor: "border-red-200",
-          title: "Transaction Failed",
-          description: "An error occurred while processing your transaction.",
-        };
-      default:
-        return null;
-    }
-  };
-
-  const config = getStatusConfig();
-  if (!config) return null;
+  const config = {
+    success: {
+      icon: CheckCircle2,
+      iconColor: "text-green-600",
+      bgColor: "bg-green-50",
+      title: isShowmax ? "Showmax Subscription Ready!" : "Subscription Activated!",
+      description: isShowmax
+        ? "Your voucher code is below. Save it to activate your Showmax."
+        : "Your cable TV subscription has been successfully activated.",
+    },
+    processing: {
+      icon: Clock,
+      iconColor: "text-amber-600",
+      bgColor: "bg-amber-50",
+      title: "Processing",
+      description: "Your transaction is being processed. You can close this and check back later.",
+    },
+    error: {
+      icon: AlertCircle,
+      iconColor: "text-red-600",
+      bgColor: "bg-red-50",
+      title: "Transaction Failed",
+      description: errorMessage || "Something went wrong. Your wallet has been refunded if charged.",
+    },
+  }[status];
 
   const Icon = config.icon;
-  const transactionId =
-    transactionData?.content?.transactions?.transactionId ||
-    transactionData?.requestId;
-  
-  const voucherCode = transactionData?.purchased_code || transactionData?.Voucher?.[0];
-  const isShowmax = !!voucherCode;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
-        className={`bg-white rounded-xl shadow-xl max-w-md w-full ${config.borderColor} border-2 overflow-hidden`}
+        className="bg-dashboard-surface rounded-2xl shadow-xl max-w-md w-full border border-dashboard-border/80 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className={`${config.bgColor} p-6 text-center relative`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute top-3 right-3 p-1.5 hover:bg-white/40 rounded-lg transition-colors"
           >
-            <X className="h-5 w-5 text-gray-600" />
+            <X className="h-4 w-4 text-dashboard-muted" />
           </button>
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-3">
             {status === "processing" ? (
-              <Loader2 className={`h-16 w-16 ${config.iconColor} animate-spin`} />
+              <Loader2 className={`h-12 w-12 ${config.iconColor} animate-spin`} />
             ) : (
-              <Icon className={`h-16 w-16 ${config.iconColor}`} />
+              <Icon className={`h-12 w-12 ${config.iconColor}`} />
             )}
           </div>
-          <h2 className={`text-2xl font-bold ${config.iconColor.replace("text-", "text-")} mb-2`}>
-            {config.title}
-          </h2>
-          <p className="text-gray-600 text-sm">{config.description}</p>
+          <h2 className="text-lg font-bold text-dashboard-heading mb-1">{config.title}</h2>
+          <p className="text-xs sm:text-sm text-dashboard-muted">{config.description}</p>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className="p-5 space-y-4">
+          {/* Success details */}
           {status === "success" && transactionData?.content?.transactions && (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Product:</span>
-                <span className="font-semibold text-gray-900">
-                  {transactionData.content.transactions.product_name}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  {isShowmax ? "Phone Number:" : "Smartcard Number:"}
-                </span>
-                <span className="font-semibold text-gray-900 font-mono">
+            <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/60 p-4 space-y-3">
+              {/* Provider with logo */}
+              {logo && (
+                <div className="flex items-center gap-2.5 pb-3 border-b border-dashboard-border/60">
+                  <div className="relative h-8 w-8 rounded-lg overflow-hidden ring-1 ring-dashboard-border/40 shrink-0">
+                    <Image src={logo} alt="" fill className="object-cover" unoptimized />
+                  </div>
+                  <span className="font-semibold text-sm text-dashboard-heading">
+                    {transactionData.content.transactions.product_name}
+                  </span>
+                </div>
+              )}
+              {!logo && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-dashboard-muted">Product</span>
+                  <span className="font-semibold text-dashboard-heading">
+                    {transactionData.content.transactions.product_name}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-sm pt-2 border-t border-dashboard-border/60">
+                <span className="text-dashboard-muted">{isShowmax ? "Phone" : "Smartcard"}</span>
+                <span className="font-semibold text-dashboard-heading font-mono">
                   {transactionData.content.transactions.unique_element}
                 </span>
               </div>
               {transactionData.content.transactions.amount && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Amount:</span>
-                  <span className="font-semibold text-gray-900">
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-dashboard-border/60">
+                  <span className="text-dashboard-muted">Amount</span>
+                  <span className="font-bold text-dashboard-heading">
                     ₦{parseFloat(String(transactionData.content.transactions.amount)).toLocaleString()}
                   </span>
                 </div>
               )}
-              
-              {/* Showmax Voucher Code */}
-              {isShowmax && voucherCode && (
-                <div className="pt-3 border-t border-gray-200">
-                  <p className="text-sm text-gray-600 mb-2 font-medium">
-                    Showmax Voucher Code:
-                  </p>
-                  <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 flex items-center justify-between">
-                    <span className="font-mono font-bold text-lg text-yellow-900">
-                      {voucherCode}
-                    </span>
-                    <button
-                      onClick={copyVoucherCode}
-                      className="p-2 hover:bg-yellow-100 rounded transition-colors ml-2"
-                      title="Copy Voucher Code"
-                    >
-                      {voucherCopied ? (
-                        <Check className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Copy className="h-5 w-5 text-yellow-700" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-yellow-700 mt-2">
-                    <strong>Important:</strong> Save this voucher code. You'll need it to activate your Showmax subscription.
-                  </p>
-                </div>
-              )}
-
               {transactionId && (
-                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                  <span className="text-sm text-gray-600">Transaction ID:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-gray-700 truncate max-w-[120px]">
-                      {transactionId}
-                    </span>
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-dashboard-border/60">
+                  <span className="text-dashboard-muted">Transaction ID</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-dashboard-heading truncate max-w-[120px]">{transactionId}</span>
                     <button
-                      onClick={copyTransactionId}
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
-                      title="Copy Transaction ID"
+                      onClick={() => copyToClipboard(transactionId, setCopied)}
+                      className="p-1 hover:bg-dashboard-border/40 rounded transition-colors shrink-0"
                     >
-                      {copied ? (
-                        <Check className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Copy className="h-4 w-4 text-gray-600" />
-                      )}
+                      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5 text-dashboard-muted" />}
                     </button>
                   </div>
                 </div>
@@ -197,43 +150,70 @@ export function TransactionStatusModal({
             </div>
           )}
 
-          {status === "processing" && transactionData && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800 mb-2">
-                <strong>Request ID:</strong> {transactionData.requestId}
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> You can close this window and continue using the app. 
-                  You'll receive a notification once the transaction is completed.
-                </p>
+          {/* Showmax Voucher */}
+          {status === "success" && isShowmax && voucherCode && (
+            <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+              <p className="text-xs font-semibold text-amber-800 mb-2">Showmax Voucher Code</p>
+              <div className="flex items-center justify-between bg-white rounded-lg p-3 border border-amber-200">
+                <span className="font-mono font-bold text-lg text-amber-900 tracking-wider">{voucherCode}</span>
+                <button
+                  onClick={() => copyToClipboard(voucherCode, setVoucherCopied)}
+                  className="p-2 hover:bg-amber-100 rounded-lg transition-colors ml-2 shrink-0"
+                >
+                  {voucherCopied ? <Check className="h-5 w-5 text-green-600" /> : <Copy className="h-5 w-5 text-amber-700" />}
+                </button>
               </div>
+              <p className="text-[10px] sm:text-xs text-amber-700 mt-2">
+                Save this code. You need it to activate your Showmax subscription.
+              </p>
             </div>
           )}
 
+          {/* Processing info */}
+          {status === "processing" && transactionData && (
+            <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/60 p-4">
+              {logo && (
+                <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-dashboard-border/60">
+                  <div className="relative h-7 w-7 rounded-lg overflow-hidden ring-1 ring-dashboard-border/40 shrink-0">
+                    <Image src={logo} alt="" fill className="object-cover" unoptimized />
+                  </div>
+                  <span className="font-medium text-sm text-dashboard-heading">
+                    {transactionData.content?.transactions?.product_name || serviceID?.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs text-dashboard-muted mb-1">
+                <strong className="text-dashboard-heading">Request ID:</strong> {transactionData.requestId}
+              </p>
+              <p className="text-[10px] text-dashboard-muted mt-2">
+                You can close this and continue. Check your transaction history for updates.
+              </p>
+            </div>
+          )}
+
+          {/* Error info */}
           {status === "error" && errorMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-red-800 font-medium mb-1">Error Details:</p>
-              <p className="text-sm text-red-700">{errorMessage}</p>
+            <div className="rounded-xl border border-red-200 bg-red-50/80 p-4">
+              <p className="text-xs sm:text-sm text-red-700">{errorMessage}</p>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-1">
             {status === "error" && onRetry && (
               <Button
                 variant="outline"
                 onClick={onRetry}
-                className="flex-1"
+                className="flex-1 rounded-xl h-11 border-dashboard-border text-dashboard-heading hover:bg-dashboard-bg"
               >
                 Try Again
               </Button>
             )}
             <Button
               onClick={onClose}
-              className={status === "error" && onRetry ? "flex-1" : "w-full"}
+              className={`${status === "error" && onRetry ? "flex-1" : "w-full"} rounded-xl h-11 bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-semibold`}
             >
-              {status === "processing" ? "Close & Continue" : "Close"}
+              {status === "processing" ? "Close" : "Done"}
             </Button>
           </div>
         </div>

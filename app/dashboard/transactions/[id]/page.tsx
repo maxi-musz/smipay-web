@@ -2,24 +2,29 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { 
-  Loader2, 
+import Image from "next/image";
+import {
+  Loader2,
   ArrowLeft,
+  ArrowDownLeft,
   CheckCircle2,
   Clock,
   XCircle,
   Ban,
   Copy,
   Check,
-  Calendar,
-  Hash,
-  User,
-  Phone,
-  Wallet
+  ChevronRight,
 } from "lucide-react";
 import { transactionApi } from "@/services/transaction-api";
-import type { TransactionDetail } from "@/types/transaction";
+import type {
+  TransactionDetail,
+  ElectricityMeta,
+  CableMeta,
+  DataMeta,
+  AirtimeMeta,
+  EducationMeta,
+  EducationCard,
+} from "@/types/transaction";
 import { getNetworkLogo } from "@/lib/network-logos";
 
 export default function TransactionDetailPage() {
@@ -27,16 +32,18 @@ export default function TransactionDetailPage() {
   const searchParams = useSearchParams();
   const params = useParams();
   const transactionId = params.id as string;
-  const providerFromQuery = (searchParams.get("provider") as string | null) || null;
+  const providerFromQuery =
+    (searchParams.get("provider") as string | null) || null;
 
-  const [transaction, setTransaction] = useState<TransactionDetail | null>(null);
+  const [transaction, setTransaction] = useState<TransactionDetail | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const getTransactionLogo = (tx: TransactionDetail): string | null => {
     const providerKey = (tx.provider || providerFromQuery || "").toLowerCase();
-
     if (providerKey) {
       const logo = getNetworkLogo(providerKey);
       if (logo) return logo;
@@ -45,309 +52,607 @@ export default function TransactionDetailPage() {
     return null;
   };
 
+  const getProviderDisplayName = (tx: TransactionDetail): string => {
+    if (tx.type === "electricity" && tx.meta && "disco" in tx.meta && (tx.meta as ElectricityMeta).disco) {
+      return (tx.meta as ElectricityMeta).disco;
+    }
+    if (tx.type === "cable" && tx.meta && "bouquet" in tx.meta && (tx.meta as CableMeta).bouquet) {
+      return (tx.meta as CableMeta).bouquet;
+    }
+    if (tx.type === "data" && tx.meta && "network" in tx.meta && (tx.meta as DataMeta).network) {
+      return (tx.meta as DataMeta).network.replace(/-data/i, "").replace(/-/g, " ").trim().toUpperCase();
+    }
+    if (tx.type === "airtime" && tx.meta && "network" in tx.meta && (tx.meta as AirtimeMeta).network) {
+      return (tx.meta as AirtimeMeta).network.replace(/-/g, " ").trim().toUpperCase();
+    }
+    if (tx.type === "education" && tx.meta && "product_name" in tx.meta && (tx.meta as EducationMeta).product_name) {
+      return (tx.meta as EducationMeta).product_name;
+    }
+    if (tx.provider) {
+      return tx.provider.replace(/-/g, " ").replace(/electric$/i, "Electricity");
+    }
+    return "";
+  };
+
   useEffect(() => {
     const fetchTransaction = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await transactionApi.getTransactionById(transactionId);
-        
+        const response =
+          await transactionApi.getTransactionById(transactionId);
         if (response.success && response.data) {
           setTransaction(response.data);
         } else {
           setError("Transaction not found");
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "An error occurred";
+        const errorMessage =
+          err instanceof Error ? err.message : "An error occurred";
         setError(errorMessage);
       } finally {
         setLoading(false);
       }
     };
-
-    if (transactionId) {
-      fetchTransaction();
-    }
+    if (transactionId) fetchTransaction();
   }, [transactionId]);
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const statusConfig: Record<
+    string,
+    { icon: typeof CheckCircle2; color: string; label: string }
+  > = {
+    success: { icon: CheckCircle2, color: "text-emerald-500", label: "Successful" },
+    pending: { icon: Clock, color: "text-amber-500", label: "Pending" },
+    failed: { icon: XCircle, color: "text-red-500", label: "Failed" },
+    cancelled: { icon: Ban, color: "text-slate-400", label: "Cancelled" },
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "success":
-        return <CheckCircle2 className="h-12 w-12 text-green-600" />;
-      case "pending":
-        return <Clock className="h-12 w-12 text-yellow-600" />;
-      case "failed":
-        return <XCircle className="h-12 w-12 text-red-600" />;
-      case "cancelled":
-        return <Ban className="h-12 w-12 text-gray-600" />;
-      default:
-        return <Clock className="h-12 w-12 text-gray-600" />;
-    }
+  const getStatus = (status: string) =>
+    statusConfig[status] ?? statusConfig.cancelled;
+
+  const parseAmount = (amount: string | number): string => {
+    if (typeof amount === "number") return amount.toLocaleString("en-NG", { minimumFractionDigits: 2 });
+    const num = Number(String(amount).replace(/[₦,]/g, ""));
+    return isNaN(num) ? "0.00" : num.toLocaleString("en-NG", { minimumFractionDigits: 2 });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "success":
-        return "bg-green-50 text-green-700 border-green-200";
-      case "pending":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200";
-      case "failed":
-        return "bg-red-50 text-red-700 border-red-200";
-      case "cancelled":
-        return "bg-gray-50 text-gray-700 border-gray-200";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  };
-
+  /* ── Loading ─────────────────────────────── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-dashboard-bg flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-brand-bg-primary mx-auto mb-4" />
-          <p className="text-brand-text-secondary">Loading transaction details...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-brand-bg-primary mx-auto mb-3" />
+          <p className="text-sm text-dashboard-muted">Loading details…</p>
         </div>
       </div>
     );
   }
 
+  /* ── Error ───────────────────────────────── */
   if (error || !transaction) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="px-4 py-4 sm:px-6 lg:px-8">
-          <Button
-            variant="outline"
+      <div className="min-h-screen bg-dashboard-bg">
+        <div className="px-4 py-4">
+          <button
             onClick={() => router.back()}
-            className="mb-4"
+            className="flex items-center gap-1.5 text-sm text-dashboard-muted hover:text-dashboard-heading transition-colors mb-6"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4" />
             Back
-          </Button>
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <XCircle className="h-16 w-16 text-red-300 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{error || "Transaction not found"}</p>
-              <Button onClick={() => router.push("/dashboard/transactions")}>
-                View All Transactions
-              </Button>
-            </div>
+          </button>
+          <div className="flex flex-col items-center py-16">
+            <XCircle className="h-10 w-10 text-red-400/60 mb-3" />
+            <p className="text-sm text-red-500 mb-4">
+              {error || "Transaction not found"}
+            </p>
+            <button
+              onClick={() => router.push("/dashboard/transactions")}
+              className="text-sm font-medium text-brand-bg-primary hover:underline"
+            >
+              View all transactions
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
+  const status = getStatus(transaction.status);
+  const StatusIcon = status.icon;
+  const logo = getTransactionLogo(transaction);
+  const providerName = getProviderDisplayName(transaction);
+  const meta = transaction.meta || {};
+  const isElectricity = transaction.type === "electricity";
+  const isCable = transaction.type === "cable";
+  const isData = transaction.type === "data";
+  const isAirtime = transaction.type === "airtime";
+  const isEducation = transaction.type === "education";
+
+  const hasToken = isElectricity && "electricity_token" in meta && !!(meta as ElectricityMeta).electricity_token;
+  const shouldShowTokenFallback =
+    isElectricity &&
+    transaction.status === "success" &&
+    !hasToken;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="px-4 py-4 sm:px-6 lg:px-8">
-          <Button
-            variant="outline"
+    <div className="min-h-screen bg-dashboard-bg">
+      {/* ── Header ─────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-dashboard-surface border-b border-dashboard-border/50">
+        <div className="flex items-center justify-between px-4 h-12 max-w-lg mx-auto">
+          <button
             onClick={() => router.back()}
-            className="mb-4"
+            className="p-1 -ml-1 touch-manipulation"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-brand-text-primary">
+            <ArrowLeft className="h-5 w-5 text-dashboard-heading" />
+          </button>
+          <h1 className="text-[15px] font-semibold text-dashboard-heading">
             Transaction Details
           </h1>
-          <p className="text-xs sm:text-sm text-brand-text-secondary mt-0.5 sm:mt-1">
-            View complete information about this transaction
-          </p>
+          <div className="w-6" />
         </div>
-      </div>
+      </header>
 
-      <div className="px-3 sm:px-4 py-4 sm:py-6 md:px-6 lg:px-8 max-w-4xl mx-auto">
-        {/* Status Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 md:p-8 mb-4 sm:mb-6">
-          <div className="flex flex-col items-center text-center">
-            {/* Provider / Status Icon */}
-            <div className="mb-4">
-              {getTransactionLogo(transaction) ? (
-                <img 
-                  src={getTransactionLogo(transaction) as string} 
-                  alt={transaction.description} 
-                  className="w-20 h-20 rounded-full object-cover"
-                />
+      {/* ── Scrollable content ─────────────── */}
+      <div className="pb-24">
+        <div className="max-w-lg mx-auto">
+
+          {/* ── Hero ───────────────────────── */}
+          <div className="bg-dashboard-surface pt-6 pb-5 px-4 text-center">
+            {/* Logo */}
+            <div className="flex justify-center mb-3">
+              {transaction.credit_debit === "credit" ? (
+                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+                  <ArrowDownLeft className="h-7 w-7 text-blue-500" />
+                </div>
+              ) : logo ? (
+                <div className="relative w-14 h-14 rounded-full overflow-hidden ring-1 ring-dashboard-border/30">
+                  <Image
+                    src={logo}
+                    alt={providerName || transaction.description}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
               ) : (
-                getStatusIcon(transaction.status)
+                <div className="w-14 h-14 rounded-full bg-dashboard-bg flex items-center justify-center">
+                  <span className="text-lg font-bold text-dashboard-muted">
+                    {(transaction.type || "T")[0].toUpperCase()}
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* Status Badge */}
-            <span className={`px-4 py-2 rounded-full text-sm font-semibold border mb-4 ${getStatusColor(transaction.status)}`}>
-              {transaction.status.toUpperCase()}
-            </span>
+            {/* Provider name */}
+            {providerName && (
+              <p className="text-sm text-dashboard-muted mb-1">{providerName}</p>
+            )}
 
             {/* Amount */}
-            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-text-primary mb-1 sm:mb-2">
-              ₦{transaction.amount}
+            <p className="text-[28px] sm:text-[32px] font-bold text-dashboard-heading leading-none">
+              ₦{parseAmount(transaction.amount)}
             </p>
 
-            {/* Description */}
-            <p className="text-sm sm:text-base md:text-lg text-brand-text-secondary">
-              {transaction.description}
-            </p>
-          </div>
-        </div>
-
-        {/* Transaction Details */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-brand-text-primary">
-              Transaction Information
-            </h2>
+            {/* Status */}
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              <StatusIcon className={`h-4.5 w-4.5 ${status.color}`} />
+              <span className={`text-sm font-semibold ${status.color}`}>
+                {status.label}
+              </span>
+            </div>
           </div>
 
-          <div className="divide-y divide-gray-100">
-            {/* Transaction Reference */}
-            <div className="px-6 py-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1">
-                  <Hash className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm text-brand-text-secondary mb-1">
-                      Transaction Reference
-                    </p>
-                    <p className="font-mono font-medium text-brand-text-primary break-all">
-                      {transaction.tx_reference}
-                    </p>
+          {/* ── Education credentials card ── */}
+          {isEducation && "pin" in meta && (meta as EducationMeta).pin && (
+            <div className="mx-4 mt-3 space-y-2">
+              {/* WAEC Result Checker: cards with Serial + PIN */}
+              {(meta as EducationMeta).cards && (meta as EducationMeta).cards!.length > 0
+                ? (meta as EducationMeta).cards!.map((card: EducationCard, idx: number) => (
+                    <div key={idx} className="bg-dashboard-surface rounded-xl border border-dashboard-border/50 px-4 py-3.5 space-y-2">
+                      {(meta as EducationMeta).cards!.length > 1 && (
+                        <p className="text-[10px] text-dashboard-muted font-semibold uppercase tracking-wider">Card {idx + 1}</p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-dashboard-muted">Serial</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-dashboard-heading font-mono tracking-wide">{card.Serial}</span>
+                          <button onClick={() => copyToClipboard(card.Serial, `serial-${idx}`)} className="p-1 rounded-md hover:bg-dashboard-bg transition-colors touch-manipulation">
+                            {copiedField === `serial-${idx}` ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-dashboard-muted/50" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-dashboard-muted">PIN</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-dashboard-heading font-mono tracking-wide">{card.Pin}</span>
+                          <button onClick={() => copyToClipboard(card.Pin, `pin-${idx}`)} className="p-1 rounded-md hover:bg-dashboard-bg transition-colors touch-manipulation">
+                            {copiedField === `pin-${idx}` ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-dashboard-muted/50" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                : (
+                    <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/50 px-4 py-3.5 space-y-2">
+                      {(meta as EducationMeta).serial && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-dashboard-muted">Serial</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-dashboard-heading font-mono tracking-wide">{(meta as EducationMeta).serial}</span>
+                            <button onClick={() => copyToClipboard((meta as EducationMeta).serial!, "serial")} className="p-1 rounded-md hover:bg-dashboard-bg transition-colors touch-manipulation">
+                              {copiedField === "serial" ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-dashboard-muted/50" />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-dashboard-muted">
+                          {(meta as EducationMeta).product_name?.includes("JAMB") ? "JAMB PIN" : "PIN"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-dashboard-heading font-mono tracking-wide">{(meta as EducationMeta).pin}</span>
+                          <button onClick={() => copyToClipboard((meta as EducationMeta).pin!, "edu-pin")} className="p-1 rounded-md hover:bg-dashboard-bg transition-colors touch-manipulation">
+                            {copiedField === "edu-pin" ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-dashboard-muted/50" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+            </div>
+          )}
+
+          {/* ── Token card (electricity prepaid) ── */}
+          {hasToken && (
+            <div className="mx-4 mt-3">
+              <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/50 px-4 py-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-dashboard-muted">Token</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-dashboard-heading font-mono tracking-wide">
+                      {(meta as ElectricityMeta).electricity_token}
+                    </span>
+                    <button
+                      onClick={() =>
+                        copyToClipboard(
+                          (meta as ElectricityMeta).electricity_token,
+                          "token"
+                        )
+                      }
+                      className="p-1 rounded-md hover:bg-dashboard-bg transition-colors touch-manipulation"
+                    >
+                      {copiedField === "token" ? (
+                        <Check className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-4 w-4 text-dashboard-muted/50" />
+                      )}
+                    </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Token fallback (electricity, success but no token) ── */}
+          {shouldShowTokenFallback && (
+            <div className="mx-4 mt-3">
+              <div className="bg-dashboard-surface rounded-xl border border-amber-200/80 px-4 py-3.5 space-y-2">
+                <p className="text-sm font-semibold text-amber-800">
+                  Token not available
+                </p>
+                <p className="text-[11px] sm:text-xs text-amber-900 leading-relaxed">
+                  This electricity purchase was marked as successful, but we couldn&apos;t retrieve your
+                  token automatically. Please contact support with your transaction number so we can
+                  help you resolve this.
+                </p>
                 <button
-                  onClick={() => copyToClipboard(transaction.tx_reference)}
-                  className="ml-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Copy reference"
+                  type="button"
+                  onClick={() => router.push("/dashboard/support/new")}
+                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-brand-bg-primary hover:text-brand-bg-primary/90 hover:underline underline-offset-4"
                 >
-                  {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4 text-gray-600" />
-                  )}
+                  Contact support
+                  <ChevronRight className="h-3 w-3" />
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Transaction Type */}
-            <div className="px-6 py-4">
-              <div className="flex items-start gap-3">
-                <Wallet className="h-5 w-5 text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-sm text-brand-text-secondary mb-1">
-                    Transaction Type
-                  </p>
-                  <p className="font-medium text-brand-text-primary capitalize">
-                    {transaction.type}
-                  </p>
-                </div>
+          {/* ── Transaction Details card ──────── */}
+          <div className="mx-4 mt-3 mb-4">
+            <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/50 overflow-hidden">
+              <div className="px-4 pt-4 pb-2">
+                <h2 className="text-[15px] font-semibold text-dashboard-heading">
+                  Transaction Details
+                </h2>
+              </div>
+
+              <div className="divide-y divide-dashboard-border/40">
+                {/* ── Type-specific rows ──── */}
+
+                {/* Electricity */}
+                {isElectricity && "meter_type" in meta && (
+                  <Row label="Meter Type" value={(meta as ElectricityMeta).meter_type} capitalize />
+                )}
+                {isElectricity && "meter_number" in meta && (
+                  <Row label="Meter Number" value={(meta as ElectricityMeta).meter_number} mono />
+                )}
+                {isElectricity && "customer_name" in meta && (
+                  <Row label="Customer Name" value={(meta as ElectricityMeta).customer_name} />
+                )}
+                {isElectricity && "customer_address" in meta && (meta as ElectricityMeta).customer_address && (
+                  <Row label="Service Address" value={(meta as ElectricityMeta).customer_address} />
+                )}
+                {isElectricity && "units" in meta && (meta as ElectricityMeta).units && (
+                  <Row label="Units Purchased" value={(meta as ElectricityMeta).units} />
+                )}
+
+                {/* Cable */}
+                {isCable && "customer_name" in meta && (
+                  <Row label="Customer Name" value={(meta as CableMeta).customer_name} />
+                )}
+                {isCable && "bouquet" in meta && (
+                  <Row label="Bouquet" value={(meta as CableMeta).bouquet} />
+                )}
+                {isCable && "smartcard_number" in meta && (
+                  <Row label="Smartcard Number" value={(meta as CableMeta).smartcard_number} mono />
+                )}
+                {isCable && "subscription_type" in meta && (
+                  <Row label="Subscription Type" value={(meta as CableMeta).subscription_type} capitalize />
+                )}
+
+                {/* Data / VTU plan name (from API) */}
+                {transaction.data_plan_name?.trim() && (
+                  <Row label="Plan" value={transaction.data_plan_name} />
+                )}
+                {/* Data */}
+                {isData && "phone" in meta && (
+                  <Row label="Recipient Mobile" value={(meta as DataMeta).phone} mono />
+                )}
+                {isData && "plan" in meta && (meta as DataMeta).plan && (
+                  <Row label="Data Bundle" value={(meta as DataMeta).plan} />
+                )}
+
+                {/* Airtime */}
+                {isAirtime && "phone" in meta && (
+                  <Row label="Recipient Mobile" value={(meta as AirtimeMeta).phone} mono />
+                )}
+
+                {/* Education */}
+                {isEducation && "product_name" in meta && (meta as EducationMeta).product_name && (
+                  <Row label="Product" value={(meta as EducationMeta).product_name} />
+                )}
+                {isEducation && "phone" in meta && (meta as EducationMeta).phone && (
+                  <Row label="Phone" value={(meta as EducationMeta).phone} mono />
+                )}
+                {isEducation && "profile_id" in meta && (meta as EducationMeta).profile_id && (
+                  <Row label="JAMB Profile ID" value={(meta as EducationMeta).profile_id!} mono />
+                )}
+                {isEducation && "quantity" in meta && (meta as EducationMeta).quantity > 1 && (
+                  <Row label="Quantity" value={String((meta as EducationMeta).quantity)} />
+                )}
+
+                {/* ── Common rows ──────── */}
+                <Row
+                  label="Transaction Type"
+                  value={formatType(transaction.type)}
+                />
+                {transaction.payment_method && (
+                  <Row
+                    label="Payment Method"
+                    value={transaction.payment_method}
+                    capitalize
+                    chevron
+                  />
+                )}
+                {transaction.transaction_number && (
+                  <CopyRow
+                    label="Transaction No."
+                    value={transaction.transaction_number}
+                    copiedField={copiedField}
+                    copyKey="txno"
+                    onCopy={copyToClipboard}
+                  />
+                )}
+                {!transaction.transaction_number && transaction.tx_reference && (
+                  <CopyRow
+                    label="Transaction No."
+                    value={transaction.tx_reference}
+                    copiedField={copiedField}
+                    copyKey="txref"
+                    onCopy={copyToClipboard}
+                  />
+                )}
+                <Row label="Transaction Date" value={transaction.created_on} />
               </div>
             </div>
-
-            {/* Created Date */}
-            <div className="px-6 py-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-sm text-brand-text-secondary mb-1">
-                    Created On
-                  </p>
-                  <p className="font-medium text-brand-text-primary">
-                    {formatDate(transaction.created_on)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Updated Date */}
-            {transaction.updated_on && (
-              <div className="px-6 py-4">
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-brand-text-secondary mb-1">
-                      Last Updated
-                    </p>
-                    <p className="font-medium text-brand-text-primary">
-                      {formatDate(transaction.updated_on)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sender */}
-            {transaction.sender && (
-              <div className="px-6 py-4">
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-brand-text-secondary mb-1">
-                      Sender
-                    </p>
-                    <p className="font-medium text-brand-text-primary">
-                      {transaction.sender}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Recipient Mobile */}
-            {transaction.recipient_mobile && (
-              <div className="px-6 py-4">
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-brand-text-secondary mb-1">
-                      Recipient Phone
-                    </p>
-                    <p className="font-medium text-brand-text-primary">
-                      {transaction.recipient_mobile}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="mt-6 flex gap-3">
-          <Button
-            variant="outline"
+          {/* ── Cashback (compact; VTpass used or earned) ── */}
+          {(transaction.cashback_balance_before != null ||
+            transaction.cashback_used != null ||
+            transaction.cashback_balance_after != null ||
+            transaction.cashback_earned != null) && (
+            <div className="mx-4 mb-4">
+              <CashbackCompactCard transaction={transaction} parseAmount={parseAmount} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Fixed bottom actions ──────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-dashboard-surface border-t border-dashboard-border/50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-lg mx-auto flex gap-3">
+          <button
             onClick={() => router.push("/dashboard/transactions")}
-            className="flex-1"
+            className="flex-1 h-12 rounded-xl border border-dashboard-border text-sm font-semibold text-dashboard-heading hover:bg-dashboard-bg/60 transition-colors touch-manipulation"
           >
-            View All Transactions
-          </Button>
-          <Button
+            All Transactions
+          </button>
+          <button
             onClick={() => router.push("/dashboard")}
-            className="flex-1 bg-brand-bg-primary hover:bg-brand-bg-primary/90"
+            className="flex-1 h-12 rounded-xl bg-brand-bg-primary text-sm font-semibold text-white hover:bg-brand-bg-primary/90 transition-colors touch-manipulation"
           >
-            Back to Dashboard
-          </Button>
+            Back to Home
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+/* ═══════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════ */
+
+function formatType(type: string): string {
+  const map: Record<string, string> = {
+    electricity: "Electricity",
+    cable: "Cable TV",
+    data: "Mobile Data",
+    airtime: "Airtime",
+    transfer: "Transfer",
+    deposit: "Deposit",
+    education: "Education",
+    betting: "Betting",
+    withdrawal: "Withdrawal",
+    referral_bonus: "Referral Bonus",
+  };
+  return map[type] || type.replace(/_/g, " ");
+}
+
+/* ═══════════════════════════════════════════════
+   Row Components
+   ═══════════════════════════════════════════════ */
+
+function Row({
+  label,
+  value,
+  mono,
+  capitalize: cap,
+  chevron,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  capitalize?: boolean;
+  chevron?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-4 py-3 min-h-[44px]">
+      <span className="text-[13px] text-dashboard-muted shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={`text-[13px] font-medium text-dashboard-heading text-right leading-snug ${
+            mono ? "font-mono" : ""
+          } ${cap ? "capitalize" : ""}`}
+        >
+          {value}
+        </span>
+        {chevron && (
+          <ChevronRight className="h-3.5 w-3.5 text-dashboard-muted/40 shrink-0" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CopyRow({
+  label,
+  value,
+  copiedField,
+  copyKey,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  copiedField: string | null;
+  copyKey: string;
+  onCopy: (text: string, field: string) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-4 py-3 min-h-[44px]">
+      <span className="text-[13px] text-dashboard-muted shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-[13px] font-medium font-mono text-dashboard-heading text-right break-all leading-snug">
+          {value}
+        </span>
+        <button
+          onClick={() => onCopy(value, copyKey)}
+          className="p-0.5 rounded hover:bg-dashboard-bg transition-colors shrink-0 touch-manipulation"
+        >
+          {copiedField === copyKey ? (
+            <Check className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-dashboard-muted/40" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CashbackCompactCard({
+  transaction,
+  parseAmount,
+}: {
+  transaction: TransactionDetail;
+  parseAmount: (amount: string | number) => string;
+}) {
+  const before = transaction.cashback_balance_before;
+  const after = transaction.cashback_balance_after;
+  const used = transaction.cashback_used ?? 0;
+  const earned = transaction.cashback_earned ?? 0;
+
+  const showCashbackWalletTrail =
+    before != null && after != null && before !== after;
+
+  const hasEarnedOrUsedLine = earned > 0 || used > 0;
+
+  return (
+    <div className="bg-dashboard-surface rounded-lg border border-dashboard-border/50 px-3 py-2 flex items-start justify-between gap-3">
+      <span className="text-[11px] font-semibold text-dashboard-heading shrink-0 pt-0.5">
+        Cashback
+      </span>
+      <div className="text-right min-w-0 space-y-0.5">
+        {used > 0 && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            Used ₦{parseAmount(used)}
+            {transaction.balance_before != null &&
+              transaction.balance_after != null && (
+                <>
+                  {" "}
+                  · Wallet ₦{parseAmount(transaction.balance_before)}→₦
+                  {parseAmount(transaction.balance_after)}
+                </>
+              )}
+          </p>
+        )}
+        {earned > 0 && (
+          <p className="text-[11px] font-semibold text-emerald-600 leading-snug">
+            Earned ₦{parseAmount(earned)}
+          </p>
+        )}
+        {showCashbackWalletTrail && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            Balance ₦{parseAmount(before)} → ₦{parseAmount(after)}
+          </p>
+        )}
+        {!hasEarnedOrUsedLine && !showCashbackWalletTrail && (
+          <p className="text-[11px] text-dashboard-muted leading-snug">
+            {[
+              before != null && `Before ₦${parseAmount(before)}`,
+              after != null && `After ₦${parseAmount(after)}`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

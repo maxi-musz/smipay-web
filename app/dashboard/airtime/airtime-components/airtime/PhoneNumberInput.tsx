@@ -1,9 +1,8 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import { isAirtimePhoneValidationRelaxed } from "@/lib/dev-phone-validation";
+import { X } from "lucide-react";
 
 interface PhoneNumberInputProps {
   value: string;
@@ -11,6 +10,8 @@ interface PhoneNumberInputProps {
   error?: string;
   disabled?: boolean;
   required?: boolean;
+  /** When true, renders only the input (no label, no error). Use when embedding in a custom layout. */
+  inline?: boolean;
 }
 
 export function PhoneNumberInput({
@@ -18,84 +19,82 @@ export function PhoneNumberInput({
   onChange,
   error,
   disabled = false,
-  required = true,
+  inline = false,
 }: PhoneNumberInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits
     const input = e.target.value.replace(/\D/g, "");
-    // Limit to 11 digits
     const formatted = input.slice(0, 11);
     onChange(formatted);
   };
 
   const formatDisplay = (phone: string) => {
     if (!phone) return "";
-    // Format as 0801 234 5678
     if (phone.length <= 4) return phone;
     if (phone.length <= 7) return `${phone.slice(0, 4)} ${phone.slice(4)}`;
     return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
   };
 
-  const isValid = value.length === 11 && value.startsWith("0");
+  const relaxed = isAirtimePhoneValidationRelaxed();
+  const isValid = relaxed
+    ? value.length >= 10 && value.length <= 11
+    : value.length === 11 && value.startsWith("0");
 
-  return (
-    <div className="space-y-2">
-      <Label htmlFor="phone" className="text-sm sm:text-base font-semibold">
-        Phone Number
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </Label>
-      <div className="relative">
-        <input
-          id="phone"
-          type="tel"
-          placeholder="08012345678"
-          value={formatDisplay(value)}
-          onChange={handleChange}
-          disabled={disabled}
-          className={cn(
-            "w-full bg-transparent text-base py-2 border-0 border-b-2 focus:outline-none focus:ring-0 transition-colors",
-            "placeholder:text-brand-text-secondary/50",
-            error 
-              ? "border-red-500 focus:border-red-500" 
-              : isValid && !error
-              ? "border-green-500 focus:border-green-500"
-              : "border-gray-300 focus:border-brand-bg-primary"
-          )}
-          maxLength={13} // 11 digits + 2 spaces
-          aria-invalid={!!error}
-          aria-describedby={error ? "phone-error" : undefined}
-        />
-        {isValid && !error && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <svg
-              className="h-5 w-5 text-green-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
+  const inputField = (
+    <div className="relative">
+      <input
+        id="phone"
+        type="tel"
+        inputMode="numeric"
+        placeholder="0801 234 5678"
+        value={formatDisplay(value)}
+        onChange={handleChange}
+        disabled={disabled}
+        className={cn(
+          "w-full bg-transparent border-0 border-b-2 rounded-none px-0 py-2.5 text-[17px] sm:text-lg font-semibold text-dashboard-heading placeholder:text-dashboard-muted/40 placeholder:font-normal transition-colors duration-200",
+          "focus:outline-none",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          value ? "pr-8" : "",
+          error
+            ? "border-red-400"
+            : isValid
+              ? "border-emerald-400"
+              : "border-dashboard-border focus:border-brand-bg-primary"
         )}
-      </div>
-      {error && (
-        <div
-          id="phone-error"
-          className="flex items-center gap-2 text-sm text-red-600"
+        maxLength={13}
+        aria-invalid={!!error}
+      />
+      {value && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-dashboard-border/40 text-dashboard-muted hover:text-dashboard-heading transition-colors touch-manipulation"
+          aria-label="Clear number"
         >
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>{error}</span>
+          <X className="h-4 w-4" />
+        </button>
+      )}
+      {isValid && !error && !value?.length && (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none">
+          <svg className="h-4.5 w-4.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
         </div>
       )}
-      {!error && value && !isValid && (
-        <p className="text-xs text-brand-text-secondary">
-          Enter a valid 11-digit phone number starting with 0
-        </p>
+    </div>
+  );
+
+  if (inline) {
+    return <div className="flex-1 min-w-0">{inputField}</div>;
+  }
+
+  return (
+    <div className="flex-1 min-w-0">
+      <label className="text-[11px] font-medium text-dashboard-muted uppercase tracking-wider mb-1 block">
+        Phone number
+      </label>
+      {inputField}
+      {error && (
+        <p className="text-[12px] text-red-500 font-medium mt-1.5">{error}</p>
       )}
     </div>
   );

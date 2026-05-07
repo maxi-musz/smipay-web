@@ -12,13 +12,11 @@ import type {
   VtpassCableVerifyResponse,
   VtpassCablePurchaseRequest,
   VtpassCablePurchaseApiResponse,
+  VtpassCableQueryRequest,
+  VtpassCableQueryResponse,
 } from "@/types/vtpass/vtu/vtpass-cable";
 
 export const vtpassCableApi = {
-  /**
-   * Get available cable TV service IDs
-   * Retrieves list of available cable TV providers and their service IDs
-   */
   getServiceIds: async (): Promise<VtpassCableServiceIdsResponse> => {
     try {
       const response = await backendApi.get<VtpassCableServiceIdsResponse>(
@@ -30,11 +28,6 @@ export const vtpassCableApi = {
     }
   },
 
-  /**
-   * Get variation codes for a specific cable TV provider
-   * Retrieves available subscription plans (bouquets) for a service provider
-   * @param serviceID - Service ID of the provider (e.g., "dstv", "gotv", "startimes", "showmax")
-   */
   getVariationCodes: async (
     serviceID: string
   ): Promise<VtpassCableVariationCodesResponse> => {
@@ -48,10 +41,6 @@ export const vtpassCableApi = {
     }
   },
 
-  /**
-   * Verify smartcard number and retrieve customer information
-   * @param data - Verify request data (billersCode and serviceID)
-   */
   verifySmartcard: async (
     data: VtpassCableVerifyRequest
   ): Promise<VtpassCableVerifyResponse> => {
@@ -66,16 +55,26 @@ export const vtpassCableApi = {
     }
   },
 
-  /**
-   * Purchase cable TV subscription
-   * @param data - Purchase request data
-   */
   purchaseCable: async (
     data: VtpassCablePurchaseRequest
   ): Promise<VtpassCablePurchaseApiResponse> => {
     try {
       const response = await backendApi.post<VtpassCablePurchaseApiResponse>(
         "/vtpass/cable/purchase",
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  queryTransaction: async (
+    data: VtpassCableQueryRequest
+  ): Promise<VtpassCableQueryResponse> => {
+    try {
+      const response = await backendApi.post<VtpassCableQueryResponse>(
+        "/vtpass/cable/query",
         data
       );
       return response.data;

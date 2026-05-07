@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SmartcardInput } from "./SmartcardInput";
 import { FormError } from "@/components/auth/FormError";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import { vtpassCableApi } from "@/services/vtpass/vtu/vtpass-cable-api";
 import type { VtpassCableVerifyContent } from "@/types/vtpass/vtu/vtpass-cable";
 
@@ -27,23 +27,18 @@ export function SmartcardVerificationForm({
   const [serverError, setServerError] = useState("");
   const [verificationData, setVerificationData] = useState<VtpassCableVerifyContent | null>(null);
 
-  // Determine smartcard length based on provider
-  const isShowmax = serviceID.toLowerCase() === "showmax";
-  const maxLength = isShowmax ? 11 : 10;
-  const label = isShowmax ? "Phone Number" : "Smartcard Number";
-  const placeholder = isShowmax ? "08012345678" : "1212121212";
+  const isStartimes = serviceID.toLowerCase() === "startimes";
+  const maxLength = isStartimes ? 11 : 10;
+  const label = "Smartcard Number";
+  const placeholder = isStartimes ? "02123456789" : "7012345678";
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
-
     if (!smartcardNumber) {
       newErrors.smartcard = `${label} is required`;
-    } else if (smartcardNumber.length !== maxLength) {
-      newErrors.smartcard = `${label} must be ${maxLength} digits`;
-    } else if (isShowmax && !smartcardNumber.startsWith("0")) {
-      newErrors.smartcard = "Phone number must start with 0";
+    } else if (smartcardNumber.length < (isStartimes ? 10 : 10) || smartcardNumber.length > maxLength) {
+      newErrors.smartcard = `${label} must be ${isStartimes ? "10-11" : "10"} digits`;
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -51,45 +46,31 @@ export function SmartcardVerificationForm({
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsVerifying(true);
-
     try {
       const response = await vtpassCableApi.verifySmartcard({
         billersCode: smartcardNumber,
-        serviceID: serviceID,
+        serviceID,
       });
 
-      // Debug: Log response structure
-      console.log("Verification response:", response);
-
-      // Check if response is successful and has content
-      // Backend returns: { success: true, message: "...", data: { code: "000", content: {...} } }
       if (response.success && response.data?.content) {
         setVerificationData(response.data.content);
         onVerified(response.data.content, smartcardNumber);
-        return; // Exit early on success
+        return;
       }
-
-      // If code is "000" but structure is different, still treat as success
       if (response.data?.code === "000" && response.data?.content) {
         setVerificationData(response.data.content);
         onVerified(response.data.content, smartcardNumber);
-        return; // Exit early on success
+        return;
       }
 
-      // Only call onError if we truly have an error
       const errorMsg = response.message || "Verification failed. Please try again.";
-      console.error("Verification failed:", errorMsg, response);
       setServerError(errorMsg);
       onError(errorMsg);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An error occurred. Please try again.";
+      const errorMessage = error instanceof Error ? error.message : "An error occurred. Please try again.";
       setServerError(errorMessage);
       onError(errorMessage);
     } finally {
@@ -97,111 +78,81 @@ export function SmartcardVerificationForm({
     }
   };
 
-  // If verified, show verification details
+  const formatDueDate = (dateString: string | undefined): string => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const parseAmount = (amountStr: string | undefined): string => {
+    if (!amountStr) return "N/A";
+    const cleaned = String(amountStr).replace(/[,\s]/g, "").trim();
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && isFinite(parsed)) return `₦${parsed.toLocaleString()}`;
+    return `₦${amountStr}`;
+  };
+
   if (verificationData) {
-    // Safely parse renewal amount - handle string like "7900.00"
-    const parseRenewalAmount = (amountStr: string | undefined): number | null => {
-      if (!amountStr) return null;
-      try {
-        // Remove any commas and whitespace, then parse
-        const cleaned = String(amountStr).replace(/[,\s]/g, "").trim();
-        if (!cleaned) return null;
-        const parsed = parseFloat(cleaned);
-        return isNaN(parsed) || !isFinite(parsed) ? null : parsed;
-      } catch {
-        return null;
-      }
-    };
-
-    const renewalAmount = parseRenewalAmount(verificationData.Renewal_Amount);
-    const isValidAmount = renewalAmount !== null;
-
-    // Format due date
-    const formatDueDate = (dateString: string | undefined): string => {
-      if (!dateString) return "N/A";
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-      } catch {
-        return dateString;
-      }
-    };
-
     return (
       <div className="space-y-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="rounded-xl border border-green-200/80 bg-green-50/60 p-4">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-semibold text-green-800 mb-3">Smartcard Verified Successfully</p>
-              <div className="space-y-2.5 text-sm">
-                {/* Customer Name */}
-                <div className="flex justify-between items-center py-2 border-b border-green-200/50">
-                  <span className="text-green-700">Customer Name:</span>
+            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-green-800 mb-3">Smartcard Verified</p>
+              <div className="space-y-2 text-xs sm:text-sm">
+                <div className="flex justify-between items-center py-1.5 border-b border-green-200/50">
+                  <span className="text-green-700">Customer Name</span>
                   <span className="font-semibold text-green-900">{verificationData.Customer_Name || "N/A"}</span>
                 </div>
 
-                {/* Customer Number */}
-                <div className="flex justify-between items-center py-2 border-b border-green-200/50">
-                  <span className="text-green-700">Customer Number:</span>
-                  <span className="font-semibold text-green-900 font-mono">{verificationData.Customer_Number || "N/A"}</span>
-                </div>
-
-                {/* Customer Type */}
-                <div className="flex justify-between items-center py-2 border-b border-green-200/50">
-                  <span className="text-green-700">Customer Type:</span>
-                  <span className="font-semibold text-green-900">{verificationData.Customer_Type || "N/A"}</span>
-                </div>
-
-                {/* Status */}
-                <div className="flex justify-between items-center py-2 border-b border-green-200/50">
-                  <span className="text-green-700">Status:</span>
-                  <span className={`font-semibold px-2 py-1 rounded ${
-                    verificationData.Status === "ACTIVE" 
-                      ? "bg-green-200 text-green-800" 
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}>
-                    {verificationData.Status || "N/A"}
-                  </span>
-                </div>
-
-
-                {/* Due Date */}
-                {verificationData.Due_Date && (
-                  <div className="flex justify-between items-center py-2 border-b border-green-200/50">
-                    <span className="text-green-700">Due Date:</span>
-                    <span className="font-semibold text-green-900">
-                      {formatDueDate(verificationData.Due_Date)}
+                {verificationData.Status && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-green-200/50">
+                    <span className="text-green-700">Status</span>
+                    <span className={`font-semibold text-xs px-2 py-0.5 rounded ${
+                      verificationData.Status === "ACTIVE" ? "bg-green-200 text-green-800" : "bg-yellow-100 text-yellow-800"
+                    }`}>
+                      {verificationData.Status}
                     </span>
                   </div>
                 )}
 
-                {/* Renewal Amount */}
+                {verificationData.Current_Bouquet && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-green-200/50">
+                    <span className="text-green-700">Current Bouquet</span>
+                    <span className="font-semibold text-green-900">{verificationData.Current_Bouquet}</span>
+                  </div>
+                )}
+
+                {verificationData.Due_Date && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-green-200/50">
+                    <span className="text-green-700">Due Date</span>
+                    <span className="font-semibold text-green-900">{formatDueDate(verificationData.Due_Date)}</span>
+                  </div>
+                )}
+
                 {verificationData.Renewal_Amount && (
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="font-semibold text-green-800">Renewal Amount:</span>
-                    <span className="font-bold text-xl text-green-900">
-                      {(() => {
-                        // Handle string like "7900.00" - remove commas and whitespace, then parse
-                        const amountStr = String(verificationData.Renewal_Amount).replace(/[,\s]/g, "").trim();
-                        const parsed = parseFloat(amountStr);
-                        if (!isNaN(parsed) && isFinite(parsed)) {
-                          return `₦${parsed.toLocaleString()}`;
-                        }
-                        // Fallback: show raw value if parsing fails
-                        return `₦${verificationData.Renewal_Amount}`;
-                      })()}
-                    </span>
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="font-semibold text-green-800">Renewal Amount</span>
+                    <span className="font-bold text-base text-green-900">{parseAmount(verificationData.Renewal_Amount)}</span>
+                  </div>
+                )}
+
+                {verificationData.Balance !== undefined && (
+                  <div className="flex justify-between items-center py-1.5">
+                    <span className="text-green-700">Balance</span>
+                    <span className="font-semibold text-green-900">₦{Number(verificationData.Balance).toLocaleString()}</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
+
         <Button
           onClick={() => {
             setVerificationData(null);
@@ -210,8 +161,9 @@ export function SmartcardVerificationForm({
             setServerError("");
           }}
           variant="outline"
-          className="w-full"
+          className="w-full rounded-xl h-10 text-sm border-dashboard-border text-dashboard-heading hover:bg-dashboard-bg"
         >
+          <RotateCcw className="h-4 w-4 mr-2" />
           Verify Another Smartcard
         </Button>
       </div>
@@ -219,7 +171,7 @@ export function SmartcardVerificationForm({
   }
 
   return (
-    <form onSubmit={handleVerify} className="space-y-6">
+    <form onSubmit={handleVerify} className="space-y-5">
       <SmartcardInput
         value={smartcardNumber}
         onChange={setSmartcardNumber}
@@ -230,33 +182,27 @@ export function SmartcardVerificationForm({
         maxLength={maxLength}
       />
 
-      {serverError && (
-        <div>
-          <FormError message={serverError} />
-        </div>
-      )}
+      {serverError && <FormError message={serverError} />}
 
       <Button
         type="submit"
-        disabled={isVerifying || !smartcardNumber || smartcardNumber.length !== maxLength}
-        className="w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-        size="lg"
+        disabled={isVerifying || !smartcardNumber || smartcardNumber.length < 10}
+        className="w-full min-h-12 h-12 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white text-sm sm:text-base font-semibold shadow-sm transition-all active:scale-[0.99] touch-manipulation"
       >
         {isVerifying ? (
           <>
             <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-            Verifying...
+            Verifying…
           </>
         ) : (
-          `Verify ${serviceName} ${isShowmax ? "Phone" : "Smartcard"}`
+          `Verify ${serviceName.replace(" Subscription", "")} Smartcard`
         )}
       </Button>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> {isShowmax 
-            ? "Enter the phone number associated with your Showmax account."
-            : `Enter your ${serviceName} smartcard number to verify your account and see renewal options.`}
+      <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/80 p-3 sm:p-4">
+        <p className="text-xs sm:text-sm text-dashboard-muted">
+          <strong className="text-dashboard-heading">Note:</strong>{" "}
+          Enter your {serviceName.replace(" Subscription", "")} smartcard number to verify your account and see renewal options.
         </p>
       </div>
     </form>

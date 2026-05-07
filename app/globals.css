@@ -2,10 +2,38 @@
 @import "tw-animate-css";
 
 :root {
-  --brand-bg-primary: #ff6600;
-  --brand-text-primary: #ff6600;
-  --brand-text-secondary: #6b7280;
-  --brand-black: #222222;
+  /* Brand – use sparingly for primary CTAs only please*/
+  --brand-bg-primary: #ea580c;
+  --brand-text-primary: #ea580c;
+  --brand-text-secondary: #64748b;
+  --brand-black: #0f172a;
+  /* Dashboard / app surface palette – professional 2026 */
+  --dashboard-bg: #f8fafc;
+  --dashboard-surface: #ffffff;
+  --dashboard-heading: #0f172a;
+  --dashboard-muted: #64748b;
+  --dashboard-border: #e2e8f0;
+  --dashboard-accent: #0ea5e9;
+  /* Quick action cards – distinct colors */
+  --quick-action-1: #0ea5e9;
+  --quick-action-1-bg: #e0f2fe;
+  --quick-action-2: #8b5cf6;
+  --quick-action-2-bg: #ede9fe;
+  --quick-action-3: #ea580c;
+  --quick-action-3-bg: #ffedd5;
+  --quick-action-4: #059669;
+  --quick-action-4-bg: #d1fae5;
+  --quick-action-5: #dc2626;
+  --quick-action-5-bg: #fee2e2;
+  --quick-action-6: #be185d;
+  --quick-action-6-bg: #fce7f3;
+  /* Transaction status – for lists and badges */
+  --tx-success-bg: #ecfdf5;
+  --tx-success-text: #059669;
+  --tx-pending-bg: #fffbeb;
+  --tx-pending-text: #b45309;
+  --tx-failed-bg: #fef2f2;
+  --tx-failed-text: #dc2626;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -47,6 +75,30 @@
   --color-brand-text-primary: var(--brand-text-primary);
   --color-brand-text-secondary: var(--brand-text-secondary);
   --color-brand-black: var(--brand-black);
+  --color-dashboard-bg: var(--dashboard-bg);
+  --color-dashboard-surface: var(--dashboard-surface);
+  --color-dashboard-heading: var(--dashboard-heading);
+  --color-dashboard-muted: var(--dashboard-muted);
+  --color-dashboard-border: var(--dashboard-border);
+  --color-dashboard-accent: var(--dashboard-accent);
+  --color-quick-action-1: var(--quick-action-1);
+  --color-quick-action-1-bg: var(--quick-action-1-bg);
+  --color-quick-action-2: var(--quick-action-2);
+  --color-quick-action-2-bg: var(--quick-action-2-bg);
+  --color-quick-action-3: var(--quick-action-3);
+  --color-quick-action-3-bg: var(--quick-action-3-bg);
+  --color-quick-action-4: var(--quick-action-4);
+  --color-quick-action-4-bg: var(--quick-action-4-bg);
+  --color-quick-action-5: var(--quick-action-5);
+  --color-quick-action-5-bg: var(--quick-action-5-bg);
+  --color-quick-action-6: var(--quick-action-6);
+  --color-quick-action-6-bg: var(--quick-action-6-bg);
+  --color-tx-success-bg: var(--tx-success-bg);
+  --color-tx-success-text: var(--tx-success-text);
+  --color-tx-pending-bg: var(--tx-pending-bg);
+  --color-tx-pending-text: var(--tx-pending-text);
+  --color-tx-failed-bg: var(--tx-failed-bg);
+  --color-tx-failed-text: var(--tx-failed-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-funnel-display);
@@ -131,11 +183,123 @@ body {
   }
 }
 
+/* Smooth scroll for dashboard and main content */
+html {
+  scroll-behavior: smooth;
+  /* Explicit base prevents layout shift when media queries apply */
+  font-size: 16px;
+}
+
+/*
+ * Mobile readability: bump root font-size so all rem-based sizes
+ * (text, padding, gaps) scale up proportionally on small screens.
+ * Tailwind's text-xs (0.75rem) goes from 12px → ~13.5px,
+ *           text-sm (0.875rem) goes from 14px → ~15.75px, etc.
+ * Adjust the 18px value if directors want bigger/smaller.
+ */
+@media (max-width: 640px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+/* ── Auth form: professional input styling (breathing borders, focus glow) ── */
+.input-auth {
+  @apply h-11 w-full min-w-0 rounded-xl border-2 bg-slate-50/90 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400;
+  @apply transition-all duration-200 ease-out;
+  @apply shadow-sm;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.input-auth:hover {
+  border-color: #94a3b8;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.input-auth:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+}
+.input-auth::placeholder {
+  color: #94a3b8;
+}
+.input-auth:disabled {
+  @apply cursor-not-allowed opacity-60;
+  background-color: #f1f5f9;
+}
+.input-auth.input-auth-error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.15);
+}
+.input-auth.input-auth-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+}
+.input-auth-readonly {
+  @apply cursor-default bg-slate-100/90 text-slate-600;
+  border-color: #e2e8f0;
+}
+.input-auth-readonly:hover {
+  border-color: #e2e8f0;
+  background-color: #f1f5f9;
+}
+
+/* Auth form labels */
+.label-auth {
+  @apply text-sm font-medium text-slate-700;
+}
+
+/* Auth card container */
+.auth-card {
+  @apply rounded-2xl p-6 sm:p-8;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Admin content area readability boost.
+ * Strong zoom on very wide screens only; tablets/small laptops stay at 1× so grids
+ * and stat cards are not squeezed (see unified-admin dashboard).
+ */
+:root {
+  --admin-zoom: 1;
+}
+.admin-content-area {
+  zoom: var(--admin-zoom);
+}
+
+@media (min-width: 1401px) {
+  :root {
+    --admin-zoom: 1.15;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --admin-zoom: 1.25;
   }
 }

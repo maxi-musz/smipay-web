@@ -50,7 +50,7 @@ async function sha256Browser(message: string): Promise<string> {
  * @param secret - Secret key for signing (from env)
  */
 export async function generateSignature(
-  body: string | Record<string, any>,
+  body: string | Record<string, unknown>,
   secret: string
 ): Promise<string> {
   const bodyString = typeof body === "string" ? body : JSON.stringify(body);
@@ -146,7 +146,7 @@ export async function getDeviceFingerprint(): Promise<string> {
  * @param body - Request body (optional, used for signature)
  */
 export async function generateSecurityHeaders(
-  body?: Record<string, any> | string
+  body?: Record<string, unknown> | string
 ): Promise<SecurityHeaders> {
   const timestamp = Date.now().toString();
   const nonce = generateNonce();
@@ -154,9 +154,8 @@ export async function generateSecurityHeaders(
   const deviceId = getDeviceId();
   const deviceFingerprint = await getDeviceFingerprint();
 
-  // Generate signature if body is provided
   const secret = process.env.NEXT_PUBLIC_API_SECRET || "default-secret-key";
-  const signature = body ? await generateSignature(body, secret) : "";
+  const signature = await generateSignature(body ?? "", secret);
 
   return {
     "x-timestamp": timestamp,

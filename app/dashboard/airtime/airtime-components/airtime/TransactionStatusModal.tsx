@@ -80,17 +80,17 @@ export function TransactionStatusModal({
     transactionData?.requestId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className={`bg-white rounded-xl shadow-xl max-w-md w-full ${config.borderColor} border-2 overflow-hidden`}
+        className={`bg-dashboard-surface rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full ${config.borderColor} border-2 overflow-hidden max-h-[90dvh] sm:max-h-[85vh] flex flex-col`}
       >
-        {/* Header */}
-        <div className={`${config.bgColor} p-4 sm:p-6 text-center relative`}>
+        <div className={`${config.bgColor} p-5 sm:p-6 text-center relative shrink-0`}>
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 -m-2 rounded-full hover:bg-black/10 transition-colors text-dashboard-muted"
+            aria-label="Close"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
           <div className="flex justify-center mb-3 sm:mb-4">
             {status === "processing" ? (
@@ -99,52 +99,49 @@ export function TransactionStatusModal({
               <Icon className={`h-12 w-12 sm:h-16 sm:w-16 ${config.iconColor}`} />
             )}
           </div>
-          <h2 className="text-lg sm:text-2xl font-bold text-brand-text-primary mb-1.5 sm:mb-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-dashboard-heading mb-1.5 sm:mb-2">
             {config.title}
           </h2>
-          <p className="text-xs sm:text-sm text-brand-text-secondary">{config.description}</p>
+          <p className="text-xs sm:text-sm text-dashboard-muted">{config.description}</p>
         </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
           {status === "success" && transactionData?.content?.transactions && (
-            <div className="space-y-2.5 sm:space-y-3 bg-gray-50 rounded-lg p-3 sm:p-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Phone Number:</span>
-                <span className="font-semibold text-sm sm:text-base text-brand-text-primary">
+            <div className="space-y-3 bg-dashboard-bg/60 rounded-xl border border-dashboard-border/80 p-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Phone</span>
+                <span className="font-semibold text-sm text-dashboard-heading">
                   {transactionData.content.transactions.unique_element}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Amount:</span>
-                <span className="font-semibold text-sm sm:text-base text-brand-text-primary">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Amount</span>
+                <span className="font-semibold text-sm text-dashboard-heading">
                   ₦{parseFloat(transactionData.content.transactions.amount).toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Product:</span>
-                <span className="font-semibold text-sm sm:text-base text-brand-text-primary">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Product</span>
+                <span className="font-semibold text-sm text-dashboard-heading truncate max-w-[180px]">
                   {transactionData.content.transactions.product_name}
                 </span>
               </div>
               {transactionId && (
-                <div className="flex justify-between items-center pt-2.5 sm:pt-3 border-t border-gray-200">
-                  <span className="text-xs sm:text-sm text-brand-text-secondary">
-                    Transaction ID:
-                  </span>
+                <div className="flex justify-between items-center gap-2 pt-3 border-t border-dashboard-border/80">
+                  <span className="text-xs text-dashboard-muted">Transaction ID</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] sm:text-xs text-brand-text-primary">
-                      {transactionId.slice(0, 12)}...
+                    <span className="font-mono text-[10px] sm:text-xs text-dashboard-heading">
+                      {transactionId.slice(0, 12)}…
                     </span>
                     <button
                       onClick={copyTransactionId}
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      className="p-2 -m-2 rounded-lg hover:bg-dashboard-border/60 transition-colors"
                       title="Copy transaction ID"
                     >
                       {copied ? (
-                        <Check className="h-4 w-4 text-green-600" />
+                        <Check className="h-4 w-4 text-[var(--tx-success-text)]" />
                       ) : (
-                        <Copy className="h-4 w-4 text-brand-text-secondary" />
+                        <Copy className="h-4 w-4 text-dashboard-muted" />
                       )}
                     </button>
                   </div>
@@ -154,39 +151,37 @@ export function TransactionStatusModal({
           )}
 
           {status === "processing" && transactionData && (
-            <div className="space-y-2.5 sm:space-y-3 bg-gray-50 rounded-lg p-3 sm:p-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Request ID:</span>
-                <span className="font-mono text-[10px] sm:text-xs text-brand-text-primary">
+            <div className="space-y-3 bg-dashboard-bg/60 rounded-xl border border-dashboard-border/80 p-4">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Request ID</span>
+                <span className="font-mono text-[10px] sm:text-xs text-dashboard-heading break-all">
                   {transactionData.requestId}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs sm:text-sm text-brand-text-secondary">Amount:</span>
-                <span className="font-semibold text-sm sm:text-base text-brand-text-primary">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-xs sm:text-sm text-dashboard-muted">Amount</span>
+                <span className="font-semibold text-sm text-dashboard-heading">
                   ₦{transactionData.amount.toLocaleString()}
                 </span>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3 mt-3 sm:mt-4">
-                <p className="text-[10px] sm:text-xs text-blue-800">
-                  <strong>Note:</strong> You can close this window and continue using the app. 
-                  You'll receive a notification once the transaction is completed.
+              <div className="rounded-xl border border-dashboard-border/80 bg-dashboard-bg/50 p-3 mt-3">
+                <p className="text-xs text-dashboard-muted">
+                  You can close this and keep using the app. We’ll notify you when it’s done.
                 </p>
               </div>
             </div>
           )}
 
           {status === "error" && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
-              <p className="text-xs sm:text-sm text-red-800">{config.description}</p>
+            <div className="rounded-xl border border-red-200 bg-red-50/80 p-4">
+              <p className="text-xs sm:text-sm text-red-800">{errorMessage || config.description}</p>
               {errorMessage?.includes("Insufficient") && (
                 <Button
                   onClick={() => {
                     onClose();
-                    // Navigate to fund wallet - you might want to pass a callback
                     window.location.href = "/dashboard";
                   }}
-                  className="mt-3 w-full bg-brand-bg-primary hover:bg-brand-bg-primary/90"
+                  className="mt-3 w-full min-h-12 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90"
                 >
                   Fund Wallet
                 </Button>
@@ -194,28 +189,21 @@ export function TransactionStatusModal({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4">
+          <div className="flex gap-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-0">
             {status === "error" && onRetry && (
               <Button
                 variant="outline"
                 onClick={onRetry}
-                className="flex-1"
+                className="flex-1 min-h-12 rounded-xl border-dashboard-border touch-manipulation"
               >
-                Try Again
+                Try again
               </Button>
             )}
             <Button
               onClick={onClose}
-              className={`flex-1 ${
-                status === "success"
-                  ? "bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-                  : status === "processing"
-                  ? "bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-                  : "bg-brand-bg-primary hover:bg-brand-bg-primary/90"
-              }`}
+              className="flex-1 min-h-12 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 touch-manipulation"
             >
-              {status === "processing" ? "Close & Continue" : "Close"}
+              {status === "processing" ? "Close & continue" : "Close"}
             </Button>
           </div>
         </div>

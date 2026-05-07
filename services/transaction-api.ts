@@ -1,28 +1,27 @@
-/**
- * Transaction History API Service
- * Handles transaction-related API calls
- */
-
 import { backendApi } from "@/lib/api-client-backend";
 import { formatErrorMessage } from "@/lib/error-handler";
-import type { TransactionHistoryResponse, TransactionDetailResponse } from "@/types/transaction";
+import type {
+  TransactionHistoryResponse,
+  TransactionDetailResponse,
+  TransactionFilters,
+} from "@/types/transaction";
 
 export const transactionApi = {
-  /**
-   * Get all transaction history with pagination
-   * @param page - Page number (default: 1)
-   * @param limit - Items per page (default: 10)
-   */
   getAllTransactions: async (
-    page: number = 1,
-    limit: number = 10
+    filters: TransactionFilters = {}
   ): Promise<TransactionHistoryResponse> => {
     try {
+      const params: Record<string, string | number> = {};
+      if (filters.page) params.page = filters.page;
+      if (filters.limit) params.limit = filters.limit;
+      if (filters.type) params.type = filters.type;
+      if (filters.status) params.status = filters.status;
+      if (filters.credit_debit) params.credit_debit = filters.credit_debit;
+      if (filters.search) params.search = filters.search;
+
       const response = await backendApi.get<TransactionHistoryResponse>(
         "/history/fetch-all-history",
-        {
-          params: { page, limit },
-        }
+        { params }
       );
       return response.data;
     } catch (error) {
@@ -30,10 +29,6 @@ export const transactionApi = {
     }
   },
 
-  /**
-   * Get single transaction by ID
-   * @param transactionId - Transaction UUID
-   */
   getTransactionById: async (
     transactionId: string
   ): Promise<TransactionDetailResponse> => {
@@ -47,4 +42,3 @@ export const transactionApi = {
     }
   },
 };
-
