@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Smartphone, Timer, ShieldPlus, PiggyBank } from "lucide-react";
+import { Smartphone, Timer, ShieldPlus, BadgePercent } from "lucide-react";
 
 export default function WhyOurApp() {
   return (
@@ -53,9 +53,9 @@ export default function WhyOurApp() {
             description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
           />
           <FeatureCard
-            icon={<PiggyBank className="w-6 h-6" />}
-            title="Save More and Stress Less"
-            description="No transport cost, no agent fees, no hidden deductions. Users get better control of their money, spend with intention, and avoid the typical inconvenience of paying bills the traditional way. The app helps them handle important payments with ease and affordability."
+            icon={<BadgePercent className="w-6 h-6" />}
+            title="Pay Less, Stress Less"
+            description="No transport cost, no agent fees, no hidden deductions. Users get better control of their spending, pay bills with intention, and avoid the typical inconvenience of queueing at agents. The app helps them handle everyday payments with ease and affordability."
           />
         </div>
       </div>
@@ -95,9 +95,9 @@ export default function WhyOurApp() {
           description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
         />
         <FeatureCard
-          icon={<PiggyBank className="w-6 h-6" />}
-          title="Save More and Stress Less"
-          description="No transport cost, no agent fees, no hidden deductions. Users get better control of their money, spend with intention, and avoid the typical inconvenience of paying bills the traditional way. The app helps them handle important payments with ease and affordability."
+          icon={<BadgePercent className="w-6 h-6" />}
+          title="Pay Less, Stress Less"
+          description="No transport cost, no agent fees, no hidden deductions. Users get better control of their spending, pay bills with intention, and avoid the typical inconvenience of queueing at agents. The app helps them handle everyday payments with ease and affordability."
         />
       </div>
 
@@ -136,9 +136,9 @@ export default function WhyOurApp() {
           description="Users can track every kobo spent, review past transactions, and monitor all activity in real time. Strong security and protection systems keep personal and financial information safe, reducing the risk of fraud and giving users full peace of mind."
         />
         <FeatureCard
-          icon={<PiggyBank className="w-5 h-5" />}
-          title="Save More and Stress Less"
-          description="No transport cost, no agent fees, no hidden deductions. Users get better control of their money, spend with intention, and avoid the typical inconvenience of paying bills the traditional way. The app helps them handle important payments with ease and affordability."
+          icon={<BadgePercent className="w-5 h-5" />}
+          title="Pay Less, Stress Less"
+          description="No transport cost, no agent fees, no hidden deductions. Users get better control of their spending, pay bills with intention, and avoid the typical inconvenience of queueing at agents. The app helps them handle everyday payments with ease and affordability."
         />
       </div>
     </section>
