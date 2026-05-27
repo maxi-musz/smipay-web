@@ -12,6 +12,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type {
   SmileAiPersona,
   SmileAiPersonaVersion,
@@ -37,30 +38,46 @@ export default function PersonaEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
+  const { run, invalidatePrefix } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [p, v] = await Promise.all([
-        smileAiApi.personas.get(id),
-        smileAiApi.personas.listVersions(id),
-      ]);
-      setPersona(p);
-      setSystemPrompt(p.system_prompt);
-      setDescription(p.description ?? "");
-      setCapabilities(JSON.stringify(p.capabilities ?? {}, null, 2));
-      setVersions(v.items);
-      setActiveVersion(v.active_version);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [p, v] = await Promise.all([
+          run(
+            `smileai.personas.get:${id}`,
+            () => smileAiApi.personas.get(id),
+            { force },
+          ),
+          run(
+            `smileai.personas.versions:${id}`,
+            () => smileAiApi.personas.listVersions(id),
+            { force },
+          ),
+        ]);
+        setPersona(p);
+        setSystemPrompt(p.system_prompt);
+        setDescription(p.description ?? "");
+        setCapabilities(JSON.stringify(p.capabilities ?? {}, null, 2));
+        setVersions(v.items);
+        setActiveVersion(v.active_version);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [id, run],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    void load(true);
   }, [load]);
 
   const save = async () => {
@@ -74,7 +91,8 @@ export default function PersonaEditorPage() {
         system_prompt: systemPrompt,
         capabilities: caps,
       });
-      await load();
+      invalidatePrefix("smileai.personas");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -86,7 +104,8 @@ export default function PersonaEditorPage() {
     setPending("activate");
     try {
       await smileAiApi.personas.activate(id);
-      await load();
+      invalidatePrefix("smileai.personas");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -99,6 +118,7 @@ export default function PersonaEditorPage() {
     setPending("archive");
     try {
       await smileAiApi.personas.archive(id);
+      invalidatePrefix("smileai.personas");
       router.push("/unified-admin/smileai/personas");
     } catch (err) {
       setError((err as Error).message);
@@ -112,7 +132,8 @@ export default function PersonaEditorPage() {
     setPending(`rollback-${version}`);
     try {
       await smileAiApi.personas.rollback(id, version);
-      await load();
+      invalidatePrefix("smileai.personas");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -189,7 +210,7 @@ export default function PersonaEditorPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         {isLoading && !persona ? (
           <Card className="p-4 space-y-3">

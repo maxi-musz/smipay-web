@@ -13,6 +13,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type {
   SmileAiAction,
   SmileAiActionExecution,
@@ -72,6 +73,7 @@ export function ActionEditor({ id }: { id?: string }) {
   const [tryResult, setTryResult] = useState<unknown>(null);
   const [tryRunning, setTryRunning] = useState(false);
   const [executions, setExecutions] = useState<SmileAiActionExecution[] | null>(null);
+  const { run, invalidatePrefix } = useAdminSmileAiCache();
 
   useEffect(() => {
     if (!id) return;
@@ -80,8 +82,11 @@ export function ActionEditor({ id }: { id?: string }) {
       setIsLoading(true);
       try {
         const [a, exec] = await Promise.all([
-          smileAiApi.actions.get(id),
-          smileAiApi.actions.executions(id, { limit: 25 }),
+          run(`smileai.actions.get:${id}`, () => smileAiApi.actions.get(id)),
+          run(
+            `smileai.actions.executions:${id}:25`,
+            () => smileAiApi.actions.executions(id, { limit: 25 }),
+          ),
         ]);
         if (cancelled) return;
         setAction(a);
@@ -112,7 +117,7 @@ export function ActionEditor({ id }: { id?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, run]);
 
   const save = async () => {
     setError(null);
@@ -144,6 +149,7 @@ export function ActionEditor({ id }: { id?: string }) {
         const created = await smileAiApi.actions.create(payload);
         router.replace(`/unified-admin/smileai/actions/${created.id}`);
       }
+      invalidatePrefix("smileai.actions");
     } catch (err) {
       setError((err as Error).message);
     } finally {

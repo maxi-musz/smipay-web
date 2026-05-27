@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileUp, Loader2, Upload, X } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import {
   Card,
   ErrorBanner,
@@ -25,6 +26,7 @@ export default function KbUploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const { invalidatePrefix } = useAdminSmileAiCache();
 
   const addFiles = useCallback((fileList: FileList | File[]) => {
     const files = Array.from(fileList);
@@ -49,6 +51,7 @@ export default function KbUploadPage() {
 
   const uploadAll = async () => {
     setError(null);
+    let touched = false;
     for (let i = 0; i < queue.length; i += 1) {
       const item = queue[i];
       if (item.status === "indexed" || item.status === "reused") continue;
@@ -77,12 +80,17 @@ export default function KbUploadPage() {
             chunks: data?.chunks,
           });
         }
+        touched = true;
       } catch (err) {
         updateItem(i, {
           status: "failed",
           message: (err as Error).message,
         });
       }
+    }
+    if (touched) {
+      invalidatePrefix("smileai.kb");
+      invalidatePrefix("smileai.analytics.coverage-gaps");
     }
   };
 

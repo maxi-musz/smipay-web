@@ -11,6 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type {
   SmileAiChunk,
   SmileAiDocument,
@@ -44,34 +45,51 @@ export default function KbDocumentDetailPage() {
   const [testTopK, setTestTopK] = useState(5);
   const [testHits, setTestHits] = useState<SmileAiRetrievedHit[] | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const { run, invalidatePrefix } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [d, c] = await Promise.all([
-        smileAiApi.kb.get(id),
-        smileAiApi.kb.chunks(id, { limit: 50, offset: chunkOffset }),
-      ]);
-      setDoc(d);
-      setChunks(c.items);
-      setChunkTotal(c.total);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, chunkOffset]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [d, c] = await Promise.all([
+          run(
+            `smileai.kb.get:${id}`,
+            () => smileAiApi.kb.get(id),
+            { force },
+          ),
+          run(
+            `smileai.kb.chunks:${id}:${chunkOffset}`,
+            () => smileAiApi.kb.chunks(id, { limit: 50, offset: chunkOffset }),
+            { force },
+          ),
+        ]);
+        setDoc(d);
+        setChunks(c.items);
+        setChunkTotal(c.total);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [id, chunkOffset, run],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    void load(true);
   }, [load]);
 
   const reindex = async () => {
     setPending("reindex");
     try {
       await smileAiApi.kb.reindex(id);
-      await load();
+      invalidatePrefix("smileai.kb");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -84,6 +102,7 @@ export default function KbDocumentDetailPage() {
     setPending("archive");
     try {
       await smileAiApi.kb.archive(id);
+      invalidatePrefix("smileai.kb");
       router.push("/unified-admin/smileai/knowledge-base");
     } catch (err) {
       setError((err as Error).message);
@@ -155,7 +174,7 @@ export default function KbDocumentDetailPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         {isLoading && !doc ? (
           <Card className="p-4 space-y-2">

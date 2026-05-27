@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, LifeBuoy } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import {
   Card,
   ErrorBanner,
@@ -22,22 +23,34 @@ export default function HandoffDetailPage() {
   > | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { run } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const detail = await smileAiApi.handoffs.get(id);
-      setData(detail);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const detail = await run(
+          `smileai.handoffs.get:${id}`,
+          () => smileAiApi.handoffs.get(id),
+          { force },
+        );
+        setData(detail);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [id, run],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    void load(true);
   }, [load]);
 
   return (
@@ -59,7 +72,7 @@ export default function HandoffDetailPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         {isLoading && !data ? (
           <Card className="p-4 space-y-2">

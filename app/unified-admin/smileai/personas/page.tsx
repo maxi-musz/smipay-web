@@ -10,6 +10,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type { SmileAiPersona } from "@/types/admin/smileai";
 import {
   Card,
@@ -31,28 +32,41 @@ export default function PersonasListPage() {
     system_prompt: string;
   } | null>(null);
   const [creating, setCreating] = useState(false);
+  const { run, invalidatePrefix } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await smileAiApi.personas.list(includeArchived);
-      setPersonas(data);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [includeArchived]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await run(
+          `smileai.personas.list:${includeArchived ? "all" : "active"}`,
+          () => smileAiApi.personas.list(includeArchived),
+          { force },
+        );
+        setPersonas(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [includeArchived, run],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const refresh = useCallback(() => {
+    void load(true);
+  }, [load]);
+
   const activate = async (id: string) => {
     try {
       await smileAiApi.personas.activate(id);
-      await load();
+      invalidatePrefix("smileai.personas");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -68,7 +82,8 @@ export default function PersonasListPage() {
         system_prompt: newDraft.system_prompt,
       });
       setNewDraft(null);
-      await load();
+      invalidatePrefix("smileai.personas");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -101,7 +116,7 @@ export default function PersonasListPage() {
             </button>
             <button
               type="button"
-              onClick={load}
+              onClick={refresh}
               disabled={isLoading}
               className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
             >
@@ -113,7 +128,7 @@ export default function PersonasListPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         <div className="flex items-center gap-2">
           <label className="text-xs text-dashboard-muted inline-flex items-center gap-1.5">

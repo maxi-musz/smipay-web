@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Library, RefreshCw, Upload } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type { SmileAiDocStatus, SmileAiDocument } from "@/types/admin/smileai";
 import {
   Card,
@@ -35,28 +36,42 @@ export default function KbListPage() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { run } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await smileAiApi.kb.list({
-        status: (status || undefined) as SmileAiDocStatus | undefined,
-        q: q.trim() || undefined,
-        limit,
-        offset,
-      });
-      setItems(data.items);
-      setTotal(data.total);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [status, q, limit, offset]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const params = {
+          status: (status || undefined) as SmileAiDocStatus | undefined,
+          q: q.trim() || undefined,
+          limit,
+          offset,
+        };
+        const cacheKey = `smileai.kb.list:${JSON.stringify(params)}`;
+        const data = await run(
+          cacheKey,
+          () => smileAiApi.kb.list(params),
+          { force },
+        );
+        setItems(data.items);
+        setTotal(data.total);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [status, q, limit, offset, run],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    void load(true);
   }, [load]);
 
   return (
@@ -76,7 +91,7 @@ export default function KbListPage() {
             </Link>
             <button
               type="button"
-              onClick={load}
+              onClick={refresh}
               disabled={isLoading}
               className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
             >
@@ -88,7 +103,7 @@ export default function KbListPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         <Card className="p-3">
           <div className="flex flex-wrap items-center gap-2">

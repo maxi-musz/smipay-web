@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type {
   SmileAiConversationDetail,
   SmileAiConversationMessage,
@@ -44,22 +45,34 @@ export default function ConversationDetailPage() {
   const [showTakeoverDialog, setShowTakeoverDialog] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [actionPending, setActionPending] = useState<string | null>(null);
+  const { run, invalidate, invalidatePrefix } = useAdminSmileAiCache();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const detail = await smileAiApi.conversations.get(id);
-      setData(detail);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
+  const load = useCallback(
+    async (force = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const detail = await run(
+          `smileai.conversations.get:${id}`,
+          () => smileAiApi.conversations.get(id),
+          { force },
+        );
+        setData(detail);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [id, run],
+  );
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const refresh = useCallback(() => {
+    void load(true);
   }, [load]);
 
   const handleTakeover = async () => {
@@ -68,7 +81,10 @@ export default function ConversationDetailPage() {
       await smileAiApi.conversations.takeover(id, takeoverReason);
       setShowTakeoverDialog(false);
       setTakeoverReason("");
-      await load();
+      invalidate(`smileai.conversations.get:${id}`);
+      invalidatePrefix("smileai.conversations.list");
+      invalidatePrefix("smileai.handoffs");
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -82,7 +98,8 @@ export default function ConversationDetailPage() {
     try {
       await smileAiApi.conversations.addNote(id, noteDraft.trim());
       setNoteDraft("");
-      await load();
+      invalidate(`smileai.conversations.get:${id}`);
+      await load(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -118,7 +135,7 @@ export default function ConversationDetailPage() {
             )}
             <button
               type="button"
-              onClick={load}
+              onClick={refresh}
               disabled={isLoading}
               className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
             >
@@ -130,7 +147,7 @@ export default function ConversationDetailPage() {
       />
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
-        <ErrorBanner error={error} onRetry={load} />
+        <ErrorBanner error={error} onRetry={refresh} />
 
         {isLoading && !data ? (
           <Card className="p-4 space-y-3">
