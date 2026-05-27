@@ -28,6 +28,7 @@ import {
   BellRing,
   Sparkles,
   MonitorSmartphone,
+  Bot,
 } from "lucide-react";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -92,6 +93,14 @@ const adminMenuItems: AdminMenuItem[] = [
     icon: BellRing,
     href: "/unified-admin/notifications",
     enabled: true,
+  },
+  {
+    id: "smileai",
+    label: "SmileAI",
+    icon: Bot,
+    href: "/unified-admin/smileai",
+    enabled: true,
+    showNewBadgeUntil: "2026-06-30",
   },
   {
     id: "devices",
