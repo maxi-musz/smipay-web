@@ -243,6 +243,18 @@ export const smileAiApi = {
         limit: number;
         offset: number;
       }>(backendApi.get(`${BASE}/actions/${id}/executions`, { params })),
+    listApprovals: () =>
+      unwrap<{ items: Array<Record<string, unknown>> }>(
+        backendApi.get(`${BASE}/actions/approvals/pending`),
+      ),
+    approveApproval: (id: string) =>
+      unwrap<{ id: string }>(
+        backendApi.post(`${BASE}/actions/approvals/${id}/approve`),
+      ),
+    rejectApproval: (id: string, note?: string) =>
+      unwrap<{ id: string }>(
+        backendApi.post(`${BASE}/actions/approvals/${id}/reject`, { note }),
+      ),
   },
 
   // ─── Conversations ─────────────────────────────────────────────────────
@@ -387,6 +399,34 @@ export const smileAiApi = {
     setSafety: (payload: Partial<SmileAiSafety> & { notes?: string }) =>
       unwrap<SmileAiSettingsResponse<SmileAiSafety>>(
         backendApi.patch(`${BASE}/settings/safety`, payload),
+      ),
+    getMode: () =>
+      unwrap<{
+        effective: "read_only" | "read_write" | "paused";
+        admin_mode: "read_only" | "read_write";
+        user_mode: "read_only" | "read_write";
+        paused: boolean;
+      }>(backendApi.get(`${BASE}/settings/mode`)),
+    setMode: (admin_mode: "read_only" | "read_write") =>
+      unwrap<{
+        effective: "read_only" | "read_write" | "paused";
+        admin_mode: "read_only" | "read_write";
+        user_mode: "read_only" | "read_write";
+        paused: boolean;
+      }>(backendApi.patch(`${BASE}/settings/mode`, { admin_mode })),
+  },
+  personas: {
+    listApprovals: () =>
+      unwrap<{ items: Array<Record<string, unknown>> }>(
+        backendApi.get(`${BASE}/personas/approvals/pending`),
+      ),
+    approveApproval: (approvalId: string) =>
+      unwrap<{ persona_id: string }>(
+        backendApi.post(`${BASE}/personas/approvals/${approvalId}/approve`),
+      ),
+    rejectApproval: (approvalId: string, note?: string) =>
+      unwrap<{ id: string }>(
+        backendApi.post(`${BASE}/personas/approvals/${approvalId}/reject`, { note }),
       ),
   },
 };

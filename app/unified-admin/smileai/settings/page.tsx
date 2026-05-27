@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
   Bot,
+  CheckSquare,
   ChevronRight,
   FlaskConical,
+  Power,
   Settings,
   ShieldAlert,
   Sliders,
@@ -33,6 +35,18 @@ const SECTIONS = [
     icon: ShieldAlert,
     title: "Safety",
     desc: "Never-disclose patterns, refusal copy",
+  },
+  {
+    href: "/unified-admin/smileai/settings/mode",
+    icon: Power,
+    title: "Read/Write mode",
+    desc: "Global Smile permissions (admin override of per-user)",
+  },
+  {
+    href: "/unified-admin/smileai/approvals",
+    icon: CheckSquare,
+    title: "Pending approvals",
+    desc: "Second-admin sign-off for sensitive actions and personas",
   },
 ];
 
