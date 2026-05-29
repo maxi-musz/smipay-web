@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCheck, RefreshCw, ShieldQuestion, X } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
+import { useAuth } from "@/hooks/useAuth";
+import { isDevAdminEmail } from "@/lib/dev-admin";
+import { DevOnlyBadge } from "@/components/DevOnlyBadge";
 import {
   Card,
   ErrorBanner,
@@ -29,6 +32,12 @@ type PersonaApproval = {
 };
 
 export default function ApprovalsPage() {
+  const { user: authUser } = useAuth();
+  const isDev = useMemo(
+    () => isDevAdminEmail(authUser?.email),
+    [authUser?.email],
+  );
+  const myUserId = authUser?.id ?? null;
   const [actionItems, setActionItems] = useState<ActionApproval[] | null>(null);
   const [personaItems, setPersonaItems] = useState<PersonaApproval[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,26 +142,14 @@ export default function ApprovalsPage() {
                   <pre className="overflow-auto rounded-lg bg-dashboard-bg p-3 text-[11px] font-mono">
                     {JSON.stringify(item.payload, null, 2)}
                   </pre>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => void decideAction(item.id, false)}
-                      disabled={busyId === item.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void decideAction(item.id, true)}
-                      disabled={busyId === item.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      <CheckCheck className="h-3.5 w-3.5" />
-                      Approve
-                    </button>
-                  </div>
+                  <DecisionButtons
+                    isOwnRequest={item.proposed_by === myUserId}
+                    isDev={isDev}
+                    busy={busyId === item.id}
+                    onApprove={() => void decideAction(item.id, true)}
+                    onReject={() => void decideAction(item.id, false)}
+                    approveLabel="Approve"
+                  />
                 </Card>
               ))}
             </div>
@@ -183,32 +180,82 @@ export default function ApprovalsPage() {
                       Proposed by {item.proposed_by} · {formatDateTime(item.createdAt)}
                     </span>
                   </div>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => void decidePersona(item.id, false)}
-                      disabled={busyId === item.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void decidePersona(item.id, true)}
-                      disabled={busyId === item.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      <CheckCheck className="h-3.5 w-3.5" />
-                      Approve & activate
-                    </button>
-                  </div>
+                  <DecisionButtons
+                    isOwnRequest={item.proposed_by === myUserId}
+                    isDev={isDev}
+                    busy={busyId === item.id}
+                    onApprove={() => void decidePersona(item.id, true)}
+                    onReject={() => void decidePersona(item.id, false)}
+                    approveLabel="Approve & activate"
+                  />
                 </Card>
               ))}
             </div>
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Approve / reject buttons that respect the 4-eyes rule.
+ *
+ * - When the current admin is the proposer of the request, the buttons
+ *   are disabled with a "self-approve" tooltip — unless the admin is a
+ *   listed dev (DEV_EMAILS env), in which case the buttons stay enabled
+ *   and a small "dev" badge is shown so it's obvious this is a local
+ *   escape hatch and not the production flow.
+ */
+function DecisionButtons({
+  isOwnRequest,
+  isDev,
+  busy,
+  onApprove,
+  onReject,
+  approveLabel,
+}: {
+  isOwnRequest: boolean;
+  isDev: boolean;
+  busy: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  approveLabel: string;
+}) {
+  const blocked = isOwnRequest && !isDev;
+  const tooltip = blocked
+    ? "You proposed this change — a second admin must decide it. Add your email to DEV_EMAILS for a local override."
+    : isOwnRequest && isDev
+      ? "Dev override — approving your own request. Production setups must use a second admin."
+      : undefined;
+  return (
+    <div className="flex justify-end items-center gap-2 pt-1">
+      {blocked && (
+        <span className="text-[10px] text-amber-700 italic mr-1">
+          You proposed this — a second admin must decide.
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onReject}
+        disabled={busy || blocked}
+        title={tooltip}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <X className="h-3.5 w-3.5" />
+        Reject
+      </button>
+      <button
+        type="button"
+        onClick={onApprove}
+        disabled={busy || blocked}
+        title={tooltip}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <CheckCheck className="h-3.5 w-3.5" />
+        {approveLabel}
+        {isOwnRequest && isDev && <DevOnlyBadge />}
+      </button>
     </div>
   );
 }

@@ -32,6 +32,7 @@ export default function PersonasListPage() {
     system_prompt: string;
   } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   const { run, invalidatePrefix } = useAdminSmileAiCache();
 
   const load = useCallback(
@@ -63,9 +64,14 @@ export default function PersonasListPage() {
   }, [load]);
 
   const activate = async (id: string) => {
+    setError(null);
+    setInfo(null);
     try {
       await smileAiApi.personas.activate(id);
       invalidatePrefix("smileai.personas");
+      setInfo(
+        "Activation requested. A second admin must approve it at Approvals → Personas before this becomes the live prompt.",
+      );
       await load(true);
     } catch (err) {
       setError((err as Error).message);
@@ -129,6 +135,27 @@ export default function PersonasListPage() {
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
         <ErrorBanner error={error} onRetry={refresh} />
+        {info && (
+          <div className="flex items-start justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span className="leading-relaxed">{info}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/unified-admin/smileai/approvals"
+                className="font-semibold underline hover:no-underline"
+              >
+                Open approvals
+              </Link>
+              <button
+                type="button"
+                onClick={() => setInfo(null)}
+                className="text-amber-700 hover:text-amber-900"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <label className="text-xs text-dashboard-muted inline-flex items-center gap-1.5">
@@ -180,9 +207,10 @@ export default function PersonasListPage() {
                         <button
                           type="button"
                           onClick={() => activate(p.id)}
+                          title="Submits a request that a second admin must approve before this persona becomes the live prompt."
                           className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-orange-200 text-orange-600 hover:bg-orange-50"
                         >
-                          Make active
+                          Request activation
                         </button>
                       )}
                     </div>

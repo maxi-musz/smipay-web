@@ -15,6 +15,7 @@ import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type {
   SmileAiChunk,
   SmileAiDocument,
+  SmileAiKbRedaction,
   SmileAiRetrievedHit,
 } from "@/types/admin/smileai";
 import {
@@ -346,11 +347,86 @@ export default function KbDocumentDetailPage() {
                   </div>
                 </Card>
               )}
+              <RedactionsCard
+                redactions={
+                  Array.isArray(doc.metadata?.redactions)
+                    ? doc.metadata.redactions
+                    : []
+                }
+              />
             </aside>
           </div>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function RedactionsCard({
+  redactions,
+}: {
+  redactions: SmileAiKbRedaction[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (redactions.length === 0) return null;
+  const grouped = new Map<string, SmileAiKbRedaction[]>();
+  for (const r of redactions) {
+    const list = grouped.get(r.matched_term) ?? [];
+    list.push(r);
+    grouped.set(r.matched_term, list);
+  }
+  return (
+    <Card className="p-3 space-y-2 border-amber-300/60">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+          Redactions ({redactions.length})
+        </h3>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[11px] font-semibold text-amber-700 hover:text-amber-800"
+        >
+          {expanded ? "Hide" : "View"}
+        </button>
+      </div>
+      <p className="text-[11px] text-dashboard-muted leading-relaxed">
+        These terms were stripped from the indexed content so the AI never
+        sees them. Edit the source file and re-index if you want different
+        behaviour.
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {[...grouped.entries()].map(([term, hits]) => (
+          <span
+            key={term}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-mono"
+          >
+            {term} × {hits.length}
+          </span>
+        ))}
+      </div>
+      {expanded && (
+        <ul className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {redactions.map((r, i) => (
+            <li
+              key={`${r.matched_term}-${i}`}
+              className="text-[11px] bg-amber-50 border border-amber-200 rounded-lg p-2"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-mono font-semibold text-amber-800">
+                  {r.matched_term}
+                </span>
+                <span className="text-amber-700 truncate text-[10px]">
+                  {r.heading_path || "(no heading)"}
+                </span>
+              </div>
+              <p className="text-amber-900 italic break-words">
+                {r.snippet}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, FlaskConical, Plus, RefreshCw, TestTube } from "lucide-react";
+import { Check, FlaskConical, Pencil, Plus, RefreshCw, TestTube } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
 import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type { SmileAiVectorStore } from "@/types/admin/smileai";
@@ -14,6 +14,7 @@ import {
 } from "../../_components/Helpers";
 
 interface Draft {
+  id?: string;
   name: string;
   driver: string;
   kind: string;
@@ -32,6 +33,19 @@ const EMPTY_DRAFT: Draft = {
   metric: "cosine",
   credentials: "{}",
 };
+
+const EDIT_DRAFT = (s: SmileAiVectorStore): Draft => ({
+  id: s.id,
+  name: s.name,
+  driver: s.driver,
+  kind: s.kind,
+  index_name: s.index_name,
+  dimensions: s.dimensions,
+  metric: s.metric,
+  // Backend redacts encrypted values; show an empty object so editors don't
+  // accidentally re-submit redacted placeholders. Empty = keep existing.
+  credentials: "{}",
+});
 
 export default function VectorStoreSettingsPage() {
   const [items, setItems] = useState<SmileAiVectorStore[] | null>(null);
@@ -113,21 +127,46 @@ export default function VectorStoreSettingsPage() {
     }
   };
 
-  const create = async () => {
+  const save = async () => {
     if (!draft) return;
+    const credentialsRaw = sanitiseJsonInput(draft.credentials).trim();
+    let credentials: Record<string, unknown> | undefined;
+    // On edit, an empty credentials field means "keep existing"; on create
+    // an empty object is still valid for drivers that need no credentials.
+    const skipCredentials = draft.id && (credentialsRaw === "" || credentialsRaw === "{}");
+    if (credentialsRaw && !skipCredentials) {
+      try {
+        const parsed = JSON.parse(credentialsRaw);
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          setError(
+            "Credentials must be a JSON object like {} or {\"api_key\": \"…\"}, not a string, array, or number.",
+          );
+          return;
+        }
+        credentials = parsed as Record<string, unknown>;
+      } catch (err) {
+        setError(
+          `Credentials JSON is invalid: ${(err as Error).message}. Make sure you used straight quotes (") not curly ones (“ ”).`,
+        );
+        return;
+      }
+    }
     setSaving(true);
     try {
-      await smileAiApi.vectorStores.create({
+      const payload = {
         name: draft.name.trim(),
         driver: draft.driver.trim(),
         kind: draft.kind.trim(),
         index_name: draft.index_name.trim(),
         dimensions: Number(draft.dimensions),
         metric: draft.metric,
-        credentials: draft.credentials.trim()
-          ? JSON.parse(draft.credentials)
-          : undefined,
-      });
+        credentials,
+      };
+      if (draft.id) {
+        await smileAiApi.vectorStores.update(draft.id, payload);
+      } else {
+        await smileAiApi.vectorStores.create(payload);
+      }
       setDraft(null);
       invalidatePrefix("smileai.vector-stores");
       await load(true);
@@ -250,6 +289,14 @@ export default function VectorStoreSettingsPage() {
                         )}
                         <button
                           type="button"
+                          onClick={() => setDraft(EDIT_DRAFT(s))}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => archive(s.id)}
                           className="text-xs font-medium px-2.5 py-1 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:bg-dashboard-bg"
                         >
@@ -266,7 +313,7 @@ export default function VectorStoreSettingsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-5 max-w-lg w-full shadow-xl">
             <h2 className="text-base font-semibold text-dashboard-heading mb-3">
-              Add vector store
+              {draft.id ? "Edit" : "Add"} vector store
             </h2>
             <div className="space-y-2.5">
               <input
@@ -322,12 +369,34 @@ export default function VectorStoreSettingsPage() {
               <textarea
                 value={draft.credentials}
                 onChange={(e) =>
-                  setDraft({ ...draft, credentials: e.target.value })
+                  setDraft({
+                    ...draft,
+                    credentials: sanitiseJsonInput(e.target.value),
+                  })
                 }
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const text = sanitiseJsonInput(
+                    e.clipboardData.getData("text"),
+                  );
+                  const target = e.currentTarget;
+                  const start = target.selectionStart ?? draft.credentials.length;
+                  const end = target.selectionEnd ?? draft.credentials.length;
+                  const next =
+                    draft.credentials.slice(0, start) +
+                    text +
+                    draft.credentials.slice(end);
+                  setDraft({ ...draft, credentials: next });
+                }}
                 rows={5}
-                placeholder='Credentials (JSON, e.g. {"api_key": "…"})'
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                autoComplete="off"
+                placeholder={'Credentials (JSON, e.g. {"api_key": "..."})'}
                 className="w-full text-sm border border-dashboard-border/60 rounded-lg px-3 py-2 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-orange-200"
               />
+              <JsonStatus value={draft.credentials} editMode={Boolean(draft.id)} />
             </div>
             <div className="flex justify-end gap-2 mt-3">
               <button
@@ -339,11 +408,11 @@ export default function VectorStoreSettingsPage() {
               </button>
               <button
                 type="button"
-                onClick={create}
+                onClick={save}
                 disabled={saving || !draft.name || !draft.driver}
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-bg-primary text-white hover:opacity-90 disabled:opacity-50"
               >
-                Create
+                {saving ? "Saving..." : draft.id ? "Save changes" : "Create"}
               </button>
             </div>
           </div>
@@ -351,4 +420,61 @@ export default function VectorStoreSettingsPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Replace common typographic characters that get auto-inserted by the OS
+ * (curly quotes, en/em dashes used in place of hyphens, non-breaking spaces)
+ * with their JSON-valid equivalents.
+ */
+function sanitiseJsonInput(value: string): string {
+  return value
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/\u00A0/g, " ");
+}
+
+function JsonStatus({ value, editMode = false }: { value: string; editMode?: boolean }) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "{}") {
+    if (editMode) {
+      return (
+        <p className="text-[10px] text-dashboard-muted mt-1">
+          Leave as <code>{"{}"}</code> to keep the existing credentials. To
+          rotate the key, paste a new JSON object like{" "}
+          <code>{'{"api_key":"..."}'}</code>.
+        </p>
+      );
+    }
+    return (
+      <p className="text-[10px] text-dashboard-muted mt-1">
+        Leave as <code>{"{}"}</code> if this store needs no credentials (e.g.
+        pgvector reuses <code>DATABASE_URL</code>), or paste a JSON object like{" "}
+        <code>{'{"api_key":"..."}'}</code>.
+      </p>
+    );
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return (
+        <p className="text-[10px] text-rose-600 mt-1">
+          Must be a JSON object, not a {Array.isArray(parsed) ? "array" : typeof parsed}.
+        </p>
+      );
+    }
+    const keys = Object.keys(parsed);
+    return (
+      <p className="text-[10px] text-emerald-600 mt-1">
+        ✓ Valid JSON ({keys.length} {keys.length === 1 ? "key" : "keys"}:{" "}
+        {keys.join(", ")}). Sensitive values will be encrypted on save.
+      </p>
+    );
+  } catch (err) {
+    return (
+      <p className="text-[10px] text-rose-600 mt-1">
+        Invalid JSON: {(err as Error).message}
+      </p>
+    );
+  }
 }

@@ -77,6 +77,12 @@ export type SmileAiDocStatus =
   | "failed"
   | "archived";
 
+export interface SmileAiKbRedaction {
+  heading_path: string;
+  matched_term: string;
+  snippet: string;
+}
+
 export interface SmileAiDocument {
   id: string;
   title: string;
@@ -85,7 +91,7 @@ export interface SmileAiDocument {
   status: SmileAiDocStatus;
   version: number;
   tags: string[] | null;
-  metadata: Record<string, unknown> | null;
+  metadata: (Record<string, unknown> & { redactions?: SmileAiKbRedaction[] }) | null;
   uploaded_by: string | null;
   failure_reason: string | null;
   chunk_count: number;

@@ -85,7 +85,9 @@ export const smileAiApi = {
       credentials?: Record<string, unknown>;
     }) =>
       unwrap<SmileAiVectorStore>(backendApi.post(`${BASE}/vector-stores`, payload)),
-    update: (id: string, payload: Partial<SmileAiVectorStore>) =>
+    update: (id: string, payload: Partial<SmileAiVectorStore> & {
+      credentials?: Record<string, unknown>;
+    }) =>
       unwrap<SmileAiVectorStore>(
         backendApi.patch(`${BASE}/vector-stores/${id}`, payload),
       ),
@@ -145,6 +147,18 @@ export const smileAiApi = {
     rollback: (id: string, version: number) =>
       unwrap<SmileAiPersona>(
         backendApi.post(`${BASE}/personas/${id}/versions/${version}/rollback`),
+      ),
+    listApprovals: () =>
+      unwrap<{ items: Array<Record<string, unknown>> }>(
+        backendApi.get(`${BASE}/personas/approvals/pending`),
+      ),
+    approveApproval: (approvalId: string) =>
+      unwrap<{ persona_id: string }>(
+        backendApi.post(`${BASE}/personas/approvals/${approvalId}/approve`),
+      ),
+    rejectApproval: (approvalId: string, note?: string) =>
+      unwrap<{ id: string }>(
+        backendApi.post(`${BASE}/personas/approvals/${approvalId}/reject`, { note }),
       ),
   },
 
@@ -414,20 +428,6 @@ export const smileAiApi = {
         user_mode: "read_only" | "read_write";
         paused: boolean;
       }>(backendApi.patch(`${BASE}/settings/mode`, { admin_mode })),
-  },
-  personas: {
-    listApprovals: () =>
-      unwrap<{ items: Array<Record<string, unknown>> }>(
-        backendApi.get(`${BASE}/personas/approvals/pending`),
-      ),
-    approveApproval: (approvalId: string) =>
-      unwrap<{ persona_id: string }>(
-        backendApi.post(`${BASE}/personas/approvals/${approvalId}/approve`),
-      ),
-    rejectApproval: (approvalId: string, note?: string) =>
-      unwrap<{ id: string }>(
-        backendApi.post(`${BASE}/personas/approvals/${approvalId}/reject`, { note }),
-      ),
   },
 };
 

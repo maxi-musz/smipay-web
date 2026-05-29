@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Bot,
+  CheckCheck,
   ChevronDown,
   ChevronRight,
   FlaskConical,
@@ -83,6 +84,12 @@ const NAV: NavSection[] = [
     label: "Personas",
     icon: Wand2,
     href: "/unified-admin/smileai/personas",
+  },
+  {
+    id: "approvals",
+    label: "Approvals",
+    icon: CheckCheck,
+    href: "/unified-admin/smileai/approvals",
   },
   {
     id: "handoffs",

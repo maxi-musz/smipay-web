@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Check, Plus, RefreshCw, TestTube } from "lucide-react";
+import { Bot, Check, Pencil, Plus, RefreshCw, TestTube } from "lucide-react";
 import { smileAiApi } from "@/services/admin/smileai-api";
 import { useAdminSmileAiCache } from "@/hooks/admin/useAdminSmileAiCache";
 import type { SmileAiProvider } from "@/types/admin/smileai";
@@ -16,6 +16,7 @@ import {
 type Tab = "llm" | "embeddings";
 
 interface Draft {
+  id?: string;
   kind: "llm" | "embeddings";
   name: string;
   driver: string;
@@ -30,6 +31,19 @@ const EMPTY_DRAFT = (kind: "llm" | "embeddings"): Draft => ({
   driver: "stub",
   model: "",
   base_url: "",
+  credentials: "{}",
+});
+
+const EDIT_DRAFT = (p: SmileAiProvider): Draft => ({
+  id: p.id,
+  kind: p.kind as "llm" | "embeddings",
+  name: p.name,
+  driver: p.driver,
+  model: p.model,
+  base_url: p.base_url ?? "",
+  // Backend redacts encrypted values as "***"; we hand back an empty object
+  // so editors don't accidentally re-submit the redacted placeholder. They
+  // can leave it blank to keep existing credentials, or type new ones.
   credentials: "{}",
 });
 
@@ -124,20 +138,45 @@ export default function ProviderSettingsPage() {
     }
   };
 
-  const create = async () => {
+  const save = async () => {
     if (!draft) return;
+    const credentialsRaw = sanitiseJsonInput(draft.credentials).trim();
+    let credentials: Record<string, unknown> | undefined;
+    // On edit, an empty credentials field means "keep existing"; on create
+    // we still allow an empty object for drivers that need no credentials.
+    const skipCredentials = draft.id && (credentialsRaw === "" || credentialsRaw === "{}");
+    if (credentialsRaw && !skipCredentials) {
+      try {
+        const parsed = JSON.parse(credentialsRaw);
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          setError(
+            "Credentials must be a JSON object like {\"api_key\": \"sk-…\"}, not a string, array, or number.",
+          );
+          return;
+        }
+        credentials = parsed as Record<string, unknown>;
+      } catch (err) {
+        setError(
+          `Credentials JSON is invalid: ${(err as Error).message}. Make sure you used straight quotes (") not curly ones (“ ”).`,
+        );
+        return;
+      }
+    }
     setSaving(true);
     try {
-      await smileAiApi.providers.create({
+      const payload = {
         kind: draft.kind,
         name: draft.name.trim(),
         driver: draft.driver.trim(),
         model: draft.model.trim(),
         base_url: draft.base_url.trim() || undefined,
-        credentials: draft.credentials.trim()
-          ? JSON.parse(draft.credentials)
-          : undefined,
-      });
+        credentials,
+      };
+      if (draft.id) {
+        await smileAiApi.providers.update(draft.id, payload);
+      } else {
+        await smileAiApi.providers.create(payload);
+      }
       setDraft(null);
       invalidatePrefix("smileai.providers");
       await load(true);
@@ -275,6 +314,14 @@ export default function ProviderSettingsPage() {
                         )}
                         <button
                           type="button"
+                          onClick={() => setDraft(EDIT_DRAFT(p))}
+                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => archive(p.id)}
                           className="text-xs font-medium px-2.5 py-1 rounded-lg border border-dashboard-border/60 text-dashboard-muted hover:bg-dashboard-bg"
                         >
@@ -300,7 +347,7 @@ export default function ProviderSettingsPage() {
         <DraftDialog
           draft={draft}
           setDraft={setDraft}
-          onSubmit={create}
+          onSubmit={save}
           saving={saving}
         />
       )}
@@ -343,11 +390,12 @@ function DraftDialog({
   onSubmit: () => void;
   saving: boolean;
 }) {
+  const isEdit = Boolean(draft.id);
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-5 max-w-lg w-full shadow-xl">
         <h2 className="text-base font-semibold text-dashboard-heading mb-3">
-          Add {draft.kind} provider
+          {isEdit ? "Edit" : "Add"} {draft.kind} provider
         </h2>
         <div className="space-y-2.5">
           <input
@@ -387,11 +435,34 @@ function DraftDialog({
             <textarea
               value={draft.credentials}
               onChange={(e) =>
-                setDraft({ ...draft, credentials: e.target.value })
+                setDraft({
+                  ...draft,
+                  credentials: sanitiseJsonInput(e.target.value),
+                })
               }
+              onPaste={(e) => {
+                e.preventDefault();
+                const text = sanitiseJsonInput(
+                  e.clipboardData.getData("text"),
+                );
+                const target = e.currentTarget;
+                const start = target.selectionStart ?? draft.credentials.length;
+                const end = target.selectionEnd ?? draft.credentials.length;
+                const next =
+                  draft.credentials.slice(0, start) +
+                  text +
+                  draft.credentials.slice(end);
+                setDraft({ ...draft, credentials: next });
+              }}
               rows={6}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              autoComplete="off"
+              placeholder={'{\n  "api_key": "sk-..."\n}'}
               className="w-full text-sm border border-dashboard-border/60 rounded-lg px-3 py-2 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-orange-200"
             />
+            <JsonStatus value={draft.credentials} editMode={isEdit} />
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-3">
@@ -408,10 +479,67 @@ function DraftDialog({
             disabled={saving || !draft.name || !draft.driver || !draft.model}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-bg-primary text-white hover:opacity-90 disabled:opacity-50"
           >
-            Create
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Create"}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Replace common typographic characters that get auto-inserted by the OS
+ * (curly quotes, en/em dashes used in place of hyphens, non-breaking spaces)
+ * with their JSON-valid equivalents. This is what trips most pasted-in API
+ * keys — macOS turns `"` into `“ ”` silently.
+ */
+function sanitiseJsonInput(value: string): string {
+  return value
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/\u00A0/g, " ");
+}
+
+function JsonStatus({ value, editMode = false }: { value: string; editMode?: boolean }) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "{}") {
+    if (editMode) {
+      return (
+        <p className="text-[10px] text-dashboard-muted mt-1">
+          Leave as <code>{"{}"}</code> to keep the existing credentials. To
+          rotate the key, paste a new JSON object like{" "}
+          <code>{'{"api_key":"sk-..."}'}</code>.
+        </p>
+      );
+    }
+    return (
+      <p className="text-[10px] text-dashboard-muted mt-1">
+        Leave as <code>{"{}"}</code> if this provider needs no credentials, or
+        paste a JSON object like <code>{'{"api_key":"sk-..."}'}</code>.
+      </p>
+    );
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return (
+        <p className="text-[10px] text-rose-600 mt-1">
+          Must be a JSON object, not a {Array.isArray(parsed) ? "array" : typeof parsed}.
+        </p>
+      );
+    }
+    const keys = Object.keys(parsed);
+    return (
+      <p className="text-[10px] text-emerald-600 mt-1">
+        ✓ Valid JSON ({keys.length} {keys.length === 1 ? "key" : "keys"}:{" "}
+        {keys.join(", ")}). Sensitive values will be encrypted on save.
+      </p>
+    );
+  } catch (err) {
+    return (
+      <p className="text-[10px] text-rose-600 mt-1">
+        Invalid JSON: {(err as Error).message}
+      </p>
+    );
+  }
 }
