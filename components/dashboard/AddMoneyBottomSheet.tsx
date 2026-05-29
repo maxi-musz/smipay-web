@@ -16,7 +16,7 @@ interface AddMoneyBottomSheetProps {
 
 /**
  * Bottom-sheet modal that mirrors the mobile `AccountDetailsModal`: it
- * shows the user's virtual account(s) with the bank's logo and a one-tap
+ * shows the user's funding account(s) with the bank's logo and a one-tap
  * copy for the account number. No card-funding logic on purpose — this
  * is the simple "Add Money" affordance the dashboard's primary CTA opens.
  */
