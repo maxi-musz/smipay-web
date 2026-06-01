@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { useDashboard } from "@/hooks/useDashboard";
 import { getNetworkLogo } from "@/lib/network-logos";
+import {
+  UTILITIES_PURCHASES_DISABLED,
+  UTILITIES_DISABLED_HINT,
+  isUtilityPurchaseHref,
+} from "@/lib/dashboard-utilities";
 import Image from "next/image";
 
 interface SubMenuItem {
@@ -181,7 +186,14 @@ export default function Sidebar() {
     router.push("/");
   };
 
+  const disabledHint = UTILITIES_PURCHASES_DISABLED
+    ? UTILITIES_DISABLED_HINT
+    : "Coming Soon";
+
   const isRouteEnabled = (href: string) => {
+    if (UTILITIES_PURCHASES_DISABLED && isUtilityPurchaseHref(href)) {
+      return false;
+    }
     if (href.startsWith("/dashboard/cabletv")) {
       return ENABLED_ROUTES.includes("/dashboard/cabletv");
     }
@@ -299,7 +311,7 @@ export default function Sidebar() {
                               <span>{subitem.label}</span>
                             </div>
                             <div className="absolute left-full top-0 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-50 ml-2">
-                              Coming Soon
+                              {disabledHint}
                             </div>
                           </div>
                         );
@@ -327,7 +339,7 @@ export default function Sidebar() {
                     <span className="font-medium">{item.label}</span>
                   </div>
                   <div className="absolute left-0 top-0 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-50 ml-2">
-                    Coming Soon
+                    {disabledHint}
                   </div>
                 </div>
               )}
@@ -395,7 +407,7 @@ export default function Sidebar() {
                               <span>{subitem.label}</span>
                             </div>
                             <div className="absolute left-full top-0 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-50 ml-2">
-                              Coming Soon
+                              {disabledHint}
                             </div>
                           </div>
                         );

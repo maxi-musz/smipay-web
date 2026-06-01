@@ -10,6 +10,7 @@ import { WebhookEventsSocketProvider } from "@/components/providers/WebhookEvent
 import { isPaymentInProgress, getToken } from "@/lib/auth-storage";
 import Sidebar from "./Sidebar";
 import SupportFAB from "./SupportFAB";
+import { UtilitiesPurchaseGuard } from "./UtilitiesPurchaseGuard";
 import { Loader2 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -96,6 +97,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             inside the authenticated dashboard tree so unauthenticated visitors
             never open a socket. */}
         <WebhookEventsSocketProvider>
+          <UtilitiesPurchaseGuard />
           <div className="flex min-h-screen bg-dashboard-bg">
             <Sidebar />
             <main className="flex-1 min-w-0 w-full overflow-auto">

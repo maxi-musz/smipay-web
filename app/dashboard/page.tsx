@@ -39,6 +39,7 @@ import {
 } from "@/components/dashboard/WelcomeBonusCongrats";
 import { RewardBanners } from "@/components/dashboard/RewardBanners";
 import { getNetworkLogo } from "@/lib/network-logos";
+import { UTILITIES_PURCHASES_DISABLED } from "@/lib/dashboard-utilities";
 import { motion, AnimatePresence } from "motion/react";
 
 const SERVICE_ACTIONS = [
@@ -487,9 +488,11 @@ function DashboardContent() {
           <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-7 lg:gap-6">
             {SERVICE_ACTIONS.map((action) => {
               const promoLabel = PROMO_LABELS[action.id];
+              const blocked =
+                action.comingSoon || UTILITIES_PURCHASES_DISABLED;
               return (
                 <div key={action.id} className="flex flex-col items-center">
-                  {action.comingSoon ? (
+                  {blocked ? (
                     <div className="relative">
                       <div
                         className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-14 lg:w-14 items-center justify-center rounded-full opacity-75 cursor-not-allowed"
@@ -497,9 +500,11 @@ function DashboardContent() {
                       >
                         <action.icon className="h-[17px] w-[17px] sm:h-[19px] sm:w-[19px] lg:h-[22px] lg:w-[22px]" strokeWidth={1.8} />
                       </div>
-                      <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
-                        Soon
-                      </span>
+                      {action.comingSoon ? (
+                        <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
+                          Soon
+                        </span>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="relative">
