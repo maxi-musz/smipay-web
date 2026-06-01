@@ -38,6 +38,15 @@ function relativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
+const USER_NAME_MAX_LEN = 17;
+
+function truncateDisplayName(name: string, maxLen = USER_NAME_MAX_LEN): string {
+  if (!name || name === "—") return name;
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen)}...`;
+}
+
 const statusBadge: Record<string, string> = {
   success: "bg-emerald-50 text-emerald-700",
   pending: "bg-amber-50 text-amber-700",
@@ -564,8 +573,9 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
         >
           <thead>
             <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/50">
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted whitespace-nowrap">Date</th>
               {!hideUserColumn && (
-                <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">User</th>
+                <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted w-0 max-w-[11rem]">User</th>
               )}
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Amount</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Type</th>
@@ -585,7 +595,6 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Revenue</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted" title="Commission (Smipay earned)">Commission</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Reference</th>
-              <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Date</th>
             </tr>
           </thead>
           <tbody>
@@ -614,8 +623,16 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     continuesUser ? "bg-dashboard-bg/20" : ""
                   } ${streakStart ? "border-t border-dashboard-border/35" : ""}`}
                 >
+                  <td
+                    className={`px-4 py-2.5 text-left text-dashboard-muted whitespace-nowrap align-middle ${
+                      continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""
+                    }`}
+                    title={new Date(tx.createdAt).toLocaleString()}
+                  >
+                    {relativeTime(tx.createdAt)}
+                  </td>
                   {!hideUserColumn && (
-                    <td className={`px-4 py-2 align-middle ${continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""}`}>
+                    <td className="px-4 py-2 align-middle w-0 max-w-[11rem] min-w-0">
                       {continuesUser ? (
                         <div className="flex items-center gap-2 min-h-[2rem] pl-1">
                           <CornerDownRight className="h-3.5 w-3.5 text-dashboard-muted/70 shrink-0" aria-hidden />
@@ -656,8 +673,11 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                                 {avatar}
                               </div>
                             )}
-                            <span className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors">
-                              {userName}
+                            <span
+                              className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors"
+                              title={userName.length > USER_NAME_MAX_LEN ? userName : undefined}
+                            >
+                              {truncateDisplayName(userName)}
                             </span>
                           </Link>
                         </div>
@@ -665,9 +685,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     </td>
                   )}
                   <td
-                    className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""} ${
-                      hideUserColumn && continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""
-                    }`}
+                    className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""}`}
                   >
                     {hideUserColumn ? (
                       <div className="flex flex-col items-end gap-1">
@@ -774,9 +792,6 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                   <td className="px-4 py-2.5 text-dashboard-muted">
                     {tx.transaction_reference ? <CopyRef value={tx.transaction_reference} /> : "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-dashboard-muted whitespace-nowrap" title={new Date(tx.createdAt).toLocaleString()}>
-                    {relativeTime(tx.createdAt)}
-                  </td>
                 </motion.tr>
                 {collapseCtl ? (
                   <tr className="border-b border-dashboard-border/20 bg-dashboard-bg/25 hover:bg-dashboard-bg/40 transition-colors">
@@ -784,9 +799,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                       <button
                         type="button"
                         onClick={() => toggleRun(collapseCtl.key)}
-                        className={`inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-bg-primary hover:underline ${
-                          hideUserColumn ? "pl-0" : "pl-8"
-                        }`}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-bg-primary hover:underline pl-1"
                         aria-expanded={collapseCtl.expanded}
                       >
                         <ChevronDown
