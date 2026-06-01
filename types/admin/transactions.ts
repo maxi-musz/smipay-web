@@ -217,6 +217,9 @@ export interface TransactionListMeta {
   page: number;
   limit: number;
   total_pages: number;
+  /** When set, `limit` / `page` / `total_pages` refer to ledger display rows, not raw tx count. */
+  ledger_slots_total?: number;
+  ledger_slots_pagination?: boolean;
 }
 
 // --- Filters ---

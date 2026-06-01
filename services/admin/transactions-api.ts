@@ -26,6 +26,8 @@ function buildParams(filters: Partial<TransactionFilters>): Record<string, strin
   if (filters.wallet_integrity === "ok" || filters.wallet_integrity === "fail") {
     params.wallet_integrity = filters.wallet_integrity;
   }
+  // Global ledger: paginate by visible row (consecutive same-user = one slot). Single-user view uses raw pages.
+  params.ledger_slots = filters.user_id?.trim() ? "0" : "1";
   return params;
 }
 

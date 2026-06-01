@@ -10,9 +10,11 @@ interface TransactionsPaginationProps {
 }
 
 export function TransactionsPagination({ meta, onPageChange, disabled = false }: TransactionsPaginationProps) {
-  const { page, total_pages, total, limit } = meta;
+  const { page, total_pages, total, limit, ledger_slots_total, ledger_slots_pagination } = meta;
+  const paginationTotal =
+    ledger_slots_pagination && ledger_slots_total != null ? ledger_slots_total : total;
   const from = (page - 1) * limit + 1;
-  const to = Math.min(page * limit, total);
+  const to = Math.min(page * limit, paginationTotal);
 
   if (total_pages <= 1) return null;
 
@@ -21,7 +23,13 @@ export function TransactionsPagination({ meta, onPageChange, disabled = false }:
   return (
     <div className={`flex flex-wrap items-center justify-between gap-2 ${disabled ? "opacity-60" : ""}`}>
       <p className="text-[10px] text-dashboard-muted tabular-nums">
-        Showing {from}–{to} of {total.toLocaleString()}
+        Showing {from}–{to} of {paginationTotal.toLocaleString()}
+        {ledger_slots_pagination ? (
+          <span className="text-dashboard-muted/80">
+            {" "}
+            rows ({total.toLocaleString()} transactions)
+          </span>
+        ) : null}
       </p>
       <div className="flex items-center gap-1">
         <button

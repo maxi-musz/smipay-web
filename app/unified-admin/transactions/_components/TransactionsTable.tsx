@@ -17,7 +17,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
 import type { TransactionItem } from "@/types/admin/transactions";
 import { useAuth } from "@/hooks/useAuth";
 import { isDevAdminEmail } from "@/lib/dev-admin";
@@ -86,6 +86,32 @@ interface Props {
   isLoading?: boolean;
   /** When listing a single user’s txs (e.g. `?user_id=`), the User column is redundant. */
   hideUserColumn?: boolean;
+}
+
+/** Consecutive rows with the same user id (current page order only). */
+function buildConsecutiveUserRuns(list: TransactionItem[]): Array<{
+  startIndex: number;
+  items: TransactionItem[];
+}> {
+  const runs: Array<{ startIndex: number; items: TransactionItem[] }> = [];
+  let i = 0;
+  while (i < list.length) {
+    const uid = list[i].user?.id;
+    let j = i + 1;
+    if (uid) {
+      while (j < list.length && list[j].user?.id === uid) j++;
+    }
+    const items = list.slice(i, j);
+    if (items.length >= 2 && uid) {
+      runs.push({ startIndex: i, items });
+    }
+    i = j;
+  }
+  return runs;
+}
+
+function runKey(anchor: TransactionItem, startIndex: number): string {
+  return anchor.id ?? `run-${startIndex}`;
 }
 
 /** Same “retry streak” if user + status + type + amount match (current page only). */
@@ -444,7 +470,64 @@ function TxDeviceCell({ userDevices }: { userDevices?: TxDeviceInfo[] }) {
   );
 }
 
+const TABLE_COL_COUNT = 13;
+const TABLE_COL_COUNT_NO_USER = 12;
+
 export function TransactionsTable({ transactions, isLoading = false, hideUserColumn = false }: Props) {
+  const [expandedRuns, setExpandedRuns] = useState<Set<string>>(() => new Set());
+
+  const consecutiveRuns = useMemo(
+    () => buildConsecutiveUserRuns(transactions),
+    [transactions],
+  );
+
+  const { hiddenIndices, collapseBeforeIndex, collapseAfterIndex } = useMemo(() => {
+    const hidden = new Set<number>();
+    const before = new Map<
+      number,
+      { followerCount: number; key: string; expanded: boolean }
+    >();
+    const after = new Map<
+      number,
+      { followerCount: number; key: string; expanded: boolean }
+    >();
+
+    for (const run of consecutiveRuns) {
+      const key = runKey(run.items[0], run.startIndex);
+      const expanded = expandedRuns.has(key);
+      const ctl = {
+        followerCount: run.items.length - 1,
+        key,
+        expanded,
+      };
+      if (!expanded) {
+        for (let k = 1; k < run.items.length; k++) {
+          hidden.add(run.startIndex + k);
+        }
+        before.set(run.startIndex, ctl);
+      } else {
+        after.set(run.startIndex + run.items.length - 1, ctl);
+      }
+    }
+
+    return {
+      hiddenIndices: hidden,
+      collapseBeforeIndex: before,
+      collapseAfterIndex: after,
+    };
+  }, [consecutiveRuns, expandedRuns]);
+
+  const toggleRun = useCallback((key: string) => {
+    setExpandedRuns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const colCount = hideUserColumn ? TABLE_COL_COUNT_NO_USER : TABLE_COL_COUNT;
+
   if (!transactions.length && !isLoading) {
     return (
       <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-12 text-center">
@@ -473,7 +556,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
         reference (separate attempt).
         {hideUserColumn
           ? " Consecutive attempts with the same status, type, and amount are visually grouped; rows are not merged."
-          : " Consecutive attempts from the same user are visually grouped; we do not merge rows so audits and support stay traceable."}
+          : " Consecutive attempts from the same user are grouped; expand “+ N more” to see each row. Rows are not merged so audits stay traceable."}
       </p>
       <div className="overflow-x-auto">
         <table
@@ -507,6 +590,11 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
           </thead>
           <tbody>
             {transactions.map((tx, i) => {
+              if (hiddenIndices.has(i)) return null;
+
+              const collapseBefore = collapseBeforeIndex.get(i);
+              const collapseAfter = collapseAfterIndex.get(i);
+
               const userName = hideUserColumn
                 ? ""
                 : tx.user
@@ -515,9 +603,10 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               const avatar = hideUserColumn ? "" : (tx.user?.first_name?.[0]?.toUpperCase() ?? "?");
               const { length: streakLen, isStart: streakStart, continuesUser } = streakForward(transactions, i);
               const rowMuted = continuesUser;
+              const collapseCtl = collapseBefore ?? collapseAfter;
               return (
+                <Fragment key={tx.id}>
                 <motion.tr
-                  key={tx.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: Math.min(i * 0.02, 0.4) }}
@@ -689,6 +778,35 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     {relativeTime(tx.createdAt)}
                   </td>
                 </motion.tr>
+                {collapseCtl ? (
+                  <tr className="border-b border-dashboard-border/20 bg-dashboard-bg/25 hover:bg-dashboard-bg/40 transition-colors">
+                    <td colSpan={colCount} className="px-4 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleRun(collapseCtl.key)}
+                        className={`inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-bg-primary hover:underline ${
+                          hideUserColumn ? "pl-0" : "pl-8"
+                        }`}
+                        aria-expanded={collapseCtl.expanded}
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                            collapseCtl.expanded ? "rotate-180" : ""
+                          }`}
+                          aria-hidden
+                        />
+                        {collapseCtl.expanded
+                          ? `Hide ${collapseCtl.followerCount} more transaction${
+                              collapseCtl.followerCount === 1 ? "" : "s"
+                            } from same user`
+                          : `+ ${collapseCtl.followerCount} more transaction${
+                              collapseCtl.followerCount === 1 ? "" : "s"
+                            } from same user`}
+                      </button>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               );
             })}
           </tbody>
