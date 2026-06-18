@@ -29,6 +29,7 @@ import {
   Sparkles,
   MonitorSmartphone,
   Bot,
+  Smartphone,
 } from "lucide-react";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -154,6 +155,21 @@ const adminMenuItems: AdminMenuItem[] = [
     ],
   },
   {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    enabled: true,
+    submenu: [
+      {
+        id: "app-version",
+        label: "App Version",
+        href: "/unified-admin/settings/app-version",
+        icon: Smartphone,
+        enabled: true,
+      },
+    ],
+  },
+  {
     id: "cards",
     label: "Virtual Cards",
     icon: CreditCard,
@@ -170,13 +186,6 @@ const adminMenuItems: AdminMenuItem[] = [
 ];
 
 const adminOtherMenuItems: AdminMenuItem[] = [
-  {
-    id: "settings",
-    label: "Admin Settings",
-    icon: Settings,
-    href: "/unified-admin/settings",
-    enabled: false,
-  },
   {
     id: "website",
     label: "Back to Website",

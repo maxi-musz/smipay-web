@@ -3,6 +3,7 @@ import {
   Bot,
   CheckSquare,
   ChevronRight,
+  Clock,
   FlaskConical,
   Power,
   Settings,
@@ -35,6 +36,12 @@ const SECTIONS = [
     icon: ShieldAlert,
     title: "Safety",
     desc: "Never-disclose patterns, refusal copy",
+  },
+  {
+    href: "/unified-admin/smileai/settings/lifecycle",
+    icon: Clock,
+    title: "Lifecycle",
+    desc: "Idle nudges, auto-close, stale cleanup",
   },
   {
     href: "/unified-admin/smileai/settings/mode",

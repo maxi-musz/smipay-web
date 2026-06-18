@@ -454,6 +454,19 @@ export interface SmileAiSafety {
   persona_policy: string[];
 }
 
+export interface SmileAiLifecycle {
+  enabled: boolean;
+  nudge_after_minutes: number;
+  close_after_nudge_minutes: number;
+  silent_close_after_minutes: number;
+  stale_close_days: number;
+  send_email_on_nudge: boolean;
+  use_branded_nudge_email: boolean;
+  nudge_message: string;
+  nudge_email_subject: string;
+  nudge_email_body_html: string;
+}
+
 export interface SmileAiSettingsResponse<T> {
   key: string;
   value: T;

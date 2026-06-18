@@ -16,6 +16,7 @@ import type {
   SmileAiFeedbackRow,
   SmileAiHandoffRow,
   SmileAiLimits,
+  SmileAiLifecycle,
   SmileAiOverview,
   SmileAiPersona,
   SmileAiPersonaVersion,
@@ -413,6 +414,38 @@ export const smileAiApi = {
     setSafety: (payload: Partial<SmileAiSafety> & { notes?: string }) =>
       unwrap<SmileAiSettingsResponse<SmileAiSafety>>(
         backendApi.patch(`${BASE}/settings/safety`, payload),
+      ),
+    getLifecycle: () =>
+      unwrap<SmileAiSettingsResponse<SmileAiLifecycle>>(
+        backendApi.get(`${BASE}/settings/lifecycle`),
+      ),
+    setLifecycle: (payload: Partial<SmileAiLifecycle> & { notes?: string }) =>
+      unwrap<SmileAiSettingsResponse<SmileAiLifecycle>>(
+        backendApi.patch(`${BASE}/settings/lifecycle`, payload),
+      ),
+    previewNudgeEmail: (params?: {
+      first_name?: string;
+      close_after_nudge_minutes?: number;
+      subject?: string;
+      use_branded?: boolean;
+      body_html?: string;
+    }) =>
+      unwrap<{
+        subject: string;
+        html: string;
+        mode: "branded" | "custom";
+        sample_first_name: string;
+        close_after_nudge_minutes: number;
+      }>(
+        backendApi.get(`${BASE}/settings/lifecycle/nudge-email-preview`, {
+          params: {
+            first_name: params?.first_name,
+            close_after_nudge_minutes: params?.close_after_nudge_minutes,
+            subject: params?.subject,
+            use_branded: params?.use_branded,
+            body_html: params?.body_html,
+          },
+        }),
       ),
     getMode: () =>
       unwrap<{
