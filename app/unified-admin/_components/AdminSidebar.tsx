@@ -30,6 +30,9 @@ import {
   MonitorSmartphone,
   Bot,
   Smartphone,
+  Plug,
+  MessageSquare,
+  Mail,
 } from "lucide-react";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -96,6 +99,35 @@ const adminMenuItems: AdminMenuItem[] = [
     enabled: true,
   },
   {
+    id: "providers",
+    label: "Providers",
+    icon: Plug,
+    enabled: true,
+    submenu: [
+      {
+        id: "sms-providers",
+        label: "SMS Providers",
+        href: "/unified-admin/providers/sms",
+        icon: MessageSquare,
+        enabled: true,
+      },
+      {
+        id: "email-providers",
+        label: "Email Providers",
+        href: "/unified-admin/providers/email",
+        icon: Mail,
+        enabled: false,
+      },
+      {
+        id: "utility-providers",
+        label: "Utility Providers",
+        href: "/unified-admin/providers/utility",
+        icon: Plug,
+        enabled: false,
+      },
+    ],
+  },
+  {
     id: "smileai",
     label: "SmileAI",
     icon: Bot,
@@ -123,7 +155,7 @@ const adminMenuItems: AdminMenuItem[] = [
     label: "KYC Verification",
     icon: ShieldCheck,
     href: "/unified-admin/kyc",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "rewards",
