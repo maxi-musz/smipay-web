@@ -16,11 +16,19 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { TransactionItem } from "@/types/admin/transactions";
 import { useAuth } from "@/hooks/useAuth";
 import { isDevAdminEmail } from "@/lib/dev-admin";
+import {
+  formatTransactionPartnerLabel,
+  partnerBadgeClass,
+  resolveTransactionPartnerFromRow,
+} from "@/lib/transaction-partner";
+import { adminTransactionsApi } from "@/services/admin/transactions-api";
+import { RequeryVtpassModal } from "./RequeryVtpassModal";
 
 function formatNGN(value: number | null): string {
   if (value == null) return "—";
@@ -444,6 +452,80 @@ function TxDeviceCell({ userDevices }: { userDevices?: TxDeviceInfo[] }) {
   );
 }
 
+function TransactionPartnerCell({ tx }: { tx: TransactionItem }) {
+  const partner = resolveTransactionPartnerFromRow(tx);
+  const label =
+    tx.rail_partner_label?.trim() ||
+    formatTransactionPartnerLabel(partner);
+  if (partner === "unknown") {
+    return <span className="text-[11px] text-dashboard-muted">—</span>;
+  }
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${partnerBadgeClass(partner)}`}
+      title={
+        tx.provider && tx.provider.toLowerCase() !== partner
+          ? `Service: ${tx.provider}`
+          : `Partner: ${label}`
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
+function ReQueryTransactionButton({ tx }: { tx: TransactionItem }) {
+  const partner = resolveTransactionPartnerFromRow(tx);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [payload, setPayload] = useState<unknown>(null);
+
+  if (partner !== "vtpass") {
+    return <span className="text-[11px] text-dashboard-muted">—</span>;
+  }
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(true);
+    setLoading(true);
+    setError(null);
+    setPayload(null);
+    try {
+      const res = await adminTransactionsApi.requeryVtpass(tx.id);
+      setPayload(res.data?.vtpass_response ?? res.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Requery failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border border-dashboard-border/60 bg-dashboard-surface text-dashboard-heading hover:bg-dashboard-bg hover:border-brand-bg-primary/30 hover:text-brand-bg-primary transition-colors whitespace-nowrap disabled:opacity-60"
+        title={`Requery VTPass status for ${tx.transaction_reference ?? tx.id}`}
+      >
+        <RefreshCw className={`h-3 w-3 shrink-0 ${loading ? "animate-spin" : ""}`} aria-hidden />
+        Requery
+      </button>
+      <RequeryVtpassModal
+        open={open}
+        onClose={() => setOpen(false)}
+        requestId={tx.transaction_reference}
+        loading={loading}
+        error={error}
+        payload={payload}
+      />
+    </>
+  );
+}
+
 export function TransactionsTable({ transactions, isLoading = false, hideUserColumn = false }: Props) {
   if (!transactions.length && !isLoading) {
     return (
@@ -477,7 +559,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
       </p>
       <div className="overflow-x-auto">
         <table
-          className={`w-full text-xs ${hideUserColumn ? "min-w-[920px]" : "min-w-[1040px]"}`}
+          className={`w-full text-xs ${hideUserColumn ? "min-w-[1160px]" : "min-w-[1280px]"}`}
         >
           <thead>
             <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/50">
@@ -486,6 +568,12 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               )}
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Amount</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Type</th>
+              <th
+                className="text-left px-4 py-2.5 font-medium text-dashboard-muted whitespace-nowrap"
+                title="Infrastructure partner / payment rail (Paystack, VTPass, …)"
+              >
+                Partner
+              </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted w-0 max-w-[10rem]">
                 Plan
               </th>
@@ -503,6 +591,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted" title="Commission (Smipay earned)">Commission</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Reference</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Date</th>
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -618,6 +707,9 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-2.5 align-middle">
+                    <TransactionPartnerCell tx={tx} />
+                  </td>
                   <td className="px-4 py-2.5 text-dashboard-heading w-0 max-w-[10rem] min-w-0 align-middle">
                     {(() => {
                       const plan = tx.data_plan_name?.trim() ?? "";
@@ -687,6 +779,9 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                   </td>
                   <td className="px-4 py-2.5 text-right text-dashboard-muted whitespace-nowrap" title={new Date(tx.createdAt).toLocaleString()}>
                     {relativeTime(tx.createdAt)}
+                  </td>
+                  <td className="px-4 py-2.5 align-middle">
+                    <ReQueryTransactionButton tx={tx} />
                   </td>
                 </motion.tr>
               );
