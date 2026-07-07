@@ -5,6 +5,7 @@ import type {
   TransactionDetailResponse,
   TransactionFlagResponse,
   TransactionFilters,
+  VtpassRequeryResponse,
 } from "@/types/admin/transactions";
 
 function buildParams(filters: Partial<TransactionFilters>): Record<string, string | number> {
@@ -60,6 +61,17 @@ export const adminTransactionsApi = {
       const response = await backendApi.post<TransactionFlagResponse>(
         `/unified-admin/transactions/${id}/flag`,
         { reason },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  requeryVtpass: async (id: string): Promise<VtpassRequeryResponse> => {
+    try {
+      const response = await backendApi.post<VtpassRequeryResponse>(
+        `/unified-admin/transactions/${id}/requery-vtpass`,
       );
       return response.data;
     } catch (error) {

@@ -32,6 +32,7 @@ import { FlagTransactionModal } from "../_components/FlagTransactionModal";
 import { useAuth } from "@/hooks/useAuth";
 import { isDevAdminEmail } from "@/lib/dev-admin";
 import { DevOnlyBadge } from "@/components/DevOnlyBadge";
+import { formatTransactionPartnerLabel } from "@/lib/transaction-partner";
 
 function metaNum(v: unknown): number | null {
   if (v == null) return null;
@@ -574,7 +575,18 @@ export default function TransactionDetailPage() {
             <Server className="h-4 w-4 text-indigo-600" />
             <h2 className="text-sm font-bold text-dashboard-heading">Provider Details</h2>
           </div>
-          <InfoRow label="Provider" value={<span className="capitalize">{tx.provider ?? "—"}</span>} />
+          <InfoRow
+            label="Partner"
+            value={
+              tx.rail_partner_label ||
+              formatTransactionPartnerLabel(tx.rail_partner) ||
+              "—"
+            }
+          />
+          <InfoRow
+            label="Service ID"
+            value={<span className="capitalize">{tx.provider ?? "—"}</span>}
+          />
           {tx.data_plan_name != null && tx.data_plan_name !== "" && (
             <InfoRow label="Plan" value={tx.data_plan_name} />
           )}

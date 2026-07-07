@@ -114,6 +114,9 @@ export interface TransactionItem {
   user_id: string;
   amount: number | null;
   provider: string | null;
+  /** Infrastructure partner / payment rail (Paystack, VTPass, …) — from admin API. */
+  rail_partner?: string | null;
+  rail_partner_label?: string | null;
   data_plan_name?: string | null;
   transaction_type: string | null;
   credit_debit: string | null;
@@ -265,4 +268,15 @@ export interface TransactionFlagResponse {
   success: boolean;
   message: string;
   data: null;
+}
+
+export interface VtpassRequeryResponse {
+  success: boolean;
+  message: string;
+  data: {
+    transaction_id: string;
+    request_id: string;
+    transaction_status: string | null;
+    vtpass_response: Record<string, unknown>;
+  };
 }
