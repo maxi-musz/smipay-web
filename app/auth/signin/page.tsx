@@ -51,6 +51,10 @@ function SignInForm() {
       const msg = "Registration successful! Please sign in to continue.";
       queueMicrotask(() => setSuccessMessage(msg));
     }
+    if (searchParams.get("reset") === "true") {
+      const msg = "Password reset successfully. Please sign in with your new password.";
+      queueMicrotask(() => setSuccessMessage(msg));
+    }
     if (searchParams.get("expired") === "true") {
       const message = searchParams.get("message");
       const err =
@@ -163,11 +167,23 @@ function SignInForm() {
               onChange={handleChange}
               disabled={isLoading}
               error={errors.password}
+              autoComplete="current-password"
               className="input-auth"
             />
             {errors.password && (
               <p className="text-xs text-red-600">{errors.password}</p>
             )}
+            <p className="text-xs text-dashboard-muted">
+              New accounts use a 6-digit password. If you signed up earlier, use your
+              existing password — or reset it via{" "}
+              <Link
+                href="/auth/forgot-password"
+                className="text-dashboard-accent hover:underline"
+              >
+                forgot password
+              </Link>
+              .
+            </p>
           </motion.div>
 
           <motion.div className="flex items-center justify-end" variants={fieldVariants}>

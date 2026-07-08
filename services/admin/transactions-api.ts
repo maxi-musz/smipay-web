@@ -6,6 +6,10 @@ import type {
   TransactionFlagResponse,
   TransactionFilters,
   VtpassRequeryResponse,
+  VtpassResolveResponse,
+  VtpassReverseResponse,
+  PaystackRequeryResponse,
+  PaystackResolveResponse,
 } from "@/types/admin/transactions";
 
 function buildParams(filters: Partial<TransactionFilters>): Record<string, string | number> {
@@ -27,6 +31,8 @@ function buildParams(filters: Partial<TransactionFilters>): Record<string, strin
   if (filters.wallet_integrity === "ok" || filters.wallet_integrity === "fail") {
     params.wallet_integrity = filters.wallet_integrity;
   }
+  // Global ledger: paginate by visible row (consecutive same-user = one slot). Single-user view uses raw pages.
+  params.ledger_slots = filters.user_id?.trim() ? "0" : "1";
   return params;
 }
 
@@ -70,6 +76,60 @@ export const adminTransactionsApi = {
     try {
       const response = await backendApi.post<VtpassRequeryResponse>(
         `/unified-admin/transactions/${id}/requery-vtpass`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  requeryVtpassAndResolve: async (id: string): Promise<VtpassResolveResponse> => {
+    try {
+      const response = await backendApi.post<VtpassResolveResponse>(
+        `/unified-admin/transactions/${id}/requery-vtpass-and-resolve`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Reverse a VTPass transaction and refund the user (wallet + cashback). */
+  reverseTransaction: async (
+    id: string,
+    reason: string,
+    force?: boolean,
+  ): Promise<VtpassReverseResponse> => {
+    try {
+      const response = await backendApi.post<VtpassReverseResponse>(
+        `/unified-admin/transactions/${id}/reverse`,
+        { reason, ...(force ? { force: true } : {}) },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Verify a Paystack transaction's status (display-only). */
+  requeryPaystack: async (id: string): Promise<PaystackRequeryResponse> => {
+    try {
+      const response = await backendApi.post<PaystackRequeryResponse>(
+        `/unified-admin/transactions/${id}/requery-paystack`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Resolve a pending Paystack deposit (credit on success, cancel on not-found). */
+  requeryPaystackAndResolve: async (
+    id: string,
+  ): Promise<PaystackResolveResponse> => {
+    try {
+      const response = await backendApi.post<PaystackResolveResponse>(
+        `/unified-admin/transactions/${id}/requery-paystack-and-resolve`,
       );
       return response.data;
     } catch (error) {

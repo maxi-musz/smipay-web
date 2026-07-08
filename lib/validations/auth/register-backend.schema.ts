@@ -1,6 +1,19 @@
 import { z } from "zod";
 
 /**
+ * Mirrors backend `/new-auth` rules:
+ *  - OTPs are exactly 6 digits.
+ *  - Passwords for register and reset are exactly 6 digits (numeric PIN).
+ *  - Sign-in still accepts legacy mixed passwords; that lives in
+ *    `login-backend.schema.ts`.
+ *  - Referral code is fully optional.
+ */
+export const AUTH_PASSWORD_DIGITS = 6;
+export const AUTH_OTP_DIGITS = 6;
+
+const SIX_DIGIT_REGEX = /^\d{6}$/;
+
+/**
  * Step 1: Request Email OTP Schema
  */
 export const requestEmailOtpSchema = z.object({
@@ -27,8 +40,8 @@ export const verifyEmailOtpSchema = z.object({
   otp: z
     .string()
     .min(1, "OTP is required")
-    .length(6, "OTP must be exactly 6 digits")
-    .regex(/^\d{6}$/, "OTP must contain only numbers"),
+    .length(AUTH_OTP_DIGITS, `OTP must be exactly ${AUTH_OTP_DIGITS} digits`)
+    .regex(SIX_DIGIT_REGEX, "OTP must contain only numbers"),
 });
 
 export type VerifyEmailOtpData = z.infer<typeof verifyEmailOtpSchema>;
@@ -63,7 +76,6 @@ export const completeRegistrationSchema = z.object({
       "Invalid Nigerian phone number. Use format: 08012345678 or 2348012345678"
     )
     .transform((val) => {
-      // Normalize to 234XXXXXXXXXX format
       let cleaned = val.replace(/\D/g, "");
       if (cleaned.startsWith("0")) {
         cleaned = "234" + cleaned.substring(1);
@@ -75,17 +87,20 @@ export const completeRegistrationSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters")
-    .max(64, "Password must not exceed 64 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
+    .regex(
+      SIX_DIGIT_REGEX,
+      `Use exactly ${AUTH_PASSWORD_DIGITS} digits (0–9) — no letters or symbols`
+    ),
+  agree_to_terms: z.literal(true, {
+    message: "You must accept the terms to continue",
+  }),
+  country: z.string().trim().min(1).optional(),
   referral_code: z
     .string()
+    .trim()
     .min(3, "Referral code must be at least 3 characters")
     .max(20, "Referral code must not exceed 20 characters")
-    .regex(/^[A-Za-z0-9]+$/, "Referral code must be alphanumeric")
-    .toUpperCase()
+    .regex(/^[A-Za-z0-9@_.-]+$/, "Referral code is invalid")
     .optional()
     .or(z.literal("")),
 });
@@ -108,8 +123,8 @@ export const newAuthRegisterSchema = z
       .trim(),
     password: z
       .string()
-      .length(6, "Enter exactly 6 digits")
-      .regex(/^\d{6}$/, "PIN must be 6 numbers"),
+      .length(AUTH_PASSWORD_DIGITS, `Enter exactly ${AUTH_PASSWORD_DIGITS} digits`)
+      .regex(SIX_DIGIT_REGEX, "PIN must be 6 numbers"),
     first_name: z
       .string()
       .min(1, "First name is required")
@@ -153,4 +168,3 @@ export const newAuthRegisterSchema = z
   });
 
 export type NewAuthRegisterData = z.infer<typeof newAuthRegisterSchema>;
-

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FundWalletModal } from "@/components/dashboard/FundWalletModal";
+import { AddMoneyBottomSheet } from "@/components/dashboard/AddMoneyBottomSheet";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -12,12 +13,8 @@ import {
   Wifi,
   Tv,
   Receipt,
-  Landmark,
-  Hash,
-  Send,
   GraduationCap,
   Dices,
-  CreditCard,
   Globe,
 } from "lucide-react";
 import { WalletCard } from "@/components/dashboard/WalletCard";
@@ -42,13 +39,8 @@ import {
 } from "@/components/dashboard/WelcomeBonusCongrats";
 import { RewardBanners } from "@/components/dashboard/RewardBanners";
 import { getNetworkLogo } from "@/lib/network-logos";
+import { UTILITIES_PURCHASES_DISABLED } from "@/lib/dashboard-utilities";
 import { motion, AnimatePresence } from "motion/react";
-
-const TRANSFER_ACTIONS = [
-  { id: "to-smipay", name: "To Smipay", icon: Send, href: "/dashboard/transfer/smipay", comingSoon: true, bg: "var(--quick-action-1-bg)", color: "var(--quick-action-1)" },
-  { id: "to-bank", name: "To Bank", icon: Landmark, href: "/dashboard/transfer/bank", comingSoon: true, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
-  { id: "to-tag", name: "To Tag", icon: Hash, href: "/dashboard/transfer/tag", comingSoon: true, bg: "var(--quick-action-2-bg)", color: "var(--quick-action-2)" },
-];
 
 const SERVICE_ACTIONS = [
   { id: "airtime", name: "Airtime", icon: Phone, href: "/dashboard/airtime", comingSoon: false, bg: "var(--quick-action-3-bg)", color: "var(--quick-action-3)" },
@@ -57,26 +49,25 @@ const SERVICE_ACTIONS = [
   { id: "education", name: "Education", icon: GraduationCap, href: "/dashboard/education/vtpass", comingSoon: false, bg: "var(--quick-action-1-bg)", color: "var(--quick-action-1)" },
   { id: "electricity", name: "Electricity", icon: Zap, href: "/dashboard/electricity/vtpass", comingSoon: false, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
   { id: "intl-airtime", name: "Intl. Airtime", icon: Globe, href: "/dashboard/intl-airtime/vtpass", comingSoon: false, bg: "var(--quick-action-2-bg)", color: "var(--quick-action-2)" },
-  { id: "cards", name: "Cards", icon: CreditCard, href: "/dashboard/cards", comingSoon: true, bg: "var(--quick-action-4-bg)", color: "var(--quick-action-4)" },
   { id: "betting", name: "Betting", icon: Dices, href: "/dashboard/betting", comingSoon: true, bg: "var(--quick-action-6-bg)", color: "var(--quick-action-6)" },
 ];
 
-const container = {
-  hidden: { opacity: 0 },
-  visible: () => ({
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
-  }),
-};
+// const container = {
+//   hidden: { opacity: 0 },
+//   visible: () => ({
+//     opacity: 1,
+//     transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+//   }),
+// };
 
-const item = {
-  hidden: { opacity: 0, y: 14 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35 },
-  },
-};
+// const item = {
+//   hidden: { opacity: 0, y: 14 },
+//   visible: {
+//     opacity: 1,
+//     y: 0,
+//     transition: { duration: 0.35 },
+//   },
+// };
 
 const PROMO_LABELS: Record<string, string> = {
   airtime: "Up to 9% off",
@@ -155,23 +146,11 @@ function DashboardSkeleton() {
 
         {/* Service actions skeleton */}
         <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-2 pt-5 pb-3 sm:px-4 sm:pt-5 sm:pb-4 lg:px-6 lg:pt-6 lg:pb-6 animate-pulse">
-          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-8 lg:gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
+          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-7 lg:gap-6">
+            {Array.from({ length: 7 }).map((_, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-dashboard-border/50" />
                 <div className="h-2.5 w-12 mt-2 rounded bg-dashboard-border/40" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Transfer actions skeleton */}
-        <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-3 pt-5 pb-3 sm:p-4 sm:pt-5 animate-pulse">
-          <div className="grid grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex flex-col items-center">
-                <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-full bg-dashboard-border/50" />
-                <div className="h-2.5 w-14 mt-2 rounded bg-dashboard-border/40" />
               </div>
             ))}
           </div>
@@ -210,6 +189,10 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { dashboardData, isLoading: loading, error, refetch } = useDashboard();
+  // Bottom-sheet "Add Money" modal — shows DVA bank-transfer details. Primary
+  // funding flow on web while Paystack-card funding is suspended on production.
+  const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);
+  // FundWalletModal is reserved for the Paystack-card-funding callback flow.
   const [isFundWalletModalOpen, setIsFundWalletModalOpen] = useState(false);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
   const [showWelcomeBonusCongrats, setShowWelcomeBonusCongrats] = useState(false);
@@ -398,7 +381,7 @@ function DashboardContent() {
 
         <div className="px-4 pt-5 sm:px-6 sm:pt-6 lg:pl-5 lg:pr-6 w-full min-w-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-5">
-            {/* Virtual Account Card - shown first on mobile */}
+            {/* Wallet card - shown first on mobile */}
             <div ref={walletCardRef} className="lg:col-span-2 order-1">
               <WalletCard
               bankName={primaryAccount?.bank_name}
@@ -407,7 +390,7 @@ function DashboardContent() {
               balance={parseBalance(dashboardData.wallet_card.current_balance)}
               cashbackBalance={isCashbackActive ? cashbackWallet?.current_balance : undefined}
               isActive={primaryAccount?.isActive ?? true}
-              // onFundWallet={() => setIsFundWalletModalOpen(true)} // temporarily hidden while funding is suspended
+              onFundWallet={() => setIsAddMoneyOpen(true)}
               onViewHistory={() => router.push("/dashboard/transactions")}
             />
           </div>
@@ -502,12 +485,14 @@ function DashboardContent() {
           ref={quickLinksRef}
           className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-2 pt-5 pb-3 sm:px-4 sm:pt-5 sm:pb-4 lg:px-6 lg:pt-6 lg:pb-6"
         >
-          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-8 lg:gap-6">
+          <div className="grid grid-cols-4 gap-y-5 sm:gap-y-6 lg:grid-cols-7 lg:gap-6">
             {SERVICE_ACTIONS.map((action) => {
               const promoLabel = PROMO_LABELS[action.id];
+              const blocked =
+                action.comingSoon || UTILITIES_PURCHASES_DISABLED;
               return (
                 <div key={action.id} className="flex flex-col items-center">
-                  {action.comingSoon ? (
+                  {blocked ? (
                     <div className="relative">
                       <div
                         className="flex h-10 w-10 sm:h-11 sm:w-11 lg:h-14 lg:w-14 items-center justify-center rounded-full opacity-75 cursor-not-allowed"
@@ -515,9 +500,11 @@ function DashboardContent() {
                       >
                         <action.icon className="h-[17px] w-[17px] sm:h-[19px] sm:w-[19px] lg:h-[22px] lg:w-[22px]" strokeWidth={1.8} />
                       </div>
-                      <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
-                        Soon
-                      </span>
+                      {action.comingSoon ? (
+                        <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
+                          Soon
+                        </span>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="relative">
@@ -542,34 +529,6 @@ function DashboardContent() {
                 </div>
               );
             })}
-          </div>
-        </section>
-
-        {/* Transfer Actions – 3 across, circular icons, no header */}
-        <section
-          className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-3 pt-5 pb-3 sm:p-4 sm:pt-5 lg:p-6 lg:pt-6"
-        >
-          <div className="grid grid-cols-3 lg:gap-4">
-            {TRANSFER_ACTIONS.map((action) => (
-              <div key={action.id} className="flex flex-col items-center">
-                <div className="relative">
-                  <button
-                    type="button"
-                    disabled
-                    className="flex h-11 w-11 sm:h-12 sm:w-12 lg:h-14 lg:w-14 items-center justify-center rounded-full opacity-75 cursor-not-allowed transition-transform"
-                    style={{ backgroundColor: action.bg, color: action.color }}
-                  >
-                    <action.icon className="h-[18px] w-[18px] sm:h-5 sm:w-5 lg:h-6 lg:w-6" strokeWidth={1.8} />
-                  </button>
-                  <span className="absolute -top-1.5 -right-1.5 px-1 py-px rounded-full bg-amber-500 text-white text-[7px] sm:text-[8px] font-bold uppercase leading-none tracking-wide">
-                    Soon
-                  </span>
-                </div>
-                <span className="mt-1.5 text-xs sm:text-sm font-medium text-dashboard-heading leading-tight text-center">
-                  {action.name}
-                </span>
-              </div>
-            ))}
           </div>
         </section>
 
@@ -658,7 +617,14 @@ function DashboardContent() {
         </section>
       </div>
 
-      {/* FundWalletModal — temporarily hidden while funding is suspended */}
+      {/* Primary funding flow — direct DVA bank-transfer details. */}
+      <AddMoneyBottomSheet
+        isOpen={isAddMoneyOpen}
+        onClose={() => setIsAddMoneyOpen(false)}
+        bankAccounts={dashboardData?.accounts || []}
+      />
+
+      {/* FundWalletModal — temporarily hidden while Paystack card funding is suspended */}
       {/* <FundWalletModal
         isOpen={isFundWalletModalOpen}
         onClose={() => {

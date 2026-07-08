@@ -20,7 +20,6 @@ const PAGE_SIZE = 15;
 const CATEGORY_LABELS: Record<string, string> = {
   all: "All",
   deposit: "Deposits",
-  transfer: "Transfers",
   airtime: "Airtime",
   data: "Data",
   cable: "Cable TV",

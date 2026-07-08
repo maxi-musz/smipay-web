@@ -4,6 +4,7 @@ export const TRANSACTION_STATUSES = [
   { value: "success", label: "Successful", color: "emerald" },
   { value: "pending", label: "Pending", color: "amber" },
   { value: "failed", label: "Failed", color: "red" },
+  { value: "reversed", label: "Reversed", color: "violet" },
   { value: "cancelled", label: "Cancelled", color: "slate" },
 ] as const;
 
@@ -220,6 +221,9 @@ export interface TransactionListMeta {
   page: number;
   limit: number;
   total_pages: number;
+  /** When set, `limit` / `page` / `total_pages` refer to ledger display rows, not raw tx count. */
+  ledger_slots_total?: number;
+  ledger_slots_pagination?: boolean;
 }
 
 // --- Filters ---
@@ -275,5 +279,69 @@ export interface VtpassRequeryResponse {
     request_id: string;
     transaction_status: string | null;
     vtpass_response: Record<string, unknown>;
+  };
+}
+
+export interface VtpassResolveResponse {
+  success: boolean;
+  message: string;
+  data: {
+    resolved: boolean;
+    transaction_id: string;
+    request_id: string;
+    status: string;
+    previous_status: string;
+    vtpass_response: Record<string, unknown> | null;
+  };
+}
+
+export interface VtpassReverseResponse {
+  success: boolean;
+  message: string;
+  data: {
+    transaction_id: string;
+    reversal_tx_id: string;
+    request_id: string;
+    previous_status: string;
+    status: string;
+    total_refunded: number;
+    wallet_refund: number;
+    cashback_refund: number;
+    cashback_clawback: number;
+    cashback_shortfall: number;
+    forced: boolean;
+    vtpass_verdict: string;
+  };
+}
+
+export interface PaystackRequeryResponse {
+  success: boolean;
+  message: string;
+  data: {
+    transaction_id: string;
+    reference: string;
+    local_status: string;
+    found: boolean;
+    paystack_status: string | null;
+    gateway_response: string | null;
+    amount_kobo: number | null;
+    channel: string | null;
+    paid_at: string | null;
+    paystack_response: Record<string, unknown> | null;
+  };
+}
+
+export interface PaystackResolveResponse {
+  success: boolean;
+  message: string;
+  data: {
+    resolved: boolean;
+    not_found?: boolean;
+    transaction_id: string;
+    reference: string;
+    status: string;
+    previous_status: string;
+    paystack_status?: string | null;
+    amount_credited?: number;
   };
 }

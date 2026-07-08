@@ -217,27 +217,6 @@ export default function TermsOfServicePage() {
               </li>
             </ul>
 
-            {/* <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
-              Virtual Card Services
-            </h2>
-            <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mb-3">
-              When using the Smipay virtual card:
-            </p>
-            <ul className="list-disc pl-6 space-y-2 text-sm md:text-base text-brand-text-secondary">
-              <li>
-                You are responsible for all transactions made through your card.
-              </li>
-              <li>You must keep your card details secure.</li>
-              <li>
-                Smipay may impose transaction limits or require additional
-                verification to comply with regulations.
-              </li>
-            </ul>
-            <p className="text-sm md:text-base text-brand-text-secondary leading-relaxed mt-3">
-              International transactions may attract additional fees or exchange
-              rates determined by the card issuer.
-            </p> */}
-
             <h2 className="text-xl md:text-2xl font-bold text-brand-text-primary mt-8 mb-4">
               Service Availability
             </h2>

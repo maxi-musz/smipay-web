@@ -28,6 +28,11 @@ import {
   BellRing,
   Sparkles,
   MonitorSmartphone,
+  Bot,
+  Smartphone,
+  Plug,
+  MessageSquare,
+  Mail,
 } from "lucide-react";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -94,6 +99,43 @@ const adminMenuItems: AdminMenuItem[] = [
     enabled: true,
   },
   {
+    id: "providers",
+    label: "Providers",
+    icon: Plug,
+    enabled: true,
+    submenu: [
+      {
+        id: "sms-providers",
+        label: "SMS Providers",
+        href: "/unified-admin/providers/sms",
+        icon: MessageSquare,
+        enabled: true,
+      },
+      {
+        id: "email-providers",
+        label: "Email Providers",
+        href: "/unified-admin/providers/email",
+        icon: Mail,
+        enabled: false,
+      },
+      {
+        id: "utility-providers",
+        label: "Utility Providers",
+        href: "/unified-admin/providers/utility",
+        icon: Plug,
+        enabled: false,
+      },
+    ],
+  },
+  {
+    id: "smileai",
+    label: "SmileAI",
+    icon: Bot,
+    href: "/unified-admin/smileai",
+    enabled: true,
+    showNewBadgeUntil: "2026-06-30",
+  },
+  {
     id: "devices",
     label: "Device Management",
     icon: MonitorSmartphone,
@@ -113,7 +155,7 @@ const adminMenuItems: AdminMenuItem[] = [
     label: "KYC Verification",
     icon: ShieldCheck,
     href: "/unified-admin/kyc",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "rewards",
@@ -145,6 +187,21 @@ const adminMenuItems: AdminMenuItem[] = [
     ],
   },
   {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    enabled: true,
+    submenu: [
+      {
+        id: "app-version",
+        label: "App Version",
+        href: "/unified-admin/settings/app-version",
+        icon: Smartphone,
+        enabled: true,
+      },
+    ],
+  },
+  {
     id: "cards",
     label: "Virtual Cards",
     icon: CreditCard,
@@ -161,13 +218,6 @@ const adminMenuItems: AdminMenuItem[] = [
 ];
 
 const adminOtherMenuItems: AdminMenuItem[] = [
-  {
-    id: "settings",
-    label: "Admin Settings",
-    icon: Settings,
-    href: "/unified-admin/settings",
-    enabled: false,
-  },
   {
     id: "website",
     label: "Back to Website",

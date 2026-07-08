@@ -1,7 +1,11 @@
 /**
  * Authentication API Service
- * New-auth endpoints (§3 FRONTEND_DEVICE_METADATA.md).
- * Device metadata headers (§1) are attached by api-client-backend on every request.
+ *
+ * New-auth endpoints (§3 FRONTEND_DEVICE_METADATA.md). The same endpoints are
+ * used by the mobile app (see `mobile/src/api/services/auth.ts`), so the
+ * password and OTP rules (exactly 6 digits each) are shared across both
+ * clients. Device metadata headers (§1) are attached by api-client-backend on
+ * every request.
  */
 
 import { backendApi } from "@/lib/api-client-backend";
@@ -97,7 +101,9 @@ export const authApi = {
    * Step 3 — Register (§3.3). Email must already be verified (steps 1 & 2).
    * On success, user is auto-signed-in — response includes access_token + user.
    */
-  register: async (data: RegisterPayload): Promise<ApiEnvelope<RegisterResponseData>> => {
+  register: async (
+    data: RegisterPayload
+  ): Promise<ApiEnvelope<RegisterResponseData>> => {
     try {
       const response = await backendApi.post<ApiEnvelope<RegisterResponseData>>(
         "/new-auth/register",
@@ -115,10 +121,13 @@ export const authApi = {
    */
   verifyEmailOtp: async (email: string, otp: string): Promise<ApiEnvelope> => {
     try {
-      const response = await backendApi.post<ApiEnvelope>("/new-auth/verify-email-otp", {
-        email,
-        otp,
-      });
+      const response = await backendApi.post<ApiEnvelope>(
+        "/new-auth/verify-email-otp",
+        {
+          email,
+          otp,
+        }
+      );
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));
@@ -128,7 +137,9 @@ export const authApi = {
   /**
    * Sign in (§3.3) — email + password only.
    */
-  login: async (credentials: SignInPayload): Promise<ApiEnvelope<SignInResponseData>> => {
+  login: async (
+    credentials: SignInPayload
+  ): Promise<ApiEnvelope<SignInResponseData>> => {
     try {
       const response = await backendApi.post<ApiEnvelope<SignInResponseData>>(
         "/new-auth/signin",
@@ -145,9 +156,12 @@ export const authApi = {
    */
   requestPasswordReset: async (email: string): Promise<ApiEnvelope> => {
     try {
-      const response = await backendApi.post<ApiEnvelope>("/new-auth/forgot-password", {
-        email,
-      });
+      const response = await backendApi.post<ApiEnvelope>(
+        "/new-auth/forgot-password",
+        {
+          email,
+        }
+      );
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));
@@ -157,7 +171,10 @@ export const authApi = {
   /**
    * Verify password reset OTP (§3.5) — step 2 of forgot flow.
    */
-  verifyPasswordResetOtp: async (email: string, otp: string): Promise<ApiEnvelope> => {
+  verifyPasswordResetOtp: async (
+    email: string,
+    otp: string
+  ): Promise<ApiEnvelope> => {
     try {
       const response = await backendApi.post<ApiEnvelope>(
         "/new-auth/verify-password-reset-otp",
@@ -174,7 +191,10 @@ export const authApi = {
    */
   resetPassword: async (data: ResetPasswordPayload): Promise<ApiEnvelope> => {
     try {
-      const response = await backendApi.post<ApiEnvelope>("/new-auth/reset-password", data);
+      const response = await backendApi.post<ApiEnvelope>(
+        "/new-auth/reset-password",
+        data
+      );
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));
@@ -185,11 +205,13 @@ export const authApi = {
    * Complete onboarding (§3.9) — marks user as having finished the walkthrough.
    * Idempotent: safe to call more than once.
    */
-  completeOnboarding: async (): Promise<ApiEnvelope<{ has_completed_onboarding: boolean }>> => {
+  completeOnboarding: async (): Promise<
+    ApiEnvelope<{ has_completed_onboarding: boolean }>
+  > => {
     try {
-      const response = await backendApi.post<ApiEnvelope<{ has_completed_onboarding: boolean }>>(
-        "/new-auth/complete-onboarding"
-      );
+      const response = await backendApi.post<
+        ApiEnvelope<{ has_completed_onboarding: boolean }>
+      >("/new-auth/complete-onboarding");
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));

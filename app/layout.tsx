@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     template: "%s | Smipay",
   },
   description:
-    "Smipay offers Utilities Payments, Save Money, Buy Data, Buy Airtime, Transfer, Pay Bills, Bet Funding, and lot more. Experience seamless transactions with our user-friendly app designed for your convenience.",
+    "Smipay offers utilities payments, airtime and data, bill payments, and more. Experience seamless transactions with our user-friendly app designed for your convenience.",
   icons: {
     icon: [
       { url: "/favicon.png", sizes: "32x32", type: "image/png" },

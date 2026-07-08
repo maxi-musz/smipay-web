@@ -6,9 +6,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { SessionWarning } from "@/components/auth/SessionWarning";
 import { SessionExpired } from "@/components/auth/SessionExpired";
+import { WebhookEventsSocketProvider } from "@/components/providers/WebhookEventsSocketProvider";
 import { isPaymentInProgress, getToken } from "@/lib/auth-storage";
 import Sidebar from "./Sidebar";
 import SupportFAB from "./SupportFAB";
+import { UtilitiesPurchaseGuard } from "./UtilitiesPurchaseGuard";
 import { Loader2 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -91,26 +93,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     }>
       <DashboardAuthGuard sessionExpired={sessionExpired}>
-        <div className="flex min-h-screen bg-dashboard-bg">
-          <Sidebar />
-          <main className="flex-1 min-w-0 w-full overflow-auto">
-            {children}
-          </main>
-        </div>
+        {/* Webhook-driven realtime updates (wallet credits, etc.). Lives only
+            inside the authenticated dashboard tree so unauthenticated visitors
+            never open a socket. */}
+        <WebhookEventsSocketProvider>
+          <UtilitiesPurchaseGuard />
+          <div className="flex min-h-screen bg-dashboard-bg">
+            <Sidebar />
+            <main className="flex-1 min-w-0 w-full overflow-auto">
+              {children}
+            </main>
+          </div>
 
-        {!sessionExpired && <SupportFAB />}
+          {!sessionExpired && <SupportFAB />}
 
-        <SessionWarning
-          showWarning={showWarning && !sessionExpired}
-          timeRemaining={timeRemaining}
-          onExtend={extendSession}
-          onLogout={() => handleLogout("You have been logged out.")}
-        />
+          <SessionWarning
+            showWarning={showWarning && !sessionExpired}
+            timeRemaining={timeRemaining}
+            onExtend={extendSession}
+            onLogout={() => handleLogout("You have been logged out.")}
+          />
 
-        <SessionExpired
-          show={sessionExpired}
-          onAcknowledge={acknowledgeExpiry}
-        />
+          <SessionExpired
+            show={sessionExpired}
+            onAcknowledge={acknowledgeExpiry}
+          />
+        </WebhookEventsSocketProvider>
       </DashboardAuthGuard>
     </Suspense>
   );

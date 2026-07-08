@@ -133,7 +133,6 @@ export default function PrivacyPolicyPage() {
               <li>Electricity meter details</li>
               <li>Airtime and data purchase details</li>
               <li>Cable subscription details</li>
-              {/* <li>Virtual card transactions</li> */}
             </ul>
 
             <h3 className="text-lg md:text-xl font-semibold text-brand-text-primary mt-6 mb-3">
@@ -161,7 +160,7 @@ export default function PrivacyPolicyPage() {
                 With your explicit permission, the Smipay mobile app may access the contacts stored on your device.
               </li>
               <li>
-                We use this only to help you find people you know on Smipay (for example, to send money, share referral codes, or invite friends).
+                We use this only to help you find people you know on Smipay (for example, to share referral codes or invite friends).
               </li>
               <li>
                 You can control this permission at any time through your device settings. If you turn it off, Smipay will no longer be able to read your contacts.

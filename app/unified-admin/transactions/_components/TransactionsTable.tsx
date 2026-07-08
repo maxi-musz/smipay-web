@@ -17,9 +17,10 @@ import {
   Loader2,
   CheckCircle2,
   RefreshCw,
+  MoreVertical,
 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
-import type { TransactionItem } from "@/types/admin/transactions";
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
+import type { TransactionItem, PaystackRequeryResponse } from "@/types/admin/transactions";
 import { useAuth } from "@/hooks/useAuth";
 import { isDevAdminEmail } from "@/lib/dev-admin";
 import {
@@ -28,7 +29,9 @@ import {
   resolveTransactionPartnerFromRow,
 } from "@/lib/transaction-partner";
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
+import { useAdminTransactionsStore } from "@/store/admin/admin-transactions-store";
 import { RequeryVtpassModal } from "./RequeryVtpassModal";
+import { RequeryPaystackModal } from "./RequeryPaystackModal";
 
 function formatNGN(value: number | null): string {
   if (value == null) return "—";
@@ -46,10 +49,20 @@ function relativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
+const USER_NAME_MAX_LEN = 17;
+
+function truncateDisplayName(name: string, maxLen = USER_NAME_MAX_LEN): string {
+  if (!name || name === "—") return name;
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen)}...`;
+}
+
 const statusBadge: Record<string, string> = {
   success: "bg-emerald-50 text-emerald-700",
   pending: "bg-amber-50 text-amber-700",
   failed: "bg-red-50 text-red-700",
+  reversed: "bg-violet-50 text-violet-700",
   cancelled: "bg-slate-100 text-slate-600",
 };
 
@@ -94,6 +107,32 @@ interface Props {
   isLoading?: boolean;
   /** When listing a single user’s txs (e.g. `?user_id=`), the User column is redundant. */
   hideUserColumn?: boolean;
+}
+
+/** Consecutive rows with the same user id (current page order only). */
+function buildConsecutiveUserRuns(list: TransactionItem[]): Array<{
+  startIndex: number;
+  items: TransactionItem[];
+}> {
+  const runs: Array<{ startIndex: number; items: TransactionItem[] }> = [];
+  let i = 0;
+  while (i < list.length) {
+    const uid = list[i].user?.id;
+    let j = i + 1;
+    if (uid) {
+      while (j < list.length && list[j].user?.id === uid) j++;
+    }
+    const items = list.slice(i, j);
+    if (items.length >= 2 && uid) {
+      runs.push({ startIndex: i, items });
+    }
+    i = j;
+  }
+  return runs;
+}
+
+function runKey(anchor: TransactionItem, startIndex: number): string {
+  return anchor.id ?? `run-${startIndex}`;
 }
 
 /** Same “retry streak” if user + status + type + amount match (current page only). */
@@ -452,6 +491,9 @@ function TxDeviceCell({ userDevices }: { userDevices?: TxDeviceInfo[] }) {
   );
 }
 
+const TABLE_COL_COUNT = 15;
+const TABLE_COL_COUNT_NO_USER = 14;
+
 function TransactionPartnerCell({ tx }: { tx: TransactionItem }) {
   const partner = resolveTransactionPartnerFromRow(tx);
   const label =
@@ -474,27 +516,96 @@ function TransactionPartnerCell({ tx }: { tx: TransactionItem }) {
   );
 }
 
-function ReQueryTransactionButton({ tx }: { tx: TransactionItem }) {
+/**
+ * Per-row actions grouped under a three-dot (kebab) menu so the Actions column
+ * stays compact as more actions are added. Today the only action is "Requery
+ * VTPass status" (VTPass rows only); it's disabled once a transaction is already
+ * successful since there's nothing to reconcile.
+ */
+function ActionsMenu({ tx }: { tx: TransactionItem }) {
   const partner = resolveTransactionPartnerFromRow(tx);
-  const [open, setOpen] = useState(false);
+  const isVtpass = partner === "vtpass";
+  const isPaystack = partner === "paystack";
+  const canRequery = isVtpass || isPaystack;
+  const alreadySuccessful = tx.status === "success";
+  // VTPass requery is disabled once successful; Paystack requery is allowed on
+  // both successful and pending transactions.
+  const requeryBlocked = isVtpass && alreadySuccessful;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Requery modal state
+  const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<unknown>(null);
 
-  if (partner !== "vtpass") {
+  const MENU_WIDTH = 224; // matches w-56 below
+  const updateMenuPosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
+    setMenuPos({ top: r.bottom + 6, left });
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPosition();
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && menuRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", updateMenuPosition);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [menuOpen, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  // No actions apply to this row — keep the column clean.
+  if (!canRequery) {
     return <span className="text-[11px] text-dashboard-muted">—</span>;
   }
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(true);
+  const runRequery = async () => {
+    if (requeryBlocked || loading) return;
+    setMenuOpen(false);
+    setModalOpen(true);
     setLoading(true);
     setError(null);
     setPayload(null);
     try {
-      const res = await adminTransactionsApi.requeryVtpass(tx.id);
-      setPayload(res.data?.vtpass_response ?? res.data);
+      if (isPaystack) {
+        const res = await adminTransactionsApi.requeryPaystack(tx.id);
+        setPayload(res.data);
+      } else {
+        const res = await adminTransactionsApi.requeryVtpass(tx.id);
+        setPayload(res.data?.vtpass_response ?? res.data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Requery failed");
     } finally {
@@ -502,31 +613,165 @@ function ReQueryTransactionButton({ tx }: { tx: TransactionItem }) {
     }
   };
 
+  const handleResolved = () => {
+    const store = useAdminTransactionsStore.getState();
+    store.invalidateListCache();
+    void store.fetchTransactions(true);
+  };
+
+  const menu =
+    menuOpen &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[200] w-56 rounded-xl border border-dashboard-border/60 bg-dashboard-surface shadow-xl shadow-black/10 overflow-hidden py-1"
+        style={{ top: menuPos.top, left: menuPos.left }}
+        role="menu"
+        aria-label="Transaction actions"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          onClick={runRequery}
+          disabled={requeryBlocked || loading}
+          aria-disabled={requeryBlocked || loading}
+          className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
+            requeryBlocked
+              ? "cursor-not-allowed text-dashboard-muted/60"
+              : "text-dashboard-heading hover:bg-dashboard-bg"
+          }`}
+          title={
+            requeryBlocked
+              ? "Transaction is already successful — no requery needed"
+              : `Requery ${isPaystack ? "Paystack" : "VTPass"} status for ${tx.transaction_reference ?? tx.id}`
+          }
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${loading ? "animate-spin" : ""}`}
+            aria-hidden
+          />
+          <span className="min-w-0">
+            <span className="block text-[11px] font-semibold">Requery status</span>
+            <span className="block text-[10px] leading-tight mt-0.5 text-dashboard-muted/80">
+              {requeryBlocked
+                ? "Already successful"
+                : `Check latest ${isPaystack ? "Paystack" : "VTPass"} status`}
+            </span>
+          </span>
+        </button>
+      </div>,
+      document.body,
+    );
+
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={handleClick}
-        disabled={loading}
-        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border border-dashboard-border/60 bg-dashboard-surface text-dashboard-heading hover:bg-dashboard-bg hover:border-brand-bg-primary/30 hover:text-brand-bg-primary transition-colors whitespace-nowrap disabled:opacity-60"
-        title={`Requery VTPass status for ${tx.transaction_reference ?? tx.id}`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!menuOpen) updateMenuPosition();
+          setMenuOpen((v) => !v);
+        }}
+        className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
+          menuOpen
+            ? "border-brand-bg-primary/40 bg-dashboard-bg text-brand-bg-primary ring-2 ring-brand-bg-primary/20"
+            : "border-dashboard-border/60 bg-dashboard-surface text-dashboard-muted hover:bg-dashboard-bg hover:text-dashboard-heading"
+        }`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label="Transaction actions"
+        title="Actions"
       >
-        <RefreshCw className={`h-3 w-3 shrink-0 ${loading ? "animate-spin" : ""}`} aria-hidden />
-        Requery
+        <MoreVertical className="h-4 w-4" />
       </button>
-      <RequeryVtpassModal
-        open={open}
-        onClose={() => setOpen(false)}
-        requestId={tx.transaction_reference}
-        loading={loading}
-        error={error}
-        payload={payload}
-      />
+      {menu}
+      {isPaystack ? (
+        <RequeryPaystackModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transactionId={tx.id}
+          localStatus={tx.status}
+          reference={tx.transaction_reference}
+          loading={loading}
+          error={error}
+          payload={payload as PaystackRequeryResponse["data"] | null}
+          onResolved={handleResolved}
+        />
+      ) : (
+        <RequeryVtpassModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transactionId={tx.id}
+          localStatus={tx.status}
+          requestId={tx.transaction_reference}
+          loading={loading}
+          error={error}
+          payload={payload}
+          onResolved={handleResolved}
+        />
+      )}
     </>
   );
 }
 
 export function TransactionsTable({ transactions, isLoading = false, hideUserColumn = false }: Props) {
+  const [expandedRuns, setExpandedRuns] = useState<Set<string>>(() => new Set());
+
+  const consecutiveRuns = useMemo(
+    () => buildConsecutiveUserRuns(transactions),
+    [transactions],
+  );
+
+  const { hiddenIndices, collapseBeforeIndex, collapseAfterIndex } = useMemo(() => {
+    const hidden = new Set<number>();
+    const before = new Map<
+      number,
+      { followerCount: number; key: string; expanded: boolean }
+    >();
+    const after = new Map<
+      number,
+      { followerCount: number; key: string; expanded: boolean }
+    >();
+
+    for (const run of consecutiveRuns) {
+      const key = runKey(run.items[0], run.startIndex);
+      const expanded = expandedRuns.has(key);
+      const ctl = {
+        followerCount: run.items.length - 1,
+        key,
+        expanded,
+      };
+      if (!expanded) {
+        for (let k = 1; k < run.items.length; k++) {
+          hidden.add(run.startIndex + k);
+        }
+        before.set(run.startIndex, ctl);
+      } else {
+        after.set(run.startIndex + run.items.length - 1, ctl);
+      }
+    }
+
+    return {
+      hiddenIndices: hidden,
+      collapseBeforeIndex: before,
+      collapseAfterIndex: after,
+    };
+  }, [consecutiveRuns, expandedRuns]);
+
+  const toggleRun = useCallback((key: string) => {
+    setExpandedRuns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const colCount = hideUserColumn ? TABLE_COL_COUNT_NO_USER : TABLE_COL_COUNT;
+
   if (!transactions.length && !isLoading) {
     return (
       <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/40 p-12 text-center">
@@ -540,7 +785,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
       className="relative bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden shadow-sm"
       aria-busy={isLoading}
     >
-      {isLoading && (
+      {isLoading && transactions.length === 0 && (
         <div
           className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-dashboard-surface/70 backdrop-blur-[2px] rounded-xl"
           aria-live="polite"
@@ -555,7 +800,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
         reference (separate attempt).
         {hideUserColumn
           ? " Consecutive attempts with the same status, type, and amount are visually grouped; rows are not merged."
-          : " Consecutive attempts from the same user are visually grouped; we do not merge rows so audits and support stay traceable."}
+          : " Consecutive attempts from the same user are grouped; expand “+ N more” to see each row. Rows are not merged so audits stay traceable."}
       </p>
       <div className="overflow-x-auto">
         <table
@@ -563,8 +808,9 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
         >
           <thead>
             <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/50">
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted whitespace-nowrap">Date</th>
               {!hideUserColumn && (
-                <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">User</th>
+                <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted w-0 max-w-[11rem]">User</th>
               )}
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Amount</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Type</th>
@@ -590,12 +836,16 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Revenue</th>
               <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted" title="Commission (Smipay earned)">Commission</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Reference</th>
-              <th className="text-right px-4 py-2.5 font-medium text-dashboard-muted">Date</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
             {transactions.map((tx, i) => {
+              if (hiddenIndices.has(i)) return null;
+
+              const collapseBefore = collapseBeforeIndex.get(i);
+              const collapseAfter = collapseAfterIndex.get(i);
+
               const userName = hideUserColumn
                 ? ""
                 : tx.user
@@ -604,9 +854,10 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
               const avatar = hideUserColumn ? "" : (tx.user?.first_name?.[0]?.toUpperCase() ?? "?");
               const { length: streakLen, isStart: streakStart, continuesUser } = streakForward(transactions, i);
               const rowMuted = continuesUser;
+              const collapseCtl = collapseBefore ?? collapseAfter;
               return (
+                <Fragment key={tx.id}>
                 <motion.tr
-                  key={tx.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: Math.min(i * 0.02, 0.4) }}
@@ -614,8 +865,16 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     continuesUser ? "bg-dashboard-bg/20" : ""
                   } ${streakStart ? "border-t border-dashboard-border/35" : ""}`}
                 >
+                  <td
+                    className={`px-4 py-2.5 text-left text-dashboard-muted whitespace-nowrap align-middle ${
+                      continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""
+                    }`}
+                    title={new Date(tx.createdAt).toLocaleString()}
+                  >
+                    {relativeTime(tx.createdAt)}
+                  </td>
                   {!hideUserColumn && (
-                    <td className={`px-4 py-2 align-middle ${continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""}`}>
+                    <td className="px-4 py-2 align-middle w-0 max-w-[11rem] min-w-0">
                       {continuesUser ? (
                         <div className="flex items-center gap-2 min-h-[2rem] pl-1">
                           <CornerDownRight className="h-3.5 w-3.5 text-dashboard-muted/70 shrink-0" aria-hidden />
@@ -656,8 +915,11 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                                 {avatar}
                               </div>
                             )}
-                            <span className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors">
-                              {userName}
+                            <span
+                              className="text-dashboard-heading font-medium whitespace-nowrap group-hover/row:text-brand-bg-primary transition-colors"
+                              title={userName.length > USER_NAME_MAX_LEN ? userName : undefined}
+                            >
+                              {truncateDisplayName(userName)}
                             </span>
                           </Link>
                         </div>
@@ -665,9 +927,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     </td>
                   )}
                   <td
-                    className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""} ${
-                      hideUserColumn && continuesUser ? "border-l-2 border-l-brand-bg-primary/25" : ""
-                    }`}
+                    className={`px-4 py-2.5 text-right font-semibold text-dashboard-heading whitespace-nowrap tabular-nums ${rowMuted ? "text-dashboard-heading/90" : ""}`}
                   >
                     {hideUserColumn ? (
                       <div className="flex flex-col items-end gap-1">
@@ -777,13 +1037,37 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                   <td className="px-4 py-2.5 text-dashboard-muted">
                     {tx.transaction_reference ? <CopyRef value={tx.transaction_reference} /> : "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-dashboard-muted whitespace-nowrap" title={new Date(tx.createdAt).toLocaleString()}>
-                    {relativeTime(tx.createdAt)}
-                  </td>
                   <td className="px-4 py-2.5 align-middle">
-                    <ReQueryTransactionButton tx={tx} />
+                    <ActionsMenu tx={tx} />
                   </td>
                 </motion.tr>
+                {collapseCtl ? (
+                  <tr className="border-b border-dashboard-border/20 bg-dashboard-bg/25 hover:bg-dashboard-bg/40 transition-colors">
+                    <td colSpan={colCount} className="px-4 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleRun(collapseCtl.key)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-bg-primary hover:underline pl-1"
+                        aria-expanded={collapseCtl.expanded}
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                            collapseCtl.expanded ? "rotate-180" : ""
+                          }`}
+                          aria-hidden
+                        />
+                        {collapseCtl.expanded
+                          ? `Hide ${collapseCtl.followerCount} more transaction${
+                              collapseCtl.followerCount === 1 ? "" : "s"
+                            } from same user`
+                          : `+ ${collapseCtl.followerCount} more transaction${
+                              collapseCtl.followerCount === 1 ? "" : "s"
+                            } from same user`}
+                      </button>
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               );
             })}
           </tbody>

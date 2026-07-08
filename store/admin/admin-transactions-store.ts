@@ -7,7 +7,7 @@ import type {
   TransactionFilters,
 } from "@/types/admin/transactions";
 
-const CACHE_TTL = 60_000;
+const CACHE_TTL = 180_000;
 const MAX_CACHE = 20;
 
 interface CacheEntry {
@@ -23,11 +23,14 @@ function filtersKey(f: TransactionFilters): string {
   return JSON.stringify(f);
 }
 
+/** Dedupe concurrent list calls for the same filter key (rapid tab switching). */
+const inflightByKey = new Map<string, Promise<CacheEntry | null>>();
+
 const DEFAULT_FILTERS: TransactionFilters = {
   page: 1,
   limit: 20,
   search: "",
-  status: "",
+  status: "success",
   transaction_type: "",
   credit_debit: "",
   payment_channel: "",
@@ -49,11 +52,12 @@ interface AdminTransactionsState {
   isLoading: boolean;
   error: string | null;
   cache: Map<string, CacheEntry>;
-  /** Last full-list result (search="") — used for instant restore when clearing search */
+  /** Last full-list result (search="") — instant restore when clearing search */
   baselineCache: CacheEntry | null;
   baselineKey: string | null;
 
   fetchTransactions: (force?: boolean) => Promise<void>;
+  invalidateListCache: () => void;
   setFilters: (patch: Partial<TransactionFilters>) => void;
   setPage: (page: number) => void;
   resetFilters: () => void;
@@ -71,16 +75,16 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
   baselineKey: null,
 
   fetchTransactions: async (force = false) => {
-    const { filters, cache, baselineCache, baselineKey } = get();
-    const key = filtersKey(filters);
-    const isNoSearch = !filters.search?.trim();
+    const filtersSnapshot = { ...get().filters };
+    const key = filtersKey(filtersSnapshot);
+    const isNoSearch = !filtersSnapshot.search?.trim();
+    const { cache, baselineCache, baselineKey } = get();
 
-    set({ isLoading: true, error: null });
+    const isCurrentKey = () => filtersKey(get().filters) === key;
 
     if (!force) {
       const cached = cache.get(key);
       if (cached && Date.now() - cached.ts < CACHE_TTL) {
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         set({
           transactions: cached.data.transactions,
           analytics: cached.data.analytics,
@@ -90,13 +94,39 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
         });
         return;
       }
+
+      const inflight = inflightByKey.get(key);
+      if (inflight) {
+        const existing = cache.get(key);
+        if (!existing) {
+          set({ isLoading: true, error: null });
+        }
+        const entry = await inflight;
+        if (entry && isCurrentKey()) {
+          const newCache = new Map(get().cache);
+          newCache.set(key, entry);
+          set({
+            transactions: entry.data.transactions,
+            analytics: entry.data.analytics,
+            meta: entry.data.meta,
+            cache: newCache,
+            baselineCache: isNoSearch ? entry : get().baselineCache,
+            baselineKey: isNoSearch ? key : get().baselineKey,
+            error: null,
+            isLoading: false,
+          });
+        } else if (isCurrentKey()) {
+          set({ isLoading: false });
+        }
+        return;
+      }
+
       if (
         isNoSearch &&
         baselineCache &&
         baselineKey === key &&
         Date.now() - baselineCache.ts < CACHE_TTL
       ) {
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
         set({
           transactions: baselineCache.data.transactions,
           analytics: baselineCache.data.analytics,
@@ -104,59 +134,82 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
           error: null,
           isLoading: false,
         });
-        try {
-          const res = await adminTransactionsApi.list(filters);
-          if (res.success && res.data) {
-            const entry: CacheEntry = { data: res.data, ts: Date.now() };
-            const newCache = new Map(get().cache);
-            newCache.set(key, entry);
-            if (newCache.size > MAX_CACHE) {
-              const oldest = newCache.keys().next().value;
-              if (oldest) newCache.delete(oldest);
-            }
-            set({
-              transactions: res.data.transactions,
-              analytics: res.data.analytics,
-              meta: res.data.meta,
-              cache: newCache,
-              baselineCache: entry,
-              baselineKey: key,
-            });
-          }
-        } catch {
-          // Keep baseline data on background refresh failure
-        }
         return;
       }
     }
 
-    try {
-      const res = await adminTransactionsApi.list(filters);
-      if (res.success && res.data) {
-        const entry: CacheEntry = { data: res.data, ts: Date.now() };
-        const newCache = new Map(get().cache);
-        newCache.set(key, entry);
-        if (newCache.size > MAX_CACHE) {
-          const oldest = newCache.keys().next().value;
-          if (oldest) newCache.delete(oldest);
-        }
-        set({
-          transactions: res.data.transactions,
-          analytics: res.data.analytics,
-          meta: res.data.meta,
-          cache: newCache,
-          baselineCache: isNoSearch ? entry : get().baselineCache,
-          baselineKey: isNoSearch ? key : get().baselineKey,
-          error: null,
-        });
-      } else {
-        set({ error: res.message || "Failed to load transactions" });
-      }
-    } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Failed to load transactions" });
-    } finally {
-      set({ isLoading: false });
+    const staleEntry = !force ? cache.get(key) : undefined;
+    if (staleEntry && isCurrentKey()) {
+      set({
+        transactions: staleEntry.data.transactions,
+        analytics: staleEntry.data.analytics,
+        meta: staleEntry.data.meta,
+        error: null,
+        isLoading: false,
+      });
     }
+
+    const fetchJob = (async (): Promise<CacheEntry | null> => {
+      try {
+        const res = await adminTransactionsApi.list(filtersSnapshot);
+        if (!res.success || !res.data) {
+          if (isCurrentKey()) {
+            set({ error: res.message || "Failed to load transactions" });
+          }
+          return null;
+        }
+        return { data: res.data, ts: Date.now() };
+      } catch (err) {
+        if (isCurrentKey()) {
+          set({
+            error: err instanceof Error ? err.message : "Failed to load transactions",
+          });
+        }
+        return null;
+      }
+    })();
+
+    inflightByKey.set(key, fetchJob);
+
+    if (!staleEntry && isCurrentKey()) {
+      set({ isLoading: true, error: null });
+    }
+
+    try {
+      const entry = await fetchJob;
+      if (!entry) return;
+
+      const newCache = new Map(get().cache);
+      newCache.set(key, entry);
+      if (newCache.size > MAX_CACHE) {
+        const oldest = newCache.keys().next().value;
+        if (oldest) newCache.delete(oldest);
+      }
+
+      if (!isCurrentKey()) {
+        set({ cache: newCache });
+        return;
+      }
+
+      set({
+        transactions: entry.data.transactions,
+        analytics: entry.data.analytics,
+        meta: entry.data.meta,
+        cache: newCache,
+        baselineCache: isNoSearch ? entry : get().baselineCache,
+        baselineKey: isNoSearch ? key : get().baselineKey,
+        error: null,
+      });
+    } finally {
+      inflightByKey.delete(key);
+      if (isCurrentKey()) {
+        set({ isLoading: false });
+      }
+    }
+  },
+
+  invalidateListCache: () => {
+    set({ cache: new Map(), baselineCache: null, baselineKey: null });
   },
 
   setFilters: (patch) => {

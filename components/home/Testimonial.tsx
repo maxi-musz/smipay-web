@@ -13,7 +13,7 @@ export default function Testimonial() {
     {
       id: 2,
       quote:
-        "Their save more, spend less feature helped me to save for my car without me noticing.",
+        "Cashback on airtime and data adds up quickly. Smipay makes everyday purchases feel effortless.",
       name: "Mayowa Bernard",
       reviewPlace: "App-store review",
       avatar: "/imgs/reviewer-02.png",
@@ -36,7 +36,7 @@ export default function Testimonial() {
           Users Who Love the Experience
         </h2>
         <p className="text-brand-text-secondary text-xs sm:text-sm md:text-base">
-          See how the platform is helping users save time, money, and stress
+          See how the platform helps users pay bills faster with less hassle
           every <br className="hidden lg:block" /> day.
         </p>
       </div>

@@ -487,7 +487,6 @@ export default function ProfilePage() {
               </div>
               <div className="p-4 sm:p-5">
                 <div className="grid grid-cols-2 gap-2.5">
-                  <StatCard label="Total Cards" value={String(user.totalCards)} bg="bg-blue-50" color="text-blue-600" />
                   <StatCard label="Total Accounts" value={String(user.totalAccounts)} bg="bg-emerald-50" color="text-emerald-600" />
                   <StatCard
                     label="Wallet Balance"

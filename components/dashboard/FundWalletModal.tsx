@@ -216,7 +216,7 @@ export function FundWalletModal({
                       Bank Transfer
                     </h3>
                     <p className="text-[12px] sm:text-[13px] text-dashboard-muted mt-0.5">
-                      Transfer from any bank to your virtual account
+                      Transfer from any bank to your Smipay account
                     </p>
                   </div>
                   <span className="text-dashboard-muted/40 group-hover:text-brand-bg-primary text-lg shrink-0 transition-colors">
@@ -419,7 +419,7 @@ export function FundWalletModal({
                   No Bank Account
                 </h3>
                 <p className="text-[13px] text-dashboard-muted">
-                  Contact support to set up your virtual account.
+                  Contact support to set up your funding account.
                 </p>
               </div>
             )}
