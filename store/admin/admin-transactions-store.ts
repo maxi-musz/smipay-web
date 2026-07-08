@@ -7,7 +7,7 @@ import type {
   TransactionFilters,
 } from "@/types/admin/transactions";
 
-const CACHE_TTL = 60_000;
+const CACHE_TTL = 180_000;
 const MAX_CACHE = 20;
 
 interface CacheEntry {
@@ -57,6 +57,7 @@ interface AdminTransactionsState {
   baselineKey: string | null;
 
   fetchTransactions: (force?: boolean) => Promise<void>;
+  invalidateListCache: () => void;
   setFilters: (patch: Partial<TransactionFilters>) => void;
   setPage: (page: number) => void;
   resetFilters: () => void;
@@ -96,7 +97,10 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
 
       const inflight = inflightByKey.get(key);
       if (inflight) {
-        set({ isLoading: true, error: null });
+        const existing = cache.get(key);
+        if (!existing) {
+          set({ isLoading: true, error: null });
+        }
         const entry = await inflight;
         if (entry && isCurrentKey()) {
           const newCache = new Map(get().cache);
@@ -134,6 +138,17 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
       }
     }
 
+    const staleEntry = !force ? cache.get(key) : undefined;
+    if (staleEntry && isCurrentKey()) {
+      set({
+        transactions: staleEntry.data.transactions,
+        analytics: staleEntry.data.analytics,
+        meta: staleEntry.data.meta,
+        error: null,
+        isLoading: false,
+      });
+    }
+
     const fetchJob = (async (): Promise<CacheEntry | null> => {
       try {
         const res = await adminTransactionsApi.list(filtersSnapshot);
@@ -156,7 +171,9 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
 
     inflightByKey.set(key, fetchJob);
 
-    set({ isLoading: true, error: null });
+    if (!staleEntry && isCurrentKey()) {
+      set({ isLoading: true, error: null });
+    }
 
     try {
       const entry = await fetchJob;
@@ -189,6 +206,10 @@ export const useAdminTransactionsStore = create<AdminTransactionsState>((set, ge
         set({ isLoading: false });
       }
     }
+  },
+
+  invalidateListCache: () => {
+    set({ cache: new Map(), baselineCache: null, baselineKey: null });
   },
 
   setFilters: (patch) => {

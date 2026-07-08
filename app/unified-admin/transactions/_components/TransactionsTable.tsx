@@ -17,6 +17,7 @@ import {
   Loader2,
   CheckCircle2,
   RefreshCw,
+  MoreVertical,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
 import type { TransactionItem } from "@/types/admin/transactions";
@@ -28,6 +29,7 @@ import {
   resolveTransactionPartnerFromRow,
 } from "@/lib/transaction-partner";
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
+import { useAdminTransactionsStore } from "@/store/admin/admin-transactions-store";
 import { RequeryVtpassModal } from "./RequeryVtpassModal";
 
 function formatNGN(value: number | null): string {
@@ -59,6 +61,7 @@ const statusBadge: Record<string, string> = {
   success: "bg-emerald-50 text-emerald-700",
   pending: "bg-amber-50 text-amber-700",
   failed: "bg-red-50 text-red-700",
+  reversed: "bg-violet-50 text-violet-700",
   cancelled: "bg-slate-100 text-slate-600",
 };
 
@@ -512,21 +515,80 @@ function TransactionPartnerCell({ tx }: { tx: TransactionItem }) {
   );
 }
 
-function ReQueryTransactionButton({ tx }: { tx: TransactionItem }) {
+/**
+ * Per-row actions grouped under a three-dot (kebab) menu so the Actions column
+ * stays compact as more actions are added. Today the only action is "Requery
+ * VTPass status" (VTPass rows only); it's disabled once a transaction is already
+ * successful since there's nothing to reconcile.
+ */
+function ActionsMenu({ tx }: { tx: TransactionItem }) {
   const partner = resolveTransactionPartnerFromRow(tx);
-  const [open, setOpen] = useState(false);
+  const canRequery = partner === "vtpass";
+  const alreadySuccessful = tx.status === "success";
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Requery modal state
+  const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<unknown>(null);
 
-  if (partner !== "vtpass") {
+  const MENU_WIDTH = 224; // matches w-56 below
+  const updateMenuPosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
+    setMenuPos({ top: r.bottom + 6, left });
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPosition();
+    const onScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && menuRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", updateMenuPosition);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [menuOpen, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  // No actions apply to this row — keep the column clean.
+  if (!canRequery) {
     return <span className="text-[11px] text-dashboard-muted">—</span>;
   }
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(true);
+  const runRequery = async () => {
+    if (alreadySuccessful || loading) return;
+    setMenuOpen(false);
+    setModalOpen(true);
     setLoading(true);
     setError(null);
     setPayload(null);
@@ -540,25 +602,89 @@ function ReQueryTransactionButton({ tx }: { tx: TransactionItem }) {
     }
   };
 
+  const handleResolved = () => {
+    const store = useAdminTransactionsStore.getState();
+    store.invalidateListCache();
+    void store.fetchTransactions(true);
+  };
+
+  const menu =
+    menuOpen &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[200] w-56 rounded-xl border border-dashboard-border/60 bg-dashboard-surface shadow-xl shadow-black/10 overflow-hidden py-1"
+        style={{ top: menuPos.top, left: menuPos.left }}
+        role="menu"
+        aria-label="Transaction actions"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          onClick={runRequery}
+          disabled={alreadySuccessful || loading}
+          aria-disabled={alreadySuccessful || loading}
+          className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
+            alreadySuccessful
+              ? "cursor-not-allowed text-dashboard-muted/60"
+              : "text-dashboard-heading hover:bg-dashboard-bg"
+          }`}
+          title={
+            alreadySuccessful
+              ? "Transaction is already successful — no requery needed"
+              : `Requery VTPass status for ${tx.transaction_reference ?? tx.id}`
+          }
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${loading ? "animate-spin" : ""}`}
+            aria-hidden
+          />
+          <span className="min-w-0">
+            <span className="block text-[11px] font-semibold">Requery status</span>
+            <span className="block text-[10px] leading-tight mt-0.5 text-dashboard-muted/80">
+              {alreadySuccessful ? "Already successful" : "Check latest VTPass status"}
+            </span>
+          </span>
+        </button>
+      </div>,
+      document.body,
+    );
+
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={handleClick}
-        disabled={loading}
-        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md border border-dashboard-border/60 bg-dashboard-surface text-dashboard-heading hover:bg-dashboard-bg hover:border-brand-bg-primary/30 hover:text-brand-bg-primary transition-colors whitespace-nowrap disabled:opacity-60"
-        title={`Requery VTPass status for ${tx.transaction_reference ?? tx.id}`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!menuOpen) updateMenuPosition();
+          setMenuOpen((v) => !v);
+        }}
+        className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
+          menuOpen
+            ? "border-brand-bg-primary/40 bg-dashboard-bg text-brand-bg-primary ring-2 ring-brand-bg-primary/20"
+            : "border-dashboard-border/60 bg-dashboard-surface text-dashboard-muted hover:bg-dashboard-bg hover:text-dashboard-heading"
+        }`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label="Transaction actions"
+        title="Actions"
       >
-        <RefreshCw className={`h-3 w-3 shrink-0 ${loading ? "animate-spin" : ""}`} aria-hidden />
-        Requery
+        <MoreVertical className="h-4 w-4" />
       </button>
+      {menu}
       <RequeryVtpassModal
-        open={open}
-        onClose={() => setOpen(false)}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        transactionId={tx.id}
+        localStatus={tx.status}
         requestId={tx.transaction_reference}
         loading={loading}
         error={error}
         payload={payload}
+        onResolved={handleResolved}
       />
     </>
   );
@@ -632,7 +758,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
       className="relative bg-dashboard-surface rounded-xl border border-dashboard-border/40 overflow-hidden shadow-sm"
       aria-busy={isLoading}
     >
-      {isLoading && (
+      {isLoading && transactions.length === 0 && (
         <div
           className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-dashboard-surface/70 backdrop-blur-[2px] rounded-xl"
           aria-live="polite"
@@ -885,7 +1011,7 @@ export function TransactionsTable({ transactions, isLoading = false, hideUserCol
                     {tx.transaction_reference ? <CopyRef value={tx.transaction_reference} /> : "—"}
                   </td>
                   <td className="px-4 py-2.5 align-middle">
-                    <ReQueryTransactionButton tx={tx} />
+                    <ActionsMenu tx={tx} />
                   </td>
                 </motion.tr>
                 {collapseCtl ? (

@@ -6,6 +6,8 @@ import type {
   TransactionFlagResponse,
   TransactionFilters,
   VtpassRequeryResponse,
+  VtpassResolveResponse,
+  VtpassReverseResponse,
 } from "@/types/admin/transactions";
 
 function buildParams(filters: Partial<TransactionFilters>): Record<string, string | number> {
@@ -72,6 +74,34 @@ export const adminTransactionsApi = {
     try {
       const response = await backendApi.post<VtpassRequeryResponse>(
         `/unified-admin/transactions/${id}/requery-vtpass`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  requeryVtpassAndResolve: async (id: string): Promise<VtpassResolveResponse> => {
+    try {
+      const response = await backendApi.post<VtpassResolveResponse>(
+        `/unified-admin/transactions/${id}/requery-vtpass-and-resolve`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Reverse a VTPass transaction and refund the user (wallet + cashback). */
+  reverseTransaction: async (
+    id: string,
+    reason: string,
+    force?: boolean,
+  ): Promise<VtpassReverseResponse> => {
+    try {
+      const response = await backendApi.post<VtpassReverseResponse>(
+        `/unified-admin/transactions/${id}/reverse`,
+        { reason, ...(force ? { force: true } : {}) },
       );
       return response.data;
     } catch (error) {

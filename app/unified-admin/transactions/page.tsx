@@ -255,6 +255,7 @@ function TransactionsPageContent() {
               emerald: active ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200",
               amber: active ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 border border-amber-200",
               red: active ? "bg-red-500 text-white" : "bg-red-50 text-red-700 border border-red-200",
+              violet: active ? "bg-violet-500 text-white" : "bg-violet-50 text-violet-700 border border-violet-200",
               slate: active ? "bg-slate-500 text-white" : "bg-slate-100 text-slate-600 border border-slate-200",
             };
             return (

@@ -33,9 +33,24 @@ export function handleApiError(error: unknown): ApiError {
     const rawMsg = err.message as string;
     const data = err.data as Record<string, unknown> | undefined;
 
-    if (status === 404 || rawMsg.startsWith("Cannot GET") || rawMsg.startsWith("Cannot POST")) {
+    if (status === 404) {
+      const fromBody = messageFromPayload(data);
+      if (
+        rawMsg.startsWith("Cannot GET") ||
+        rawMsg.startsWith("Cannot POST") ||
+        fromBody?.startsWith("Cannot GET") ||
+        fromBody?.startsWith("Cannot POST")
+      ) {
+        return {
+          message:
+            "This action is not available on the server yet. Restart or redeploy the backend, then try again.",
+          code: "ENDPOINT_NOT_FOUND",
+          statusCode: status,
+        };
+      }
       return {
-        message: "This service is temporarily unavailable. Please try again later.",
+        message:
+          "We're experiencing technical difficulties. Our team has been notified. Please try again later.",
         code: "SERVICE_UNAVAILABLE",
         statusCode: status,
       };
