@@ -8,6 +8,8 @@ import type {
   VtpassRequeryResponse,
   VtpassResolveResponse,
   VtpassReverseResponse,
+  PaystackRequeryResponse,
+  PaystackResolveResponse,
 } from "@/types/admin/transactions";
 
 function buildParams(filters: Partial<TransactionFilters>): Record<string, string | number> {
@@ -102,6 +104,32 @@ export const adminTransactionsApi = {
       const response = await backendApi.post<VtpassReverseResponse>(
         `/unified-admin/transactions/${id}/reverse`,
         { reason, ...(force ? { force: true } : {}) },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Verify a Paystack transaction's status (display-only). */
+  requeryPaystack: async (id: string): Promise<PaystackRequeryResponse> => {
+    try {
+      const response = await backendApi.post<PaystackRequeryResponse>(
+        `/unified-admin/transactions/${id}/requery-paystack`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Resolve a pending Paystack deposit (credit on success, cancel on not-found). */
+  requeryPaystackAndResolve: async (
+    id: string,
+  ): Promise<PaystackResolveResponse> => {
+    try {
+      const response = await backendApi.post<PaystackResolveResponse>(
+        `/unified-admin/transactions/${id}/requery-paystack-and-resolve`,
       );
       return response.data;
     } catch (error) {

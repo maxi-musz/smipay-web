@@ -20,7 +20,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
-import type { TransactionItem } from "@/types/admin/transactions";
+import type { TransactionItem, PaystackRequeryResponse } from "@/types/admin/transactions";
 import { useAuth } from "@/hooks/useAuth";
 import { isDevAdminEmail } from "@/lib/dev-admin";
 import {
@@ -31,6 +31,7 @@ import {
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
 import { useAdminTransactionsStore } from "@/store/admin/admin-transactions-store";
 import { RequeryVtpassModal } from "./RequeryVtpassModal";
+import { RequeryPaystackModal } from "./RequeryPaystackModal";
 
 function formatNGN(value: number | null): string {
   if (value == null) return "—";
@@ -523,8 +524,13 @@ function TransactionPartnerCell({ tx }: { tx: TransactionItem }) {
  */
 function ActionsMenu({ tx }: { tx: TransactionItem }) {
   const partner = resolveTransactionPartnerFromRow(tx);
-  const canRequery = partner === "vtpass";
+  const isVtpass = partner === "vtpass";
+  const isPaystack = partner === "paystack";
+  const canRequery = isVtpass || isPaystack;
   const alreadySuccessful = tx.status === "success";
+  // VTPass requery is disabled once successful; Paystack requery is allowed on
+  // both successful and pending transactions.
+  const requeryBlocked = isVtpass && alreadySuccessful;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
@@ -586,15 +592,20 @@ function ActionsMenu({ tx }: { tx: TransactionItem }) {
   }
 
   const runRequery = async () => {
-    if (alreadySuccessful || loading) return;
+    if (requeryBlocked || loading) return;
     setMenuOpen(false);
     setModalOpen(true);
     setLoading(true);
     setError(null);
     setPayload(null);
     try {
-      const res = await adminTransactionsApi.requeryVtpass(tx.id);
-      setPayload(res.data?.vtpass_response ?? res.data);
+      if (isPaystack) {
+        const res = await adminTransactionsApi.requeryPaystack(tx.id);
+        setPayload(res.data);
+      } else {
+        const res = await adminTransactionsApi.requeryVtpass(tx.id);
+        setPayload(res.data?.vtpass_response ?? res.data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Requery failed");
     } finally {
@@ -623,17 +634,17 @@ function ActionsMenu({ tx }: { tx: TransactionItem }) {
           type="button"
           role="menuitem"
           onClick={runRequery}
-          disabled={alreadySuccessful || loading}
-          aria-disabled={alreadySuccessful || loading}
+          disabled={requeryBlocked || loading}
+          aria-disabled={requeryBlocked || loading}
           className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
-            alreadySuccessful
+            requeryBlocked
               ? "cursor-not-allowed text-dashboard-muted/60"
               : "text-dashboard-heading hover:bg-dashboard-bg"
           }`}
           title={
-            alreadySuccessful
+            requeryBlocked
               ? "Transaction is already successful — no requery needed"
-              : `Requery VTPass status for ${tx.transaction_reference ?? tx.id}`
+              : `Requery ${isPaystack ? "Paystack" : "VTPass"} status for ${tx.transaction_reference ?? tx.id}`
           }
         >
           <RefreshCw
@@ -643,7 +654,9 @@ function ActionsMenu({ tx }: { tx: TransactionItem }) {
           <span className="min-w-0">
             <span className="block text-[11px] font-semibold">Requery status</span>
             <span className="block text-[10px] leading-tight mt-0.5 text-dashboard-muted/80">
-              {alreadySuccessful ? "Already successful" : "Check latest VTPass status"}
+              {requeryBlocked
+                ? "Already successful"
+                : `Check latest ${isPaystack ? "Paystack" : "VTPass"} status`}
             </span>
           </span>
         </button>
@@ -675,17 +688,31 @@ function ActionsMenu({ tx }: { tx: TransactionItem }) {
         <MoreVertical className="h-4 w-4" />
       </button>
       {menu}
-      <RequeryVtpassModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        transactionId={tx.id}
-        localStatus={tx.status}
-        requestId={tx.transaction_reference}
-        loading={loading}
-        error={error}
-        payload={payload}
-        onResolved={handleResolved}
-      />
+      {isPaystack ? (
+        <RequeryPaystackModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transactionId={tx.id}
+          localStatus={tx.status}
+          reference={tx.transaction_reference}
+          loading={loading}
+          error={error}
+          payload={payload as PaystackRequeryResponse["data"] | null}
+          onResolved={handleResolved}
+        />
+      ) : (
+        <RequeryVtpassModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transactionId={tx.id}
+          localStatus={tx.status}
+          requestId={tx.transaction_reference}
+          loading={loading}
+          error={error}
+          payload={payload}
+          onResolved={handleResolved}
+        />
+      )}
     </>
   );
 }

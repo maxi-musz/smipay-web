@@ -313,3 +313,35 @@ export interface VtpassReverseResponse {
     vtpass_verdict: string;
   };
 }
+
+export interface PaystackRequeryResponse {
+  success: boolean;
+  message: string;
+  data: {
+    transaction_id: string;
+    reference: string;
+    local_status: string;
+    found: boolean;
+    paystack_status: string | null;
+    gateway_response: string | null;
+    amount_kobo: number | null;
+    channel: string | null;
+    paid_at: string | null;
+    paystack_response: Record<string, unknown> | null;
+  };
+}
+
+export interface PaystackResolveResponse {
+  success: boolean;
+  message: string;
+  data: {
+    resolved: boolean;
+    not_found?: boolean;
+    transaction_id: string;
+    reference: string;
+    status: string;
+    previous_status: string;
+    paystack_status?: string | null;
+    amount_credited?: number;
+  };
+}
