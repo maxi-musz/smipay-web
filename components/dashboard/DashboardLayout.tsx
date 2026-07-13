@@ -7,7 +7,7 @@ import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { SessionWarning } from "@/components/auth/SessionWarning";
 import { SessionExpired } from "@/components/auth/SessionExpired";
 import { WebhookEventsSocketProvider } from "@/components/providers/WebhookEventsSocketProvider";
-import { isPaymentInProgress, getToken } from "@/lib/auth-storage";
+import { isPaymentInProgress, getToken, clearAuth } from "@/lib/auth-storage";
 import Sidebar from "./Sidebar";
 import SupportFAB from "./SupportFAB";
 import { UtilitiesPurchaseGuard } from "./UtilitiesPurchaseGuard";
@@ -45,6 +45,7 @@ function DashboardAuthGuard({
         }
         return;
       }
+      clearAuth();
       router.push("/auth/signin?callbackUrl=/dashboard");
     }
   }, [isLoading, isAuthenticated, router, isPaymentCallback, sessionExpired, initializeAuth]);

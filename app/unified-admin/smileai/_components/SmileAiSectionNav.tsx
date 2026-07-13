@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   Library,
   MessageSquare,
+  PlugZap,
   Settings,
   ShieldAlert,
   Sliders,
@@ -134,6 +135,11 @@ const NAV: NavSection[] = [
         label: "Safety",
         href: "/unified-admin/smileai/settings/safety",
         icon: ShieldAlert,
+      },
+      {
+        label: "Service availability",
+        href: "/unified-admin/smileai/settings/services",
+        icon: PlugZap,
       },
       {
         label: "Lifecycle",

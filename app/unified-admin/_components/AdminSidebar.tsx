@@ -86,7 +86,7 @@ const adminMenuItems: AdminMenuItem[] = [
   },
   {
     id: "support",
-    label: "Support Tickets",
+    label: "Support",
     icon: Headphones,
     href: "/unified-admin/support",
     enabled: true,

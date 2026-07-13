@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { X, MessageSquareText } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -79,8 +79,12 @@ function NotificationItem({ n }: { n: AdminSupportNotification }) {
 }
 
 export default function SupportNotificationBanner() {
+  const pathname = usePathname();
   const { notifications, clearAll } = useAdminSupportNotifications();
 
+  // Redundant while the admin is already in the support area — they're looking
+  // at the live queue there, so suppress the floating toast on those routes.
+  if (pathname?.startsWith("/unified-admin/support")) return null;
   if (notifications.length === 0) return null;
 
   return (

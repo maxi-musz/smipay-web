@@ -51,9 +51,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect to dashboard if accessing auth route with valid token
+  // Let the sign-in page decide client-side whether the session is valid.
+  // A stale cookie alone must not bounce users away from sign-in (that caused
+  // dashboard ↔ sign-in redirect loops when localStorage was cleared/expired).
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.next();
   }
 
   // Add security headers to all responses

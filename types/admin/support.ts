@@ -72,6 +72,8 @@ export interface AdminConversationAnalytics {
   total_conversations: number;
   active: number;
   unassigned: number;
+  /** Conversations assigned to the requesting admin (active/waiting) — the "My Chats" count. */
+  mine: number;
   by_status: Record<string, number>;
 }
 
@@ -116,6 +118,8 @@ export interface AdminConversationDetail {
   ticket: AdminConversationTicketBrief | null;
   assigned_admin: AdminConversationAdminBrief | null;
   handovers: AdminConversationHandover[];
+  /** Set when this support chat originated from a SmileAI handoff — used to view the AI transcript inline. */
+  smileai_conversation_id: string | null;
 }
 
 export interface AdminConversationsListResponse {
