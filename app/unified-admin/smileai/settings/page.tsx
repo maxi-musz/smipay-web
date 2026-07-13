@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock,
   FlaskConical,
+  PlugZap,
   Power,
   Settings,
   ShieldAlert,
@@ -36,6 +37,12 @@ const SECTIONS = [
     icon: ShieldAlert,
     title: "Safety",
     desc: "Never-disclose patterns, refusal copy",
+  },
+  {
+    href: "/unified-admin/smileai/settings/services",
+    icon: PlugZap,
+    title: "Service availability",
+    desc: "Turn services on/off — what Smiley says is live",
   },
   {
     href: "/unified-admin/smileai/settings/lifecycle",

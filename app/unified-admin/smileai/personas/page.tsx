@@ -112,7 +112,7 @@ export default function PersonasListPage() {
                   name: "",
                   description: "",
                   system_prompt:
-                    "You are SmileAI, the in-app assistant for SmiPay. Be concise.",
+                    "You are Smiley, SmiPay's in-app customer support assistant. Be concise. Only offer services that are currently available; treat the service-availability knowledge base entry as the source of truth.",
                 })
               }
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-brand-bg-primary text-white hover:opacity-90 transition-opacity"

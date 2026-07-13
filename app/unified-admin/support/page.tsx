@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Headphones, RefreshCw, User, UserX, AlertTriangle, ArrowUpCircle, Clock3, MessageCircle, Ticket } from "lucide-react";
+import { Headphones, RefreshCw, User, UserX, AlertTriangle, ArrowUpCircle, Clock3, MessageCircle, Ticket, Bot } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminSupport } from "@/hooks/admin/useAdminSupport";
 import { useAdminSupportListSocket } from "@/hooks/admin/useAdminSupportSocket";
@@ -13,6 +13,7 @@ import { SupportTable } from "./_components/SupportTable";
 import { SupportPagination } from "./_components/SupportPagination";
 import { SupportSkeleton } from "./_components/SupportSkeleton";
 import { ConversationsQueue } from "./_components/ConversationsQueue";
+import { SmileyQueue } from "./_components/smiley/SmileyQueue";
 
 const STATUS_PILL_COLORS: Record<string, { active: string; inactive: string }> = {
   amber: {
@@ -41,7 +42,7 @@ const STATUS_PILL_COLORS: Record<string, { active: string; inactive: string }> =
   },
 };
 
-type Tab = "conversations" | "tickets";
+type Tab = "conversations" | "tickets" | "smiley";
 
 export default function SupportPage() {
   const { user: currentAdmin } = useAuth();
@@ -159,12 +160,34 @@ export default function SupportPage() {
               />
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("smiley")}
+            className={`relative px-4 py-2.5 text-xs font-semibold transition-colors ${
+              activeTab === "smiley"
+                ? "text-brand-bg-primary"
+                : "text-dashboard-muted hover:text-dashboard-heading"
+            }`}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Bot className="h-3.5 w-3.5" />
+              Smiley
+            </span>
+            {activeTab === "smiley" && (
+              <motion.div
+                layoutId="support-tab-indicator"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-bg-primary rounded-full"
+              />
+            )}
+          </button>
         </div>
       </header>
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-3">
         {activeTab === "conversations" ? (
           <ConversationsQueue />
+        ) : activeTab === "smiley" ? (
+          <SmileyQueue />
         ) : (
           <>
             {error && (

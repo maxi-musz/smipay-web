@@ -19,11 +19,13 @@ import {
   ArrowRightLeft,
   Ticket,
   XCircle,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminConversationDetailSocket } from "@/hooks/admin/useAdminSupportSocket";
 import { adminSupportApi } from "@/services/admin/support-api";
 import { useAdminSupportNotifications } from "@/store/admin/admin-support-notifications-store";
+import { SmileAiTranscriptModal } from "../../_components/smiley/SmileAiTranscriptModal";
 import type {
   AdminConversationDetail,
   AdminConversationMessage,
@@ -93,6 +95,7 @@ export default function AdminConversationDetailPage() {
   const [mutating, setMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [createTicketModal, setCreateTicketModal] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketDescription, setTicketDescription] = useState("");
   const [ticketType, setTicketType] = useState("GENERAL_INQUIRY");
@@ -372,7 +375,13 @@ export default function AdminConversationDetailPage() {
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8 space-y-3">
             {conversation.messages.map((msg, i) => (
-              <MessageBubble key={msg.id} message={msg} index={i} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                index={i}
+                smileaiConversationId={conversation.smileai_conversation_id}
+                onViewTranscript={() => setTranscriptOpen(true)}
+              />
             ))}
 
             <AnimatePresence>
@@ -802,17 +811,41 @@ export default function AdminConversationDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {conversation.smileai_conversation_id && (
+        <SmileAiTranscriptModal
+          conversationId={conversation.smileai_conversation_id}
+          open={transcriptOpen}
+          onClose={() => setTranscriptOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
-function MessageBubble({ message, index }: { message: AdminConversationMessage; index: number }) {
+function MessageBubble({
+  message,
+  index,
+  smileaiConversationId,
+  onViewTranscript,
+}: {
+  message: AdminConversationMessage;
+  index: number;
+  smileaiConversationId?: string | null;
+  onViewTranscript?: () => void;
+}) {
   const isUser = message.is_from_user;
   const isNote = message.is_internal;
 
   if (isNote) {
+    // The handoff note is where admins expect to jump into the AI transcript.
+    const isHandoffNote = /AI handoff|transcript available in SmileAI/i.test(
+      message.message,
+    );
+    const canViewTranscript =
+      isHandoffNote && !!smileaiConversationId && !!onViewTranscript;
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -827,6 +860,16 @@ function MessageBubble({ message, index }: { message: AdminConversationMessage; 
             <span className="text-[10px] text-amber-500 ml-auto">{message.sender_name ?? "Admin"}</span>
           </div>
           <p className="text-xs text-amber-900 whitespace-pre-wrap leading-relaxed">{message.message}</p>
+          {canViewTranscript && (
+            <button
+              type="button"
+              onClick={onViewTranscript}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-amber-700"
+            >
+              <Bot className="h-3 w-3" />
+              View Smiley transcript
+            </button>
+          )}
           <p className="text-[10px] text-amber-500 mt-1.5">{relativeTime(message.createdAt)}</p>
         </div>
       </motion.div>

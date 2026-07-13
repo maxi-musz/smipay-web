@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
+import { clearAuth } from "@/lib/auth-storage";
 import { generateSecurityHeaders, shouldBypassSecurityHeaders } from "./security-headers";
 import { getDeviceMetadataHeaders } from "./device-metadata";
 
@@ -85,23 +86,8 @@ backendApi.interceptors.response.use(
     // Skip "session expired" redirect for login/register etc.; let the page show the real error.
     if (error.response?.status === 401 && typeof window !== "undefined") {
       if (!config || !isAuthRequestWithoutSession(config)) {
-        // Clear localStorage
-        localStorage.removeItem("smipay-access-token");
-        localStorage.removeItem("smipay-user");
-        localStorage.removeItem("smipay-last-activity");
-        localStorage.removeItem("smipay-token-expiry");
-
-        // Clear cookies properly
-        document.cookie =
-          "smipay-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict";
-
-        // Clear zustand store
-        localStorage.removeItem("smipay-auth");
-
-        // Redirect to landing page instead of forcing signin.
-        // Backend JWT is 7 days; when it expires or 401 occurs, we clear local state
-        // and let users land on home where they can choose to sign in again.
-        window.location.href = "/";
+        clearAuth();
+        window.location.href = "/auth/signin?expired=true";
         return Promise.reject(error);
       }
     }

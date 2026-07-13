@@ -12,15 +12,23 @@ import {
   ErrorBanner,
   SectionHeader,
   Skeleton,
-  StatusPill,
   formatNumber,
 } from "../_components/Helpers";
+
+/** Closed-state colours for the inline safety dropdown (mirrors StatusPill). */
+const SAFETY_SELECT_CLASS: Record<string, string> = {
+  read: "bg-slate-100 text-slate-700",
+  write: "bg-amber-100 text-amber-700",
+  sensitive: "bg-rose-100 text-rose-700",
+};
 
 export default function ActionsListPage() {
   const [items, setItems] = useState<SmileAiAction[] | null>(null);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { run, invalidatePrefix } = useAdminSmileAiCache();
 
   const load = useCallback(
@@ -52,6 +60,8 @@ export default function ActionsListPage() {
   }, [load]);
 
   const toggleEnabled = async (action: SmileAiAction) => {
+    setSavingId(action.id);
+    setError(null);
     try {
       if (action.enabled) {
         await smileAiApi.actions.disable(action.id);
@@ -62,6 +72,35 @@ export default function ActionsListPage() {
       await load(true);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const updateSafety = async (
+    action: SmileAiAction,
+    safety: SmileAiAction["safety"],
+  ) => {
+    if (safety === action.safety) return;
+    setSavingId(action.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await smileAiApi.actions.update(action.id, { safety });
+      // Changing the safety of an already-sensitive action needs a second
+      // admin's sign-off, so the API returns a pending status instead of
+      // applying it. The reload below reflects the true (unchanged) state.
+      if ((res as unknown as { status?: string })?.status === "pending") {
+        setNotice(
+          `Changing “${action.display_name}” needs a second admin's approval — see the Approvals tab. It hasn't been applied yet.`,
+        );
+      }
+      invalidatePrefix("smileai.actions");
+      await load(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -95,6 +134,19 @@ export default function ActionsListPage() {
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
         <ErrorBanner error={error} onRetry={refresh} />
+
+        {notice && (
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="shrink-0 font-medium underline decoration-amber-400 hover:opacity-80"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <label className="text-xs text-dashboard-muted inline-flex items-center gap-1.5">
@@ -151,25 +203,56 @@ export default function ActionsListPage() {
                             </Link>
                           </td>
                           <td className="px-3 py-2">
-                            <StatusPill status={a.safety} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => toggleEnabled(a)}
-                              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
-                                a.enabled
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-slate-100 text-slate-600"
+                            <select
+                              value={a.safety}
+                              disabled={savingId === a.id}
+                              aria-label={`Safety for ${a.display_name}`}
+                              onChange={(e) =>
+                                void updateSafety(
+                                  a,
+                                  e.target.value as SmileAiAction["safety"],
+                                )
+                              }
+                              className={`cursor-pointer rounded-md border-0 py-1 pl-2 pr-6 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-bg-primary/40 disabled:opacity-50 ${
+                                SAFETY_SELECT_CLASS[a.safety] ??
+                                "bg-slate-100 text-slate-700"
                               }`}
                             >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  a.enabled ? "bg-emerald-500" : "bg-slate-400"
+                              <option value="read">read</option>
+                              <option value="write">write</option>
+                              <option value="sensitive">sensitive</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={a.enabled}
+                                aria-label={`${a.enabled ? "Disable" : "Enable"} ${a.display_name}`}
+                                disabled={savingId === a.id}
+                                title={
+                                  a.enabled
+                                    ? "Enabled — click to disable"
+                                    : "Disabled — click to enable"
+                                }
+                                onClick={() => void toggleEnabled(a)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                                  a.enabled ? "bg-emerald-500" : "bg-slate-300"
                                 }`}
-                              />
-                              {a.enabled ? "Enabled" : "Disabled"}
-                            </button>
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                    a.enabled
+                                      ? "translate-x-4"
+                                      : "translate-x-0.5"
+                                  }`}
+                                />
+                              </button>
+                              <span className="text-[11px] text-dashboard-muted">
+                                {a.enabled ? "Enabled" : "Disabled"}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-right text-xs text-emerald-700">
                             {formatNumber(a.recent?.success ?? 0)}

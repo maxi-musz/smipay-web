@@ -16,7 +16,7 @@ import {
 } from "@/lib/validations/auth/login-backend.schema";
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
-import { mapNewAuthUserToUser } from "@/lib/auth-storage";
+import { mapNewAuthUserToUser, clearAuth, hasValidClientSession } from "@/lib/auth-storage";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -36,7 +36,7 @@ const fieldVariants = {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading, initializeAuth } = useAuth();
   const [formData, setFormData] = useState<LoginBackendData>({
     email: "",
     password: "",
@@ -44,7 +44,23 @@ function SignInForm() {
   const [errors, setErrors] = useState<Partial<LoginBackendData>>({});
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    initializeAuth();
+    if (!hasValidClientSession()) {
+      clearAuth();
+    }
+  }, [initializeAuth]);
+
+  // Already signed in — skip the form and go to the intended destination.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+    const callbackUrl = searchParams.get("callbackUrl");
+    const redirectUrl =
+      callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+    router.replace(redirectUrl);
+  }, [isAuthenticated, authLoading, router, searchParams]);
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
@@ -87,7 +103,7 @@ function SignInForm() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const response = await authApi.login({
         email: result.data.email,
@@ -114,13 +130,13 @@ function SignInForm() {
         setServerError(
           response.message || "Invalid credentials. Please try again."
         );
-        setIsLoading(false);
+        setIsSubmitting(false);
       }
     } catch (error: unknown) {
       setServerError(
         error instanceof Error ? error.message : "Invalid credentials. Please try again."
       );
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -149,7 +165,7 @@ function SignInForm() {
               placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
-              disabled={isLoading}
+              disabled={isSubmitting}
               className={`input-auth ${errors.email ? "input-auth-error" : ""}`}
             />
             {errors.email && (
@@ -165,7 +181,7 @@ function SignInForm() {
               placeholder="Enter your password"
               value={formData.password}
               onChange={handleChange}
-              disabled={isLoading}
+              disabled={isSubmitting}
               error={errors.password}
               autoComplete="current-password"
               className="input-auth"
@@ -199,9 +215,9 @@ function SignInForm() {
             <Button
               type="submit"
               className="w-full h-11 rounded-xl bg-brand-bg-primary hover:bg-brand-bg-primary/90 text-white font-medium shadow-md shadow-orange-900/10"
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...

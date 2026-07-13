@@ -4,7 +4,7 @@ import type { User } from "@/lib/auth-storage";
 import {
   saveToken,
   saveUser,
-  clearAuth as clearAuthStorage,
+  clearAuth,
   getUser,
   getToken,
   isSessionExpired,
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
         // Fire-and-forget: invalidate refresh tokens server-side (§3.7).
         // Local state is cleared immediately regardless of API outcome.
         authApi.logout().catch(() => {});
-        clearAuthStorage();
+        clearAuth();
         set({
           user: null,
           isAuthenticated: false,
@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>()(
           });
         } else {
           if (token || user) {
-            clearAuthStorage();
+            clearAuth();
           }
           set({
             user: null,

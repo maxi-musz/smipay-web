@@ -65,6 +65,24 @@ const LAST_ACTIVITY_KEY = "smipay-last-activity";
 const TOKEN_EXPIRY_KEY = "smipay-token-expiry";
 const PAYMENT_IN_PROGRESS_KEY = "smipay-payment-in-progress";
 const PAYMENT_REFERENCE_KEY = "smipay-payment-reference";
+const AUTH_STORE_KEY = "smipay-auth";
+
+/** Secure cookies only persist over HTTPS; dev localhost must omit Secure. */
+function cookieSecureSuffix(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.protocol === "https:" ? "; Secure" : "";
+}
+
+/** Delete a cookie whether it was set with or without the Secure flag. */
+function deleteCookie(name: string): void {
+  const base = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
+  document.cookie = base;
+  document.cookie = `${base}; Secure`;
+}
+
+function setCookie(name: string, value: string, expires: Date): void {
+  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Strict${cookieSecureSuffix()}`;
+}
 
 // Session timeout: 7 days (aligns with backend JWT lifetime)
 export const SESSION_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
@@ -84,9 +102,8 @@ export function saveToken(token: string): void {
     localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
     localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
     
-    // Set cookie with short expiry (10 minutes to match session)
     const expiryDate = new Date(expiryTime);
-    document.cookie = `${TOKEN_KEY}=${token}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict; Secure`;
+    setCookie(TOKEN_KEY, token, expiryDate);
   }
 }
 
@@ -110,9 +127,9 @@ export function removeToken(): void {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     localStorage.removeItem(TOKEN_EXPIRY_KEY);
     localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
-    
-    // Also remove cookie
-    document.cookie = `${TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
+
+    deleteCookie(TOKEN_KEY);
+    deleteCookie(PAYMENT_IN_PROGRESS_KEY);
   }
 }
 
@@ -157,6 +174,20 @@ export function removeUser(): void {
 export function clearAuth(): void {
   removeToken();
   removeUser();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(AUTH_STORE_KEY);
+    localStorage.removeItem(PAYMENT_REFERENCE_KEY);
+  }
+}
+
+/**
+ * True when the client has a valid persisted session (localStorage + expiry).
+ * Middleware only sees cookies — use this on the client before trusting auth.
+ */
+export function hasValidClientSession(): boolean {
+  const token = getToken();
+  const user = getUser();
+  return !!(token && user && !isSessionExpired());
 }
 
 /**
@@ -173,8 +204,7 @@ export function updateLastActivity(): void {
     // Update cookie expiry
     const token = getToken();
     if (token) {
-      const expiryDate = new Date(expiryTime);
-      document.cookie = `${TOKEN_KEY}=${token}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict; Secure`;
+      setCookie(TOKEN_KEY, token, new Date(expiryTime));
     }
   }
 }
@@ -229,9 +259,7 @@ export function setPaymentInProgress(): void {
     const now = Date.now();
     localStorage.setItem(PAYMENT_IN_PROGRESS_KEY, now.toString());
     
-    // Also set a cookie for middleware to check
-    const expiryDate = new Date(now + 15 * 60 * 1000); // 15 minutes
-    document.cookie = `${PAYMENT_IN_PROGRESS_KEY}=true; expires=${expiryDate.toUTCString()}; path=/; SameSite=Strict; Secure`;
+    setCookie(PAYMENT_IN_PROGRESS_KEY, "true", new Date(now + 15 * 60 * 1000));
     
     // Extend session by SESSION_TIMEOUT to give time for payment
     updateLastActivity();
@@ -245,8 +273,7 @@ export function clearPaymentInProgress(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
     
-    // Also clear the cookie
-    document.cookie = `${PAYMENT_IN_PROGRESS_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
+    deleteCookie(PAYMENT_IN_PROGRESS_KEY);
   }
 }
 

@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageCircle,
-  RefreshCw,
-  Loader2,
   User,
   UserX,
   Ticket,
@@ -42,22 +40,27 @@ const STATUS_DOT: Record<string, string> = {
   closed: "bg-slate-400",
 };
 
+// Only the SELECTED pill carries colour (solid fill + ring + shadow); every
+// inactive pill is neutral so the current selection is the one coloured chip in
+// the row and never competes with the others.
+const INACTIVE_PILL =
+  "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading";
 const STATUS_PILL_COLORS: Record<string, { active: string; inactive: string }> = {
   green: {
-    active: "bg-emerald-500 text-white",
-    inactive: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    active: "bg-emerald-500 text-white shadow-sm ring-2 ring-offset-1 ring-emerald-400",
+    inactive: INACTIVE_PILL,
   },
   amber: {
-    active: "bg-amber-500 text-white",
-    inactive: "bg-amber-50 text-amber-700 border border-amber-200",
+    active: "bg-amber-500 text-white shadow-sm ring-2 ring-offset-1 ring-amber-400",
+    inactive: INACTIVE_PILL,
   },
   blue: {
-    active: "bg-blue-500 text-white",
-    inactive: "bg-blue-50 text-blue-700 border border-blue-200",
+    active: "bg-blue-500 text-white shadow-sm ring-2 ring-offset-1 ring-blue-400",
+    inactive: INACTIVE_PILL,
   },
   slate: {
-    active: "bg-slate-500 text-white",
-    inactive: "bg-slate-100 text-slate-600 border border-slate-200",
+    active: "bg-slate-600 text-white shadow-sm ring-2 ring-offset-1 ring-slate-400",
+    inactive: INACTIVE_PILL,
   },
 };
 
@@ -82,19 +85,24 @@ export function ConversationsQueue() {
   const [conversations, setConversations] = useState<AdminConversationListItem[]>([]);
   const [analytics, setAnalytics] = useState<AdminConversationAnalytics | null>(null);
   const [meta, setMeta] = useState<SupportListMeta | null>(null);
-  const [filters, setFilters] = useState<AdminConversationFilters>({ ...DEFAULT_FILTERS });
+  // Default the Live Chats view to the admin's own chats.
+  const [filters, setFilters] = useState<AdminConversationFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    assigned_to: currentAdmin?.id ?? "",
+  }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchConversations = useCallback(
-    async (currentFilters?: AdminConversationFilters) => {
-      setLoading(true);
+    // `silent` skips the loading skeleton — used for background socket refreshes
+    // so the list updates in place instead of flashing the skeleton.
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setLoading(true);
       setError(null);
       try {
-        const f = currentFilters ?? filters;
-        const res = await adminSupportApi.listConversations(f);
+        const res = await adminSupportApi.listConversations(filters);
         if (res.success && res.data) {
           setConversations(res.data.conversations);
           setAnalytics(res.data.analytics);
@@ -105,7 +113,7 @@ export function ConversationsQueue() {
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load conversations");
       } finally {
-        setLoading(false);
+        if (!opts?.silent) setLoading(false);
       }
     },
     [filters],
@@ -122,7 +130,7 @@ export function ConversationsQueue() {
     socketRef.current = true;
 
     const socket = connectAdminSupportSocket();
-    const handleRefresh = () => fetchConversations();
+    const handleRefresh = () => fetchConversations({ silent: true });
     socket.on("conversation_created", handleRefresh);
     socket.on("conversation_updated", handleRefresh);
 
@@ -132,6 +140,17 @@ export function ConversationsQueue() {
       socketRef.current = false;
     };
   }, [fetchConversations]);
+
+  // If the admin id resolves after mount, apply the "My Chats" default once —
+  // but never override a choice the admin has already made.
+  const defaultAppliedRef = useRef(!!currentAdmin?.id);
+  useEffect(() => {
+    if (defaultAppliedRef.current || !currentAdmin?.id) return;
+    defaultAppliedRef.current = true;
+    setFilters((prev) =>
+      prev.assigned_to === "" ? { ...prev, assigned_to: currentAdmin.id } : prev,
+    );
+  }, [currentAdmin?.id]);
 
   const handleSearch = (value: string) => {
     setSearchInput(value);
@@ -209,10 +228,10 @@ export function ConversationsQueue() {
         <button
           type="button"
           onClick={() => handleQuickFilter("unassigned")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${
             activeQuickFilter === "unassigned"
-              ? "bg-amber-500 text-white"
-              : "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading"
+              ? "bg-amber-500 text-white shadow-sm ring-2 ring-offset-1 ring-amber-400 font-semibold"
+              : "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading font-medium"
           }`}
         >
           <UserX className="h-3 w-3" />
@@ -232,14 +251,40 @@ export function ConversationsQueue() {
         <button
           type="button"
           onClick={() => handleQuickFilter("my_chats")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${
             activeQuickFilter === "my_chats"
-              ? "bg-brand-bg-primary text-white"
-              : "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading"
+              ? "bg-brand-bg-primary text-white shadow-sm ring-2 ring-offset-1 ring-brand-bg-primary/50 font-semibold"
+              : "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading font-medium"
           }`}
         >
           <User className="h-3 w-3" />
           My Chats
+          {analytics && (
+            <span
+              className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                activeQuickFilter === "my_chats"
+                  ? "bg-white/20"
+                  : "bg-dashboard-bg text-dashboard-muted"
+              }`}
+            >
+              {analytics.mine}
+            </span>
+          )}
+        </button>
+
+        {/* "All" = no filter at all. It highlights only when nothing else is
+            selected (no status AND no assignment), and clicking it clears
+            everything — so selecting any other pill deselects "All". */}
+        <button
+          type="button"
+          onClick={() => updateFilter({ status: "", assigned_to: "" })}
+          className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+            !filters.status && !filters.assigned_to
+              ? "bg-slate-700 text-white shadow-sm ring-2 ring-offset-1 ring-slate-400 font-semibold"
+              : "bg-dashboard-surface border border-dashboard-border/60 text-dashboard-muted hover:text-dashboard-heading font-medium"
+          }`}
+        >
+          All{analytics ? ` (${analytics.total_conversations})` : ""}
         </button>
 
         {CONVERSATION_STATUS_OPTIONS.map(({ value, label, color }) => {
@@ -251,8 +296,10 @@ export function ConversationsQueue() {
               key={value}
               type="button"
               onClick={() => updateFilter({ status: active ? "" : value })}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                active ? colors.active : colors.inactive
+              className={`px-3 py-1.5 rounded-full text-xs transition-all ${
+                active
+                  ? `${colors.active} font-semibold`
+                  : `${colors.inactive} font-medium`
               }`}
             >
               {label} ({count})
@@ -287,10 +334,23 @@ export function ConversationsQueue() {
         </div>
       )}
 
-      {/* Conversation list */}
-      {loading && conversations.length === 0 ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-brand-bg-primary" />
+      {/* Conversation list — skeleton on any non-silent load (e.g. switching
+          filters) so the admin gets feedback instead of stale/empty content. */}
+      {loading ? (
+        <div className="space-y-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex animate-pulse items-start gap-2.5 rounded-xl border border-dashboard-border/60 bg-dashboard-surface px-3 py-3"
+            >
+              <div className="h-9 w-9 shrink-0 rounded-full bg-dashboard-border/50" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 rounded bg-dashboard-border/50" />
+                <div className="h-2.5 w-2/3 rounded bg-dashboard-border/40" />
+                <div className="h-2 w-1/4 rounded bg-dashboard-border/30" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : conversations.length === 0 ? (
         <div className="text-center py-12">

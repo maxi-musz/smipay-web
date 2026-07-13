@@ -23,6 +23,7 @@ import type {
   SmileAiProvider,
   SmileAiRetrievedHit,
   SmileAiSafety,
+  SmileAiServicesResponse,
   SmileAiSettingsResponse,
   SmileAiSparkline,
   SmileAiVectorStore,
@@ -287,6 +288,8 @@ export const smileAiApi = {
       unwrap<{
         items: SmileAiConversationListItem[];
         total: number;
+        by_status: Record<string, number>;
+        total_all: number;
         limit: number;
         offset: number;
       }>(backendApi.get(`${BASE}/conversations`, { params })),
@@ -414,6 +417,17 @@ export const smileAiApi = {
     setSafety: (payload: Partial<SmileAiSafety> & { notes?: string }) =>
       unwrap<SmileAiSettingsResponse<SmileAiSafety>>(
         backendApi.patch(`${BASE}/settings/safety`, payload),
+      ),
+    getServices: () =>
+      unwrap<SmileAiServicesResponse>(
+        backendApi.get(`${BASE}/settings/services`),
+      ),
+    setServices: (payload: {
+      availability: Record<string, boolean>;
+      notes?: string;
+    }) =>
+      unwrap<SmileAiServicesResponse>(
+        backendApi.patch(`${BASE}/settings/services`, payload),
       ),
     getLifecycle: () =>
       unwrap<SmileAiSettingsResponse<SmileAiLifecycle>>(

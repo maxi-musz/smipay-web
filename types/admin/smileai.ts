@@ -474,3 +474,26 @@ export interface SmileAiSettingsResponse<T> {
   updatedAt: string | null;
   updated_by: string | null;
 }
+
+export interface SmileAiServices {
+  /** Map of service id → available. */
+  availability: Record<string, boolean>;
+}
+
+export interface SmileAiServiceItem {
+  id: string;
+  label: string;
+  description: string;
+  default_available: boolean;
+  available: boolean;
+}
+
+/** getServices/setServices response — settings shape plus the resolved catalogue. */
+export interface SmileAiServicesResponse {
+  key: string;
+  value: SmileAiServices;
+  items: SmileAiServiceItem[];
+  defaults?: SmileAiServices;
+  updatedAt: string | null;
+  updated_by: string | null;
+}
