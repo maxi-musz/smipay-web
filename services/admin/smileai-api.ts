@@ -277,6 +277,7 @@ export const smileAiApi = {
   conversations: {
     list: (params: {
       status?: string;
+      bucket?: "active" | "handed_off" | "closed";
       trigger?: string;
       q?: string;
       user_id?: string;
@@ -289,6 +290,7 @@ export const smileAiApi = {
         items: SmileAiConversationListItem[];
         total: number;
         by_status: Record<string, number>;
+        buckets: { active: number; handed_off: number; closed: number };
         total_all: number;
         limit: number;
         offset: number;

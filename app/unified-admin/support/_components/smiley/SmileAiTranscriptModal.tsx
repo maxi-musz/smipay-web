@@ -69,10 +69,10 @@ export function SmileAiTranscriptModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-dashboard-surface shadow-xl"
+        className="flex max-h-[min(85vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-dashboard-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-dashboard-border/60 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-dashboard-border/60 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-bg-primary/10">
               <Bot className="h-4 w-4 text-brand-bg-primary" />
@@ -96,7 +96,8 @@ export function SmileAiTranscriptModal({
           </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {/* min-h-0 is required so flex children can shrink and overflow-y scrolls */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
           {loading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-brand-bg-primary" />

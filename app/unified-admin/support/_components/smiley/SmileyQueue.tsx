@@ -13,12 +13,15 @@ import { connectAdminSmileAiSocket } from "@/lib/admin-smileai-socket";
 import type { SmileAiConversationListItem } from "@/types/admin/smileai";
 import { SmileyConversationModal } from "./SmileyConversationModal";
 
-// Sub-filters map to a single AIConversation status (or all). Active is default.
-const SUB_FILTERS: { key: string; label: string; status: string }[] = [
-  { key: "all", label: "All", status: "" },
-  { key: "active", label: "Active", status: "active" },
-  { key: "handed_off", label: "Handed Off", status: "handed_off" },
-  { key: "closed", label: "Closed", status: "closed" },
+// Sub-filters map to a status BUCKET (a group of statuses), not a single
+// status — so a chat stays under "Active" as it moves between active ↔
+// awaiting_user, and only leaves once handed off or closed. Active is default.
+type Bucket = "" | "active" | "handed_off" | "closed";
+const SUB_FILTERS: { key: string; label: string; bucket: Bucket }[] = [
+  { key: "all", label: "All", bucket: "" },
+  { key: "active", label: "Active", bucket: "active" },
+  { key: "handed_off", label: "Handed Off", bucket: "handed_off" },
+  { key: "closed", label: "Closed", bucket: "closed" },
 ];
 
 const STATUS_DOT: Record<string, string> = {
@@ -45,9 +48,13 @@ function relativeTime(iso: string | null): string {
 }
 
 export function SmileyQueue() {
-  const [status, setStatus] = useState("active"); // Active selected by default
+  const [bucket, setBucket] = useState<Bucket>("active"); // Active selected by default
   const [items, setItems] = useState<SmileAiConversationListItem[]>([]);
-  const [byStatus, setByStatus] = useState<Record<string, number>>({});
+  const [buckets, setBuckets] = useState<{
+    active: number;
+    handed_off: number;
+    closed: number;
+  }>({ active: 0, handed_off: 0, closed: 0 });
   const [totalAll, setTotalAll] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,18 +65,18 @@ export function SmileyQueue() {
     setError(null);
     try {
       const res = await smileAiApi.conversations.list({
-        status: status || undefined,
+        bucket: bucket || undefined,
         limit: 50,
       });
       setItems(res.items);
-      setByStatus(res.by_status ?? {});
+      setBuckets(res.buckets ?? { active: 0, handed_off: 0, closed: 0 });
       setTotalAll(res.total_all ?? 0);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [bucket]);
 
   useEffect(() => {
     void load();
@@ -90,20 +97,20 @@ export function SmileyQueue() {
     };
   }, [load]);
 
-  const countFor = (f: { status: string }) =>
-    f.status === "" ? totalAll : (byStatus[f.status] ?? 0);
+  const countFor = (f: { bucket: Bucket }) =>
+    f.bucket === "" ? totalAll : buckets[f.bucket];
 
   return (
     <div className="space-y-3">
       {/* Sub-filters */}
       <div className="flex flex-wrap items-center gap-1.5">
         {SUB_FILTERS.map((f) => {
-          const active = status === f.status;
+          const active = bucket === f.bucket;
           return (
             <button
               key={f.key}
               type="button"
-              onClick={() => setStatus(f.status)}
+              onClick={() => setBucket(f.bucket)}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
                 active
                   ? "bg-brand-bg-primary text-white shadow-sm ring-2 ring-offset-1 ring-brand-bg-primary/50 font-semibold"
