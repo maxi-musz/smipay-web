@@ -12,7 +12,8 @@ import type { AccessAction, EffectiveModule } from "@/types/admin/management";
  * applied), `data` is null and callers should fall back to their defaults.
  */
 export function useAdminPermissions() {
-  const { data, loading, error, fetch, invalidate } = useAdminPermissionsStore();
+  const { data, loading, error, fetched, fetch, invalidate } =
+    useAdminPermissionsStore();
 
   useEffect(() => {
     fetch();
