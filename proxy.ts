@@ -10,6 +10,7 @@ const protectedRoutes = [
   "/settings",
   "/cards",
   "/unified-admin",
+  "/admin",
 ];
 
 // Define auth routes (redirect to dashboard if already logged in)

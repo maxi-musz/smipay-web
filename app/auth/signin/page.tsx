@@ -17,6 +17,11 @@ import {
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
 import { mapNewAuthUserToUser, clearAuth, hasValidClientSession } from "@/lib/auth-storage";
+import {
+  fetchAdminHomePath,
+  resolveStaffRedirect,
+} from "@/lib/admin-home";
+import { adminManagementApi } from "@/services/admin/management-api";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -36,7 +41,7 @@ const fieldVariants = {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isAuthenticated, isLoading: authLoading, initializeAuth } = useAuth();
+  const { user, login, isAuthenticated, isLoading: authLoading, initializeAuth } = useAuth();
   const [formData, setFormData] = useState<LoginBackendData>({
     email: "",
     password: "",
@@ -56,11 +61,28 @@ function SignInForm() {
   // Already signed in — skip the form and go to the intended destination.
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
-    const callbackUrl = searchParams.get("callbackUrl");
-    const redirectUrl =
-      callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
-    router.replace(redirectUrl);
-  }, [isAuthenticated, authLoading, router, searchParams]);
+
+    void (async () => {
+      const callbackUrl = searchParams.get("callbackUrl");
+      if (user?.role && user.role !== "user") {
+        try {
+          const res = await adminManagementApi.getMyPermissions();
+          const redirectUrl = await resolveStaffRedirect(
+            callbackUrl,
+            res.data ?? null,
+          );
+          router.replace(redirectUrl);
+        } catch {
+          router.replace(await fetchAdminHomePath());
+        }
+        return;
+      }
+
+      const redirectUrl =
+        callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+      router.replace(redirectUrl);
+    })();
+  }, [isAuthenticated, authLoading, router, searchParams, user]);
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
@@ -117,10 +139,10 @@ function SignInForm() {
         setSuccessMessage("Login successful! Redirecting...");
         let redirectUrl = "/dashboard";
         if (user.role && user.role !== "user") {
-          redirectUrl = "/";
+          redirectUrl = await fetchAdminHomePath();
         } else {
           const callbackUrl = searchParams.get("callbackUrl");
-          if (callbackUrl) redirectUrl = callbackUrl;
+          if (callbackUrl?.startsWith("/")) redirectUrl = callbackUrl;
         }
         setTimeout(() => {
           router.push(redirectUrl);

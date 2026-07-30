@@ -100,7 +100,7 @@ export default function HeaderNew() {
                       <>
                         <hr className="my-2" />
                         <Link
-                          href="/unified-admin/dashboard"
+                          href="/admin"
                           className="flex items-center gap-2 rounded px-3 py-2 hover:bg-zinc-100 text-orange-600 font-medium"
                         >
                           <ShieldCheck className="h-4 w-4" />
@@ -251,7 +251,7 @@ export default function HeaderNew() {
                     </Link>
                     {user.role && user.role !== "user" && (
                       <Link
-                        href="/unified-admin/dashboard"
+                        href="/admin"
                         className="flex items-center gap-2 py-2.5 hover:bg-white/10 rounded-lg px-3 -mx-3 text-orange-300 font-medium"
                         onClick={() => setIsMenuOpen(false)}
                       >

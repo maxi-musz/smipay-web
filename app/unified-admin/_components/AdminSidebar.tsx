@@ -33,7 +33,11 @@ import {
   Plug,
   MessageSquare,
   Mail,
+  SlidersHorizontal,
+  Circle,
 } from "lucide-react";
+import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
+import type { EffectiveModule } from "@/types/admin/management";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
 const MARKUP_NEW_BADGE_UNTIL = "2026-03-20"; // 7 days from feature add
@@ -202,6 +206,13 @@ const adminMenuItems: AdminMenuItem[] = [
     ],
   },
   {
+    id: "management",
+    label: "Management",
+    icon: SlidersHorizontal,
+    href: "/unified-admin/management",
+    enabled: true,
+  },
+  {
     id: "cards",
     label: "Virtual Cards",
     icon: CreditCard,
@@ -227,10 +238,95 @@ const adminOtherMenuItems: AdminMenuItem[] = [
   },
 ];
 
+// Maps the `icon` string stored on a registered module to a Lucide component.
+// Unknown / newly-registered icons fall back to a neutral dot, so a brand-new
+// module still renders in the sidebar without any code change.
+const iconMap: Record<string, LucideIcon> = {
+  ScrollText,
+  LayoutDashboard,
+  Users,
+  ArrowLeftRight,
+  Headphones,
+  BellRing,
+  Plug,
+  MessageSquare,
+  Mail,
+  Bot,
+  MonitorSmartphone,
+  Percent,
+  ShieldCheck,
+  Gift,
+  UserPlus,
+  Coins,
+  Sparkles,
+  Settings,
+  Smartphone,
+  SlidersHorizontal,
+  CreditCard,
+  BarChart3,
+};
+
+// Cosmetic "New" badges, keyed by module key (data has no badge column).
+const NEW_BADGE_BY_KEY: Record<string, string | undefined> = {
+  markup: MARKUP_NEW_BADGE_UNTIL,
+  smileai: "2026-06-30",
+};
+
+/**
+ * Build the sidebar from the current admin's readable modules. Two-level tree
+ * via `parent_key`; a parent with no href and no visible children is dropped.
+ */
+function buildMenuFromModules(modules: EffectiveModule[]): AdminMenuItem[] {
+  const visible = modules.filter((m) => m.can_read);
+  const byOrder = (a: EffectiveModule, b: EffectiveModule) =>
+    a.sort_order - b.sort_order;
+  const tops = visible.filter((m) => !m.parent_key).sort(byOrder);
+
+  const items: AdminMenuItem[] = [];
+  for (const t of tops) {
+    const Icon = iconMap[t.icon ?? ""] ?? Circle;
+    const children = visible
+      .filter((m) => m.parent_key === t.key)
+      .sort(byOrder);
+
+    if (children.length > 0) {
+      items.push({
+        id: t.key,
+        label: t.label,
+        icon: Icon,
+        enabled: true,
+        submenu: children.map((c) => ({
+          id: c.key,
+          label: c.label,
+          href: c.href ?? "#",
+          icon: iconMap[c.icon ?? ""] ?? Circle,
+          enabled: true,
+        })),
+      });
+    } else if (t.href) {
+      items.push({
+        id: t.key,
+        label: t.label,
+        icon: Icon,
+        href: t.href,
+        enabled: true,
+        showNewBadgeUntil: NEW_BADGE_BY_KEY[t.key],
+      });
+    }
+  }
+  return items;
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { modules, loaded } = useAdminPermissions();
+
+  // Data-driven once /me/permissions has loaded; until then (or if it errors —
+  // e.g. before the migration is applied) fall back to the static list so the
+  // panel never renders empty.
+  const menuItems = loaded ? buildMenuFromModules(modules) : adminMenuItems;
   const [openMenus, setOpenMenus] = useState<string[]>(() => {
     const initial: string[] = [];
     for (const item of adminMenuItems) {
@@ -412,7 +508,7 @@ export default function AdminSidebar() {
             Admin Panel
           </h3>
           <nav className="space-y-1">
-            {adminMenuItems.map((item) => renderMenuItem(item, closeMobile))}
+            {menuItems.map((item) => renderMenuItem(item, closeMobile))}
           </nav>
         </div>
       </div>
@@ -460,8 +556,8 @@ export default function AdminSidebar() {
         />
       )}
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 bg-dashboard-surface border-r border-dashboard-border h-screen sticky top-0 overflow-hidden">
+      {/* Desktop sidebar — height comes from the layout row; menu scrolls internally */}
+      <aside className="hidden lg:flex lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-hidden bg-dashboard-surface border-r border-dashboard-border h-full min-h-0">
         {sidebarContent}
       </aside>
 
