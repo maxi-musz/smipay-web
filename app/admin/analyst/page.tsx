@@ -1,101 +1,116 @@
 "use client";
 
-import { BarChart3, LineChart, PieChart } from "lucide-react";
-import { motion } from "motion/react";
+import { useCallback } from "react";
+import {
+  Users,
+  UserPlus,
+  Activity,
+  ArrowLeftRight,
+  CheckCircle2,
+  Wallet,
+  BarChart3,
+} from "lucide-react";
 
-export default function AnalystDashboardPage() {
+import { analyticsApi } from "@/services/admin/analytics-api";
+import { SectionShell } from "./_components/section";
+import { useAnalytics } from "./_components/use-analytics";
+import { KpiCard, ChartCard } from "./_components/cards";
+import { TrendChart } from "./_components/charts";
+import {
+  BRAND,
+  PALETTE,
+  fmtInt,
+  fmtIntCompact,
+  fmtMoney,
+  fmtMoneyCompact,
+  fmtRate,
+} from "./_components/format";
+
+export default function AnalystOverviewPage() {
+  const fetcher = useCallback(
+    (range: string) => analyticsApi.overview({ range }),
+    [],
+  );
+  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
+
+  const k = data?.kpis;
+
   return (
-    <div className="min-h-full bg-dashboard-bg">
-      <motion.header
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-dashboard-surface border-b border-dashboard-border/60 sticky top-0 z-10"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8">
-          <div className="min-w-0 pr-12 lg:pr-0">
-            <h1 className="text-lg sm:text-xl font-semibold text-dashboard-heading tracking-tight">
-              Analyst Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-dashboard-muted mt-0.5">
-              Read-only analytics and reporting workspace
-            </p>
+    <SectionShell
+      title="Overview"
+      subtitle="Platform-wide KPIs and trends"
+      icon={BarChart3}
+      range={range}
+      onRangeChange={setRange}
+      loading={loading}
+      error={error}
+      onRetry={retry}
+    >
+      {k && (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <KpiCard title="Total users" value={fmtInt(k.total_users)} icon={Users} />
+            <KpiCard
+              title="New users"
+              value={fmtInt(k.new_users)}
+              delta={k.new_users_delta_pct}
+              icon={UserPlus}
+            />
+            <KpiCard title="Active users" value={fmtInt(k.active_users)} icon={Activity} />
+            <KpiCard
+              title="Tx volume"
+              value={fmtMoney(k.transactions_volume)}
+              delta={k.volume_delta_pct}
+              icon={ArrowLeftRight}
+            />
+            <KpiCard
+              title="Success rate"
+              value={fmtRate(k.success_rate)}
+              icon={CheckCircle2}
+            />
+            <KpiCard
+              title="Revenue"
+              value={fmtMoney(k.revenue)}
+              delta={k.revenue_delta_pct}
+              icon={Wallet}
+            />
           </div>
-        </div>
-      </motion.header>
 
-      <div className="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-          className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface p-6 sm:p-8"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
-              <BarChart3 className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-dashboard-heading">
-                Welcome to your analyst workspace
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-dashboard-muted max-w-2xl">
-                Charts, reports, and read-only analytics will live here —
-                separate from the main admin panel. Use the sidebar to navigate
-                as new sections are added.
-              </p>
-              <p className="mt-4 text-xs font-medium uppercase tracking-wider text-dashboard-muted">
-                Placeholder · v1
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            {
-              title: "Overview metrics",
-              description: "High-level KPIs and trend summaries.",
-              icon: BarChart3,
-            },
-            {
-              title: "Transaction reports",
-              description: "Volume, success rates, and category breakdowns.",
-              icon: LineChart,
-            },
-            {
-              title: "User insights",
-              description: "Growth, retention, and tier distribution.",
-              icon: PieChart,
-            },
-          ].map((card, index) => (
-            <motion.div
-              key={card.title}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: 0.1 + index * 0.05 }}
-              className="rounded-xl border border-dashed border-dashboard-border/80 bg-dashboard-surface/70 p-5"
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ChartCard title="New users" subtitle="Signups per day">
+              <TrendChart
+                data={data.trend}
+                series={[{ key: "new_users", label: "New users", color: BRAND }]}
+                yTickFormatter={fmtIntCompact}
+                valueFormatter={fmtInt}
+              />
+            </ChartCard>
+            <ChartCard title="Transaction volume" subtitle="Value processed per day">
+              <TrendChart
+                data={data.trend}
+                series={[
+                  { key: "transactions_volume", label: "Volume", color: PALETTE[1] },
+                ]}
+                yTickFormatter={fmtMoneyCompact}
+                valueFormatter={fmtMoney}
+              />
+            </ChartCard>
+            <ChartCard
+              title="Revenue"
+              subtitle="Markup + commission per day"
+              className="lg:col-span-2"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-dashboard-bg text-dashboard-muted">
-                  <card.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-dashboard-heading">
-                    {card.title}
-                  </h3>
-                  <p className="mt-1 text-xs leading-5 text-dashboard-muted">
-                    {card.description}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-dashboard-muted">
-                Coming soon
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </div>
+              <TrendChart
+                data={data.trend}
+                series={[{ key: "revenue", label: "Revenue", color: PALETTE[2] }]}
+                yTickFormatter={fmtMoneyCompact}
+                valueFormatter={fmtMoney}
+                height={240}
+              />
+            </ChartCard>
+          </div>
+        </>
+      )}
+    </SectionShell>
   );
 }

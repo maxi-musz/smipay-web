@@ -37,8 +37,12 @@ export default function AdminAreaLayout({
 
     if (!loaded) return;
 
+    // Master admins (role) can view the analyst area too — e.g. via the
+    // unified-admin "Analytics" sidebar tab — alongside tagged analysts.
     const allowed =
-      hasSuperAdminUserType(userTypes) || hasAnalystUserType(userTypes);
+      user?.role === "admin" ||
+      hasSuperAdminUserType(userTypes) ||
+      hasAnalystUserType(userTypes);
     if (!allowed) {
       router.replace(resolveAdminHomePath({ user_types: userTypes }));
     }
@@ -64,7 +68,11 @@ export default function AdminAreaLayout({
     return null;
   }
 
-  if (!hasSuperAdminUserType(userTypes) && !hasAnalystUserType(userTypes)) {
+  if (
+    user.role !== "admin" &&
+    !hasSuperAdminUserType(userTypes) &&
+    !hasAnalystUserType(userTypes)
+  ) {
     return null;
   }
 

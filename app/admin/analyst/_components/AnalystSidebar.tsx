@@ -5,12 +5,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
+  ArrowLeftRight,
   BarChart3,
   Globe,
   LayoutDashboard,
-  LineChart,
   LogOut,
   Menu,
+  Smartphone,
+  Users,
+  Wallet,
   X,
 } from "lucide-react";
 
@@ -26,17 +30,46 @@ interface AnalystMenuItem {
 
 const analystMenuItems: AnalystMenuItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
+    id: "overview",
+    label: "Overview",
     icon: LayoutDashboard,
     href: "/admin/analyst",
     enabled: true,
   },
   {
-    id: "reports",
-    label: "Reports",
-    icon: LineChart,
-    enabled: false,
+    id: "users",
+    label: "Users",
+    icon: Users,
+    href: "/admin/analyst/users",
+    enabled: true,
+  },
+  {
+    id: "transactions",
+    label: "Transactions",
+    icon: ArrowLeftRight,
+    href: "/admin/analyst/transactions",
+    enabled: true,
+  },
+  {
+    id: "revenue",
+    label: "Revenue",
+    icon: Wallet,
+    href: "/admin/analyst/revenue",
+    enabled: true,
+  },
+  {
+    id: "engagement",
+    label: "Engagement",
+    icon: Activity,
+    href: "/admin/analyst/engagement",
+    enabled: true,
+  },
+  {
+    id: "devices",
+    label: "Devices",
+    icon: Smartphone,
+    href: "/admin/analyst/devices",
+    enabled: true,
   },
 ];
 
@@ -70,8 +103,9 @@ export default function AnalystSidebar() {
     router.push("/");
   };
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  // Exact match: the Overview route ("/admin/analyst") is a prefix of every
+  // sub-route, so prefix matching would light up Overview everywhere.
+  const isActive = (href: string) => pathname === href;
 
   const closeMobile = () => setIsMobileMenuOpen(false);
 
