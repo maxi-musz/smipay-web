@@ -321,12 +321,12 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { modules, loaded } = useAdminPermissions();
+  const { modules, hasData } = useAdminPermissions();
 
   // Data-driven once /me/permissions has loaded; until then (or if it errors —
   // e.g. before the migration is applied) fall back to the static list so the
   // panel never renders empty.
-  const menuItems = loaded ? buildMenuFromModules(modules) : adminMenuItems;
+  const menuItems = hasData ? buildMenuFromModules(modules) : adminMenuItems;
   const [openMenus, setOpenMenus] = useState<string[]>(() => {
     const initial: string[] = [];
     for (const item of adminMenuItems) {

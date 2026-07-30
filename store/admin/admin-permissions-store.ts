@@ -39,11 +39,15 @@ export const useAdminPermissionsStore = create<AdminPermissionsState>(
         if (res.success && res.data) {
           set({ data: res.data, fetched: true, ts: Date.now(), error: null });
         } else {
-          set({ error: res.message || "Failed to load permissions" });
+          set({
+            error: res.message || "Failed to load permissions",
+            fetched: true,
+          });
         }
       } catch (err) {
         set({
           error: err instanceof Error ? err.message : "Failed to load permissions",
+          fetched: true,
         });
       } finally {
         set({ loading: false });

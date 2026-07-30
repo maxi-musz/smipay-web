@@ -62,7 +62,7 @@ function AdminAuthGuard({
     return <>{children}</>;
   }
 
-  if (isLoading || permissionsLoading || !loaded) {
+  if (isLoading || permissionsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
         <Loader2 className="h-8 w-8 animate-spin text-dashboard-accent" />
@@ -74,7 +74,7 @@ function AdminAuthGuard({
     return null;
   }
 
-  if (shouldBlockUnifiedAdminAccess(userTypes)) {
+  if (loaded && shouldBlockUnifiedAdminAccess(userTypes)) {
     return null;
   }
 

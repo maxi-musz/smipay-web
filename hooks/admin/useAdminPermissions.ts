@@ -60,8 +60,10 @@ export function useAdminPermissions() {
     userTypes,
     hasType,
     permissionLevel: data?.permission_level ?? 0,
-    /** True once we have a definitive answer from the server. */
-    loaded: data != null,
+    /** True once we have permissions data OR the fetch finished (success or error). */
+    loaded: data != null || (fetched && !loading),
+    /** True when GET /me/permissions returned usable data. */
+    hasData: data != null,
     can,
     refetch,
   };
