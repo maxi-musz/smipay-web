@@ -109,7 +109,20 @@ export interface EngagementData {
     otp_requests: number;
   };
   login_trend: { date: string; success: number; failed: number }[];
-  failed_login_hotspots: { ip: string; count: number }[];
+  failed_login_watchlist: FailedLoginWatchlistRow[];
+}
+
+export interface FailedLoginWatchlistRow {
+  label: string;
+  user_id: string | null;
+  display_name: string | null;
+  smipay_tag: string | null;
+  failure_count: number;
+  last_ip: string | null;
+  geo: string | null;
+  platform: string | null;
+  top_reason: string;
+  last_seen: string;
 }
 
 export interface DevicesData {

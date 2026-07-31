@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Smartphone } from "lucide-react";
 
 import { analyticsApi } from "@/services/admin/analytics-api";
@@ -9,19 +8,21 @@ import { useAnalytics } from "../_components/use-analytics";
 import { ChartCard, BreakdownTable } from "../_components/cards";
 import { CategoryDonut } from "../_components/charts";
 import { fmtInt } from "../_components/format";
+import { METRIC_HELP } from "../_components/metric-glossary";
+import { HelpTooltip } from "../_components/help-tooltip";
 
 export default function AnalystDevicesPage() {
-  const fetcher = useCallback(
-    (range: string) => analyticsApi.devices({ range }),
-    [],
+  const { range, setRange, data, loading, error, retry } = useAnalytics(
+    "devices",
+    (r) => analyticsApi.devices({ range: r }),
   );
-  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
 
   return (
     <SectionShell
       title="Devices & Platform"
       subtitle="Where activity happens"
       icon={Smartphone}
+      section="devices"
       range={range}
       onRangeChange={setRange}
       loading={loading}
@@ -39,9 +40,12 @@ export default function AnalystDevicesPage() {
     >
       {data && (
         <>
-          <p className="text-xs text-dashboard-muted">{data.note}</p>
+          <p className="flex items-center gap-1.5 text-xs text-dashboard-muted">
+            {data.note}
+            <HelpTooltip text={METRIC_HELP.deviceActivityNote} />
+          </p>
           <div className="grid gap-5 lg:grid-cols-2">
-            <ChartCard title="By platform" subtitle="iOS / Android / Web">
+            <ChartCard title="By platform" subtitle="iOS / Android / Web" tooltip={METRIC_HELP.deviceActivityNote}>
               <CategoryDonut
                 data={data.by_platform.map((c) => ({ label: c.label, value: c.count }))}
               />

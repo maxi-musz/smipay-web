@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ArrowLeftRight, Coins, Gauge, TrendingUp } from "lucide-react";
 
 import { analyticsApi } from "@/services/admin/analytics-api";
@@ -15,6 +15,7 @@ import {
   fmtMoney,
   fmtMoneyCompact,
 } from "../_components/format";
+import { METRIC_HELP } from "../_components/metric-glossary";
 
 const TX_TYPES = [
   "transfer",
@@ -31,13 +32,11 @@ const TX_TYPES = [
 
 export default function AnalystTransactionsPage() {
   const [txType, setTxType] = useState("");
-  // Fetcher depends on txType, so changing it re-fetches (via the hook's load).
-  const fetcher = useCallback(
-    (range: string) =>
-      analyticsApi.transactions({ range, type: txType || undefined }),
-    [txType],
+  const { range, setRange, data, loading, error, retry } = useAnalytics(
+    "transactions",
+    (r) => analyticsApi.transactions({ range: r, type: txType || undefined }),
+    txType || "all",
   );
-  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
   const k = data?.kpis;
 
   return (
@@ -45,6 +44,7 @@ export default function AnalystTransactionsPage() {
       title="Transactions"
       subtitle="Volume, mix & reliability"
       icon={ArrowLeftRight}
+      section="transactions"
       range={range}
       onRangeChange={setRange}
       loading={loading}
@@ -79,10 +79,10 @@ export default function AnalystTransactionsPage() {
       {data && k && (
         <>
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <KpiCard title="Transactions" value={fmtInt(k.count)} icon={ArrowLeftRight} />
-            <KpiCard title="Volume" value={fmtMoney(k.volume)} icon={Coins} />
-            <KpiCard title="Avg value" value={fmtMoney(k.avg_value)} icon={Gauge} />
-            <KpiCard title="Markup revenue" value={fmtMoney(k.markup_revenue)} icon={TrendingUp} />
+            <KpiCard title="Transactions" value={fmtInt(k.count)} icon={ArrowLeftRight} tooltip={METRIC_HELP.transactions} />
+            <KpiCard title="Volume" value={fmtMoney(k.volume)} icon={Coins} tooltip={METRIC_HELP.volume} />
+            <KpiCard title="Avg value" value={fmtMoney(k.avg_value)} icon={Gauge} tooltip={METRIC_HELP.avgValue} />
+            <KpiCard title="Markup revenue" value={fmtMoney(k.markup_revenue)} icon={TrendingUp} tooltip={METRIC_HELP.markupRevenue} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -108,10 +108,11 @@ export default function AnalystTransactionsPage() {
               />
             </ChartCard>
 
-            <ChartCard title="By type" subtitle="Volume by service">
+            <ChartCard title="By type" subtitle="Naira volume by service type">
               <CategoryBars
                 data={data.by_type.map((t) => ({ label: t.label, value: t.volume }))}
                 valueFormatter={fmtMoney}
+                height={Math.max(200, data.by_type.length * 40)}
               />
             </ChartCard>
             <ChartCard title="By status">

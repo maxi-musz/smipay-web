@@ -34,4 +34,16 @@ export const analyticsApi = {
   revenue: (q?: AnalyticsQuery) => get<RevenueData>("revenue", q),
   engagement: (q?: AnalyticsQuery) => get<EngagementData>("engagement", q),
   devices: (q?: AnalyticsQuery) => get<DevicesData>("devices", q),
+  auditExport: async (body: {
+    section: string;
+    dataset: string;
+    row_count: number;
+    range: string;
+  }) => {
+    try {
+      await backendApi.post(`${BASE}/audit-export`, body);
+    } catch {
+      // Export should not block on audit logging failure.
+    }
+  },
 };

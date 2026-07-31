@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Wallet, TrendingUp, Percent, HandCoins, PiggyBank } from "lucide-react";
 
 import { analyticsApi } from "@/services/admin/analytics-api";
@@ -9,13 +8,13 @@ import { useAnalytics } from "../_components/use-analytics";
 import { KpiCard, ChartCard } from "../_components/cards";
 import { TrendChart, CategoryBars } from "../_components/charts";
 import { BRAND, PALETTE, fmtMoney, fmtMoneyCompact } from "../_components/format";
+import { METRIC_HELP } from "../_components/metric-glossary";
 
 export default function AnalystRevenuePage() {
-  const fetcher = useCallback(
-    (range: string) => analyticsApi.revenue({ range }),
-    [],
+  const { range, setRange, data, loading, error, retry } = useAnalytics(
+    "revenue",
+    (r) => analyticsApi.revenue({ range: r }),
   );
-  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
   const k = data?.kpis;
 
   return (
@@ -23,6 +22,7 @@ export default function AnalystRevenuePage() {
       title="Revenue"
       subtitle="Margin, commission & payouts"
       icon={Wallet}
+      section="revenue"
       range={range}
       onRangeChange={setRange}
       loading={loading}
@@ -45,12 +45,13 @@ export default function AnalystRevenuePage() {
               value={fmtMoney(k.gross_revenue)}
               delta={k.gross_delta_pct}
               icon={TrendingUp}
+              tooltip={METRIC_HELP.grossRevenue}
             />
-            <KpiCard title="Markup" value={fmtMoney(k.markup_revenue)} icon={Percent} />
-            <KpiCard title="Commission" value={fmtMoney(k.commission_revenue)} icon={Percent} />
-            <KpiCard title="Funded" value={fmtMoney(k.funded_amount)} icon={Wallet} />
-            <KpiCard title="Payouts" value={fmtMoney(k.payouts)} icon={HandCoins} deltaGoodWhenUp={false} />
-            <KpiCard title="Net revenue" value={fmtMoney(k.net_revenue)} icon={PiggyBank} />
+            <KpiCard title="Markup" value={fmtMoney(k.markup_revenue)} icon={Percent} tooltip={METRIC_HELP.markup} />
+            <KpiCard title="Commission" value={fmtMoney(k.commission_revenue)} icon={Percent} tooltip={METRIC_HELP.commission} />
+            <KpiCard title="Funded" value={fmtMoney(k.funded_amount)} icon={Wallet} tooltip={METRIC_HELP.funded} />
+            <KpiCard title="Payouts" value={fmtMoney(k.payouts)} icon={HandCoins} deltaGoodWhenUp={false} tooltip={METRIC_HELP.payouts} />
+            <KpiCard title="Net revenue" value={fmtMoney(k.net_revenue)} icon={PiggyBank} tooltip={METRIC_HELP.netRevenue} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -66,7 +67,7 @@ export default function AnalystRevenuePage() {
                 height={260}
               />
             </ChartCard>
-            <ChartCard title="Revenue by service" subtitle="Markup earned per service" className="lg:col-span-2">
+            <ChartCard title="Revenue by service" subtitle="Markup earned per service" className="lg:col-span-2" tooltip={METRIC_HELP.revenueByService}>
               <CategoryBars
                 data={data.by_type.map((t) => ({ label: t.label, value: t.revenue }))}
                 valueFormatter={fmtMoney}

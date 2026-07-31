@@ -5,11 +5,11 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
   Download,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { downloadCsv, type ExportSet } from "./csv";
+import { AnalystSectionSkeleton } from "./skeletons";
 
 export type RangeValue = "7d" | "30d" | "90d" | "12m";
 
@@ -47,9 +47,17 @@ export function DateRange({
   );
 }
 
-function ExportMenu({ exports }: { exports: ExportSet[] }) {
+function ExportMenu({
+  exports: sets,
+  section,
+  range,
+}: {
+  exports: ExportSet[];
+  section: string;
+  range: RangeValue;
+}) {
   const [open, setOpen] = useState(false);
-  const usable = exports.filter((e) => e.rows.length > 0);
+  const usable = sets.filter((e) => e.rows.length > 0);
   if (usable.length === 0) return null;
 
   return (
@@ -70,7 +78,7 @@ function ExportMenu({ exports }: { exports: ExportSet[] }) {
                 key={e.name}
                 type="button"
                 onClick={() => {
-                  downloadCsv(e.name, e.rows);
+                  downloadCsv(e.name, e.rows, { section, range });
                   setOpen(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-dashboard-heading hover:bg-dashboard-bg"
@@ -98,6 +106,7 @@ export function SectionShell({
   title,
   subtitle,
   icon: Icon,
+  section,
   range,
   onRangeChange,
   loading,
@@ -110,6 +119,7 @@ export function SectionShell({
   title: string;
   subtitle?: string;
   icon: LucideIcon;
+  section: string;
   range: RangeValue;
   onRangeChange: (v: RangeValue) => void;
   loading: boolean;
@@ -138,7 +148,9 @@ export function SectionShell({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {headerExtra}
-            {exports && exports.length > 0 && <ExportMenu exports={exports} />}
+            {exports && exports.length > 0 && (
+              <ExportMenu exports={exports} section={section} range={range} />
+            )}
             <DateRange value={range} onChange={onRangeChange} />
           </div>
         </div>
@@ -146,9 +158,7 @@ export function SectionShell({
 
       <div className="px-4 py-5 sm:px-6 lg:px-8">
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-7 w-7 animate-spin text-dashboard-muted" />
-          </div>
+          <AnalystSectionSkeleton />
         ) : error ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <AlertCircle className="h-9 w-9 text-red-500" />

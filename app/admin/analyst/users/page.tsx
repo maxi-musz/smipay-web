@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { Users, UserPlus, Activity, Repeat } from "lucide-react";
 
 import { analyticsApi } from "@/services/admin/analytics-api";
@@ -15,10 +14,13 @@ import {
   fmtIntCompact,
   fmtRate,
 } from "../_components/format";
+import { METRIC_HELP } from "../_components/metric-glossary";
 
 export default function AnalystUsersPage() {
-  const fetcher = useCallback((range: string) => analyticsApi.users({ range }), []);
-  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
+  const { range, setRange, data, loading, error, retry } = useAnalytics(
+    "users",
+    (r) => analyticsApi.users({ range: r }),
+  );
   const k = data?.kpis;
 
   return (
@@ -26,6 +28,7 @@ export default function AnalystUsersPage() {
       title="Users"
       subtitle="Growth, activity & composition"
       icon={Users}
+      section="users"
       range={range}
       onRangeChange={setRange}
       loading={loading}
@@ -47,17 +50,18 @@ export default function AnalystUsersPage() {
       {data && k && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            <KpiCard title="Total users" value={fmtInt(k.total_users)} icon={Users} />
+            <KpiCard title="Total users" value={fmtInt(k.total_users)} icon={Users} tooltip={METRIC_HELP.totalUsers} />
             <KpiCard
               title="New users"
               value={fmtInt(k.new_users)}
               delta={k.new_users_delta_pct}
               icon={UserPlus}
+              tooltip={METRIC_HELP.newUsers}
             />
-            <KpiCard title="DAU" value={fmtInt(k.active_dau)} icon={Activity} />
-            <KpiCard title="WAU" value={fmtInt(k.active_wau)} icon={Activity} />
-            <KpiCard title="MAU" value={fmtInt(k.active_mau)} icon={Activity} />
-            <KpiCard title="Stickiness" value={fmtRate(k.stickiness)} icon={Repeat} hint="DAU/MAU" />
+            <KpiCard title="DAU" value={fmtInt(k.active_dau)} icon={Activity} tooltip={METRIC_HELP.dau} />
+            <KpiCard title="WAU" value={fmtInt(k.active_wau)} icon={Activity} tooltip={METRIC_HELP.wau} />
+            <KpiCard title="MAU" value={fmtInt(k.active_mau)} icon={Activity} tooltip={METRIC_HELP.mau} />
+            <KpiCard title="Stickiness" value={fmtRate(k.stickiness)} icon={Repeat} tooltip={METRIC_HELP.stickiness} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -79,7 +83,7 @@ export default function AnalystUsersPage() {
               />
             </ChartCard>
 
-            <ChartCard title="Verification funnel" subtitle="Registered → verified">
+            <ChartCard title="Verification funnel" subtitle="Registered → verified" tooltip={METRIC_HELP.verificationFunnel}>
               <BreakdownTable
                 rows={data.funnel.map((f) => ({ label: f.step, value: f.count }))}
                 valueHeader="Users"

@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import {
   Users,
   UserPlus,
@@ -25,13 +24,13 @@ import {
   fmtMoneyCompact,
   fmtRate,
 } from "./_components/format";
+import { METRIC_HELP } from "./_components/metric-glossary";
 
 export default function AnalystOverviewPage() {
-  const fetcher = useCallback(
-    (range: string) => analyticsApi.overview({ range }),
-    [],
+  const { range, setRange, data, loading, error, retry } = useAnalytics(
+    "overview",
+    (r) => analyticsApi.overview({ range: r }),
   );
-  const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
 
   const k = data?.kpis;
 
@@ -40,6 +39,7 @@ export default function AnalystOverviewPage() {
       title="Overview"
       subtitle="Platform-wide KPIs and trends"
       icon={BarChart3}
+      section="overview"
       range={range}
       onRangeChange={setRange}
       loading={loading}
@@ -50,30 +50,34 @@ export default function AnalystOverviewPage() {
       {k && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            <KpiCard title="Total users" value={fmtInt(k.total_users)} icon={Users} />
+            <KpiCard title="Total users" value={fmtInt(k.total_users)} icon={Users} tooltip={METRIC_HELP.totalUsers} />
             <KpiCard
               title="New users"
               value={fmtInt(k.new_users)}
               delta={k.new_users_delta_pct}
               icon={UserPlus}
+              tooltip={METRIC_HELP.newUsers}
             />
-            <KpiCard title="Active users" value={fmtInt(k.active_users)} icon={Activity} />
+            <KpiCard title="Active users" value={fmtInt(k.active_users)} icon={Activity} tooltip={METRIC_HELP.activeUsers} />
             <KpiCard
               title="Tx volume"
               value={fmtMoney(k.transactions_volume)}
               delta={k.volume_delta_pct}
               icon={ArrowLeftRight}
+              tooltip={METRIC_HELP.txVolume}
             />
             <KpiCard
               title="Success rate"
               value={fmtRate(k.success_rate)}
               icon={CheckCircle2}
+              tooltip={METRIC_HELP.successRate}
             />
             <KpiCard
               title="Revenue"
               value={fmtMoney(k.revenue)}
               delta={k.revenue_delta_pct}
               icon={Wallet}
+              tooltip={METRIC_HELP.revenue}
             />
           </div>
 
