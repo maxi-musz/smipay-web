@@ -45,6 +45,7 @@ export default function AnalystOverviewPage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      exports={data ? [{ name: "overview-trend", rows: data.trend }] : []}
     >
       {k && (
         <>

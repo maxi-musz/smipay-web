@@ -28,6 +28,14 @@ export default function AnalystRevenuePage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      exports={
+        data
+          ? [
+              { name: "revenue-trend", rows: data.trend },
+              { name: "revenue-by-service", rows: data.by_type },
+            ]
+          : []
+      }
     >
       {data && k && (
         <>

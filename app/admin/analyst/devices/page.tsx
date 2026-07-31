@@ -27,6 +27,15 @@ export default function AnalystDevicesPage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      exports={
+        data
+          ? [
+              { name: "by-platform", rows: data.by_platform },
+              { name: "by-device-model", rows: data.by_device_model },
+              { name: "by-location", rows: data.by_location },
+            ]
+          : []
+      }
     >
       {data && (
         <>

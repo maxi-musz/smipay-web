@@ -28,6 +28,14 @@ export default function AnalystEngagementPage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      exports={
+        data
+          ? [
+              { name: "login-trend", rows: data.login_trend },
+              { name: "failed-login-hotspots", rows: data.failed_login_hotspots },
+            ]
+          : []
+      }
     >
       {data && k && (
         <>

@@ -1,8 +1,15 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  Download,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { motion } from "motion/react";
+import { downloadCsv, type ExportSet } from "./csv";
 
 export type RangeValue = "7d" | "30d" | "90d" | "12m";
 
@@ -40,9 +47,52 @@ export function DateRange({
   );
 }
 
+function ExportMenu({ exports }: { exports: ExportSet[] }) {
+  const [open, setOpen] = useState(false);
+  const usable = exports.filter((e) => e.rows.length > 0);
+  if (usable.length === 0) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-2.5 py-1.5 text-xs font-semibold text-dashboard-heading hover:bg-dashboard-surface"
+      >
+        <Download className="h-3.5 w-3.5" /> Export
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-dashboard-border/60 bg-dashboard-surface py-1 shadow-lg">
+            {usable.map((e) => (
+              <button
+                key={e.name}
+                type="button"
+                onClick={() => {
+                  downloadCsv(e.name, e.rows);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-dashboard-heading hover:bg-dashboard-bg"
+              >
+                <Download className="h-3.5 w-3.5 text-dashboard-muted" />
+                <span className="capitalize">{e.name.replace(/[-_]/g, " ")}</span>
+                <span className="ml-auto text-dashboard-muted">
+                  {e.rows.length}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
- * Standard shell for an analytics section: sticky header with title + range
- * picker, then loading / error / content states.
+ * Standard shell for an analytics section: sticky header with title, optional
+ * inline control (`headerExtra`), CSV export, and range picker; then loading /
+ * error / content states.
  */
 export function SectionShell({
   title,
@@ -53,6 +103,8 @@ export function SectionShell({
   loading,
   error,
   onRetry,
+  headerExtra,
+  exports,
   children,
 }: {
   title: string;
@@ -63,7 +115,9 @@ export function SectionShell({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  children: React.ReactNode;
+  headerExtra?: ReactNode;
+  exports?: ExportSet[];
+  children: ReactNode;
 }) {
   return (
     <div className="min-h-full bg-dashboard-bg">
@@ -82,7 +136,11 @@ export function SectionShell({
               )}
             </div>
           </div>
-          <DateRange value={range} onChange={onRangeChange} />
+          <div className="flex flex-wrap items-center gap-2">
+            {headerExtra}
+            {exports && exports.length > 0 && <ExportMenu exports={exports} />}
+            <DateRange value={range} onChange={onRangeChange} />
+          </div>
         </div>
       </header>
 

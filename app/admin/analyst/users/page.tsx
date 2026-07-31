@@ -31,6 +31,18 @@ export default function AnalystUsersPage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      exports={
+        data
+          ? [
+              { name: "signups", rows: data.signups },
+              { name: "verification-funnel", rows: data.funnel },
+              { name: "by-tier", rows: data.by_tier },
+              { name: "by-status", rows: data.by_status },
+              { name: "by-gender", rows: data.by_gender },
+              { name: "by-location", rows: data.by_location },
+            ]
+          : []
+      }
     >
       {data && k && (
         <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ArrowLeftRight, Coins, Gauge, TrendingUp } from "lucide-react";
 
 import { analyticsApi } from "@/services/admin/analytics-api";
@@ -16,10 +16,26 @@ import {
   fmtMoneyCompact,
 } from "../_components/format";
 
+const TX_TYPES = [
+  "transfer",
+  "deposit",
+  "airtime",
+  "data",
+  "cable",
+  "electricity",
+  "education",
+  "betting",
+  "referral_bonus",
+  "first_tx_bonus",
+];
+
 export default function AnalystTransactionsPage() {
+  const [txType, setTxType] = useState("");
+  // Fetcher depends on txType, so changing it re-fetches (via the hook's load).
   const fetcher = useCallback(
-    (range: string) => analyticsApi.transactions({ range }),
-    [],
+    (range: string) =>
+      analyticsApi.transactions({ range, type: txType || undefined }),
+    [txType],
   );
   const { range, setRange, data, loading, error, retry } = useAnalytics(fetcher);
   const k = data?.kpis;
@@ -34,6 +50,31 @@ export default function AnalystTransactionsPage() {
       loading={loading}
       error={error}
       onRetry={retry}
+      headerExtra={
+        <select
+          value={txType}
+          onChange={(e) => setTxType(e.target.value)}
+          className="rounded-lg border border-dashboard-border/60 bg-dashboard-bg px-2.5 py-1.5 text-xs font-semibold text-dashboard-heading"
+        >
+          <option value="">All types</option>
+          {TX_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+      }
+      exports={
+        data
+          ? [
+              { name: "transactions-trend", rows: data.trend },
+              { name: "by-type", rows: data.by_type },
+              { name: "by-status", rows: data.by_status },
+              { name: "by-provider", rows: data.by_provider },
+              { name: "by-channel", rows: data.by_channel },
+            ]
+          : []
+      }
     >
       {data && k && (
         <>
