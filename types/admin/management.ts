@@ -63,6 +63,15 @@ export interface LevelEffective {
   modules: LevelEffectiveModule[];
 }
 
+export interface AdminLastSignIn {
+  ip_address: string | null;
+  user_agent: string | null;
+  device_model: string | null;
+  platform: string | null;
+  geo_location: string | null;
+  created_at: string;
+}
+
 export interface AdminUser {
   id: string;
   first_name: string | null;
@@ -71,6 +80,9 @@ export interface AdminUser {
   role: string | null;
   permission_level: number;
   user_types: string[];
+  admin_sign_in_ip_mode: "any" | "allowlist";
+  admin_allowed_ips: string[];
+  last_sign_in?: AdminLastSignIn | null;
 }
 
 /** GET /me/permissions — drives the sidebar and client gating. */
@@ -125,4 +137,9 @@ export type UpdateLevelPayload = Partial<{
 
 export interface GrantItem extends Partial<Crud> {
   module_key: string;
+}
+
+export interface SetAdminSignInIpPolicyPayload {
+  mode: "any" | "allowlist";
+  allowed_ips: string[];
 }

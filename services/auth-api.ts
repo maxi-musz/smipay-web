@@ -47,11 +47,21 @@ export interface SignInPayload {
   password: string;
 }
 
-/** Sign-in response (§3.3) */
+/** Sign-in response (§3.3) — tokens, or admin OTP step when staff password succeeds */
 export interface SignInResponseData {
-  access_token: string;
-  refresh_token: string | null;
-  user: NewAuthUser;
+  access_token?: string;
+  refresh_token?: string | null;
+  user?: NewAuthUser;
+  requires_admin_otp?: boolean;
+  challenge_id?: string;
+  email_hint?: string;
+  resend_available_at?: string;
+}
+
+export interface AdminLoginOtpResendData {
+  challenge_id: string;
+  email_hint: string;
+  resend_available_at: string;
 }
 
 /** Reset password payload (§3.6) */
@@ -145,6 +155,34 @@ export const authApi = {
         "/new-auth/signin",
         credentials
       );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  verifyAdminLoginOtp: async (
+    challengeId: string,
+    otp: string
+  ): Promise<ApiEnvelope<SignInResponseData>> => {
+    try {
+      const response = await backendApi.post<ApiEnvelope<SignInResponseData>>(
+        "/new-auth/verify-admin-login-otp",
+        { challenge_id: challengeId, otp }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  resendAdminLoginOtp: async (
+    challengeId: string
+  ): Promise<ApiEnvelope<AdminLoginOtpResendData>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<AdminLoginOtpResendData>
+      >("/new-auth/resend-admin-login-otp", { challenge_id: challengeId });
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));

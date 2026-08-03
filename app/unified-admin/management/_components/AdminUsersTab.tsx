@@ -1,11 +1,12 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { Loader2, AlertCircle, RefreshCw, Check, X, Tags } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, Check, X, Tags, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import { adminManagementApi } from "@/services/admin/management-api";
 import { adminUserTypesApi } from "@/services/admin/user-types-api";
 import type { AccessLevel, AdminUser } from "@/types/admin/management";
 import type { UserType } from "@/types/admin/user-types";
+import { AdminSignInSecurityPanel } from "./AdminSignInSecurityPanel";
 
 interface Props {
   canManage: boolean;
@@ -24,6 +25,7 @@ export function AdminUsersTab({ canManage }: Props) {
   const [typeEditId, setTypeEditId] = useState<string | null>(null);
   const [typeDraft, setTypeDraft] = useState<Set<string>>(new Set());
   const [savingTypesId, setSavingTypesId] = useState<string | null>(null);
+  const [securityOpenId, setSecurityOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,6 +164,7 @@ export function AdminUsersTab({ canManage }: Props) {
               <th className="px-4 py-3 font-semibold">Role</th>
               <th className="px-4 py-3 font-semibold">Permission level</th>
               <th className="px-4 py-3 font-semibold">User types</th>
+              <th className="px-4 py-3 font-semibold">Sign-in security</th>
             </tr>
           </thead>
           <tbody>
@@ -290,10 +293,49 @@ export function AdminUsersTab({ canManage }: Props) {
                       </div>
                     )}
                   </td>
+                  <td className="px-4 py-3 align-top">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSecurityOpenId((id) => (id === a.id ? null : a.id))
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg border border-dashboard-border/60 px-2 py-0.5 text-xs text-dashboard-muted hover:bg-dashboard-bg"
+                    >
+                      <Shield className="h-3 w-3" />
+                      {securityOpenId === a.id ? (
+                        <>
+                          Hide <ChevronUp className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          View <ChevronDown className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
+                  </td>
                 </tr>
+                {securityOpenId === a.id && (
+                  <tr className="border-b border-dashboard-border/40 bg-dashboard-bg/30">
+                    <td colSpan={6} className="px-4 py-3">
+                      <AdminSignInSecurityPanel
+                        admin={a}
+                        canManage={canManage}
+                        onUpdated={(updated) =>
+                          setAdmins((prev) =>
+                            prev.map((row) =>
+                              row.id === updated.id
+                                ? { ...row, ...updated, last_sign_in: row.last_sign_in }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                )}
                 {rowError[a.id] && (
                   <tr>
-                    <td colSpan={5} className="px-4 pb-2 text-xs text-red-500">
+                    <td colSpan={6} className="px-4 pb-2 text-xs text-red-500">
                       {rowError[a.id]}
                     </td>
                   </tr>
@@ -304,7 +346,7 @@ export function AdminUsersTab({ canManage }: Props) {
             {admins.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-4 py-10 text-center text-sm text-dashboard-muted"
                 >
                   No admin users found.

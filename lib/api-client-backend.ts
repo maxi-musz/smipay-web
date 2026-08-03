@@ -69,6 +69,8 @@ const AUTH_PATHS_NO_SESSION = [
   "/new-auth/forgot-password",
   "/new-auth/verify-password-reset-otp",
   "/new-auth/reset-password",
+  "/new-auth/verify-admin-login-otp",
+  "/new-auth/resend-admin-login-otp",
 ];
 
 function isAuthRequestWithoutSession(config: InternalAxiosRequestConfig): boolean {

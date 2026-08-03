@@ -12,6 +12,7 @@ import type {
   MePermissions,
   UpdateLevelPayload,
   UpdateModulePayload,
+  SetAdminSignInIpPolicyPayload,
 } from "@/types/admin/management";
 
 const BASE = "/unified-admin/management";
@@ -78,5 +79,15 @@ export const adminManagementApi = {
       backendApi.put(`${BASE}/admins/${encodeURIComponent(userId)}/level`, {
         permission_level,
       }),
+    ),
+  setAdminSignInIpPolicy: (
+    userId: string,
+    payload: SetAdminSignInIpPolicyPayload,
+  ) =>
+    unwrap<ApiResponse<AdminUser>>(
+      backendApi.put(
+        `${BASE}/admins/${encodeURIComponent(userId)}/sign-in-ip-policy`,
+        payload,
+      ),
     ),
 };

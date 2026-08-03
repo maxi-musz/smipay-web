@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -22,6 +22,8 @@ import {
   resolveStaffRedirect,
 } from "@/lib/admin-home";
 import { adminManagementApi } from "@/services/admin/management-api";
+import { useAdminPermissionsStore } from "@/store/admin/admin-permissions-store";
+import { AdminLoginOtpStep } from "@/components/auth/AdminLoginOtpStep";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -50,6 +52,13 @@ function SignInForm() {
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otpStep, setOtpStep] = useState<{
+    challengeId: string;
+    emailHint: string;
+    resendAvailableAt: string;
+  } | null>(null);
+  /** Prevents the “already signed in” effect from racing finishLogin(). */
+  const skipAutoRedirect = useRef(false);
 
   useEffect(() => {
     initializeAuth();
@@ -60,7 +69,7 @@ function SignInForm() {
 
   // Already signed in — skip the form and go to the intended destination.
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
+    if (authLoading || !isAuthenticated || skipAutoRedirect.current) return;
 
     void (async () => {
       const callbackUrl = searchParams.get("callbackUrl");
@@ -109,6 +118,47 @@ function SignInForm() {
     }
   };
 
+  const finishLogin = async (
+    access_token: string,
+    apiUser: Parameters<typeof mapNewAuthUserToUser>[0],
+  ) => {
+    skipAutoRedirect.current = true;
+    const user = mapNewAuthUserToUser(apiUser);
+    login(user, access_token);
+    setOtpStep(null);
+    setSuccessMessage("Login successful! Redirecting...");
+
+    let redirectUrl = "/dashboard";
+    if (user.role && user.role !== "user") {
+      useAdminPermissionsStore.getState().invalidate();
+      try {
+        const res = await adminManagementApi.getMyPermissions();
+        if (res.success && res.data) {
+          useAdminPermissionsStore.setState({
+            data: res.data,
+            fetched: true,
+            ts: Date.now(),
+            error: null,
+            loading: false,
+          });
+          redirectUrl = await resolveStaffRedirect(
+            searchParams.get("callbackUrl"),
+            res.data,
+          );
+        } else {
+          redirectUrl = await fetchAdminHomePath();
+        }
+      } catch {
+        redirectUrl = await fetchAdminHomePath();
+      }
+    } else {
+      const callbackUrl = searchParams.get("callbackUrl");
+      if (callbackUrl?.startsWith("/")) redirectUrl = callbackUrl;
+    }
+
+    router.replace(redirectUrl);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
@@ -133,21 +183,37 @@ function SignInForm() {
       });
 
       if (response.success && response.data) {
-        const { access_token, user: apiUser } = response.data;
-        const user = mapNewAuthUserToUser(apiUser);
-        login(user, access_token);
-        setSuccessMessage("Login successful! Redirecting...");
-        let redirectUrl = "/dashboard";
-        if (user.role && user.role !== "user") {
-          redirectUrl = await fetchAdminHomePath();
-        } else {
-          const callbackUrl = searchParams.get("callbackUrl");
-          if (callbackUrl?.startsWith("/")) redirectUrl = callbackUrl;
+        if (response.data.requires_admin_otp) {
+          if (
+            !response.data.challenge_id ||
+            !response.data.email_hint ||
+            !response.data.resend_available_at
+          ) {
+            setServerError("Could not start admin verification. Try again.");
+            setIsSubmitting(false);
+            return;
+          }
+          setOtpStep({
+            challengeId: response.data.challenge_id,
+            emailHint: response.data.email_hint,
+            resendAvailableAt: response.data.resend_available_at,
+          });
+          setSuccessMessage(
+            "Verification code sent. Check your email to complete sign-in.",
+          );
+          setIsSubmitting(false);
+          return;
         }
-        setTimeout(() => {
-          router.push(redirectUrl);
-          router.refresh();
-        }, 1000);
+
+        if (!response.data.access_token || !response.data.user) {
+          setServerError(
+            response.message || "Invalid credentials. Please try again.",
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        await finishLogin(response.data.access_token, response.data.user);
       } else {
         setServerError(
           response.message || "Invalid credentials. Please try again."
@@ -165,9 +231,45 @@ function SignInForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
       <AuthCard
-        title="Sign in to Smipay"
-        description="Welcome back. Sign in with your email."
+        title={otpStep ? "Verify admin sign-in" : "Sign in to Smipay"}
+        description={
+          otpStep
+            ? "Enter the code we emailed you to finish signing in."
+            : "Welcome back. Sign in with your email."
+        }
       >
+        {otpStep ? (
+          <div className="space-y-5">
+            {successMessage && <FormSuccess message={successMessage} />}
+            {serverError && <FormError message={serverError} />}
+            <AdminLoginOtpStep
+            challengeId={otpStep.challengeId}
+            emailHint={otpStep.emailHint}
+            resendAvailableAt={otpStep.resendAvailableAt}
+            onChallengeUpdate={(update) => setOtpStep(update)}
+            onBack={() => {
+              setOtpStep(null);
+              setServerError("");
+              setSuccessMessage("");
+            }}
+            onVerified={async (data) => {
+              setIsSubmitting(true);
+              setServerError("");
+              try {
+                await finishLogin(data.access_token, data.user);
+              } catch (error: unknown) {
+                skipAutoRedirect.current = false;
+                setServerError(
+                  error instanceof Error
+                    ? error.message
+                    : "Sign-in failed. Please try again.",
+                );
+                setIsSubmitting(false);
+              }
+            }}
+          />
+          </div>
+        ) : (
         <motion.form
           onSubmit={handleSubmit}
           className="space-y-5"
@@ -263,6 +365,7 @@ function SignInForm() {
             </Link>
           </motion.p>
         </motion.form>
+        )}
       </AuthCard>
     </div>
   );
