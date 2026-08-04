@@ -467,6 +467,27 @@ export interface SmileAiLifecycle {
   nudge_email_body_html: string;
 }
 
+export interface SmileAiConversationBehaviour {
+  reply_style: "concise" | "balanced" | "detailed";
+  max_reply_tokens: number;
+  emoji_level: "none" | "light" | "expressive";
+  brevity_directive_enabled: boolean;
+
+  reply_delay_enabled: boolean;
+  reply_delay_min_seconds: number;
+  reply_delay_max_seconds: number;
+  typing_indicator_lead_seconds: number;
+
+  min_seconds_between_messages: number;
+  duplicate_message_cooldown_seconds: number;
+  duplicate_similarity_threshold: number;
+  low_effort_min_chars: number;
+  throttle_message: string;
+
+  daily_message_cap: number;
+  daily_cap_message: string;
+}
+
 export interface SmileAiSettingsResponse<T> {
   key: string;
   value: T;
