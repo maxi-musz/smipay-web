@@ -637,10 +637,6 @@ export default function SmsProvidersPage() {
                   {config ? (
                     <>
                       {config.is_enabled ? "Enabled" : "Disabled"}
-                      {" · "}
-                      OTP resend {config.otp_resend_cooldown_seconds ?? 300}s
-                      {" · "}
-                      {config.daily_cap_per_user} OTP/day per user
                       {config.monthly_budget_ngn != null
                         ? ` · Budget ₦${config.monthly_budget_ngn.toLocaleString()}`
                         : " · No monthly budget"}
@@ -880,8 +876,8 @@ export default function SmsProvidersPage() {
         {config && (
           <>
             <p className="text-xs text-dashboard-muted mb-4">
-              Control outbound SMS, phone OTP limits (resend cooldown and daily
-              cap per user), spending budget, and the Termii webhook secret.
+              Control outbound SMS delivery, spending budget, and the Termii
+              webhook secret. OTP timing rules live under Settings → Security.
             </p>
             {modalError && showSettingsModal && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -917,45 +913,25 @@ export default function SmsProvidersPage() {
                   }
                 />
               </label>
-              <label className="text-xs">
-                <span className="text-dashboard-muted">
-                  Max phone OTP requests per user per day
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  className="mt-1 w-full rounded-lg border border-dashboard-border/60 px-3 py-2 text-sm"
-                  value={globalForm.daily_cap_per_user}
-                  onChange={(e) =>
-                    setGlobalForm((f) => ({
-                      ...f,
-                      daily_cap_per_user: e.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label className="text-xs">
-                <span className="text-dashboard-muted">
-                  OTP resend cooldown (seconds)
-                </span>
-                <input
-                  type="number"
-                  min={60}
-                  step={60}
-                  className="mt-1 w-full rounded-lg border border-dashboard-border/60 px-3 py-2 text-sm"
-                  value={globalForm.otp_resend_cooldown_seconds}
-                  onChange={(e) =>
-                    setGlobalForm((f) => ({
-                      ...f,
-                      otp_resend_cooldown_seconds: e.target.value,
-                    }))
-                  }
-                />
-                <span className="text-[10px] text-dashboard-muted">
-                  300 = 5 minutes between resend requests
-                </span>
-              </label>
+              {/* OTP resend cooldown and the per-user daily cap used to be
+                  edited here as well as under Security, so two pages owned the
+                  same numbers and only one of them was actually read. They now
+                  live solely in the security policy. */}
+              <div className="sm:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5">
+                <p className="text-xs font-semibold text-blue-800">
+                  OTP resend cooldown and daily cap moved
+                </p>
+                <p className="text-[11px] text-blue-700 mt-0.5">
+                  These are now set in one place, alongside the other OTP rules:{" "}
+                  <a
+                    href="/unified-admin/settings/security"
+                    className="underline font-medium"
+                  >
+                    Settings → Security → Verification → OTP limits
+                  </a>
+                  .
+                </p>
+              </div>
               <label className="text-xs sm:col-span-2">
                 <span className="text-dashboard-muted">
                   Webhook secret {config.has_webhook_secret && "(currently set)"}
