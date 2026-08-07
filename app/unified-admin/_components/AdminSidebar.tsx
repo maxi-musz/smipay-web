@@ -122,7 +122,7 @@ const adminMenuItems: AdminMenuItem[] = [
         label: "Email Providers",
         href: "/unified-admin/providers/email",
         icon: Mail,
-        enabled: false,
+        enabled: true,
       },
       {
         id: "utility-providers",
