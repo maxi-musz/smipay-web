@@ -314,6 +314,46 @@ export interface VtpassReverseResponse {
   };
 }
 
+/** A utility debit still sitting `pending` — the customer's money is still held. */
+export interface StuckFundsItem {
+  transaction_id: string;
+  transaction_reference: string | null;
+  transaction_type: string;
+  user_id: string;
+  customer: string | null;
+  amount: number;
+  wallet_held: number;
+  cashback_held: number;
+  created_at: string;
+  age_hours: number;
+  awaiting_manual_reversal: boolean;
+  awaiting_manual_reversal_reason: string | null;
+  last_provider_error: string | null;
+  requery_count: number;
+}
+
+export interface StuckFundsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    min_age_minutes: number;
+    count: number;
+    affected_users: number;
+    wallet_held: number;
+    cashback_held: number;
+    total_held: number;
+    awaiting_manual_reversal: number;
+    oldest_created_at: string | null;
+    by_type: Record<string, number>;
+    by_age: {
+      under24h: number;
+      oneToSevenDays: number;
+      overSevenDays: number;
+    };
+    items: StuckFundsItem[];
+  };
+}
+
 export interface PaystackRequeryResponse {
   success: boolean;
   message: string;

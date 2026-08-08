@@ -234,3 +234,17 @@ export function canResolveVtpassTransaction(
   if (verdict !== "delivered") return false;
   return localStatus === "pending" || localStatus === "failed";
 }
+
+/**
+ * True when VTPass has confirmed the customer did not get what they paid for
+ * — either an explicit reversal, or a failure/not-found verdict. Mirrors the
+ * server's own gate, which re-verifies with a fresh requery before refunding;
+ * this only decides whether to offer the button.
+ */
+export function canReverseVtpassTransaction(
+  localStatus: string | null | undefined,
+  verdict: VtpassDeliveryVerdict | null | undefined,
+): boolean {
+  if (verdict !== "failed" && verdict !== "reversed") return false;
+  return localStatus === "pending" || localStatus === "success";
+}

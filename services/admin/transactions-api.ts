@@ -8,6 +8,7 @@ import type {
   VtpassRequeryResponse,
   VtpassResolveResponse,
   VtpassReverseResponse,
+  StuckFundsResponse,
   PaystackRequeryResponse,
   PaystackResolveResponse,
 } from "@/types/admin/transactions";
@@ -104,6 +105,19 @@ export const adminTransactionsApi = {
       const response = await backendApi.post<VtpassReverseResponse>(
         `/unified-admin/transactions/${id}/reverse`,
         { reason, ...(force ? { force: true } : {}) },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /** Utility debits still holding customer money (read-only exposure report). */
+  getStuckFunds: async (minAgeMinutes = 60): Promise<StuckFundsResponse> => {
+    try {
+      const response = await backendApi.get<StuckFundsResponse>(
+        "/unified-admin/transactions/stuck-funds",
+        { params: { minAgeMinutes } },
       );
       return response.data;
     } catch (error) {

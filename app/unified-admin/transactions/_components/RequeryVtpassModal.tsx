@@ -16,6 +16,7 @@ import {
 import {
   parseVtpassRequeryPayload,
   canResolveVtpassTransaction,
+  canReverseVtpassTransaction,
   type VtpassDeliveryVerdict,
 } from "@/lib/vtpass-requery-display";
 import { adminTransactionsApi } from "@/services/admin/transactions-api";
@@ -147,12 +148,21 @@ export function RequeryVtpassModal({
     }
   };
 
-  // Reverse & refund is offered only when VTPass itself reports the tx as
-  // reversed and it isn't already reversed locally. The backend re-verifies.
+  // Offered whenever VTPass confirms the customer did not receive value —
+  // an explicit reversal, a failure, or a request_id it has no record of
+  // (a debited-but-undelivered purchase). The backend re-verifies with a
+  // fresh requery before any money moves.
   const canReverse =
     !!transactionId &&
-    parsed?.verdict === "reversed" &&
+    canReverseVtpassTransaction(localStatus, parsed?.verdict) &&
     localStatus !== "reversed";
+
+  const reverseReason =
+    parsed?.verdict === "reversed"
+      ? "VTPass requery reported this transaction as reversed — refunding customer"
+      : parsed?.code === "015"
+        ? "VTPass has no record of this request_id — the purchase never reached the provider, refunding customer"
+        : "VTPass requery reported this transaction as not delivered — refunding customer";
 
   const handleReverse = async () => {
     if (!canReverse || reversing || loading || reversed) return;
@@ -166,7 +176,7 @@ export function RequeryVtpassModal({
     try {
       const res = await adminTransactionsApi.reverseTransaction(
         transactionId!,
-        "VTPass requery reported this transaction as reversed — refunding customer",
+        reverseReason,
       );
       if (res.success) {
         const d = res.data;
