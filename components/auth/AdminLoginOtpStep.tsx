@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { FormError } from "@/components/auth/FormError";
+import { FormSuccess } from "@/components/auth/FormSuccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +39,7 @@ export function AdminLoginOtpStep({
 }: Props) {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendAt, setResendAt] = useState(() => new Date(resendAvailableAt));
@@ -57,9 +59,16 @@ export function AdminLoginOtpStep({
     return () => window.clearInterval(id);
   }, [resendAt]);
 
+  const formatCountdown = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setInfo("");
 
     if (!new RegExp(`^\\d{${AUTH_EMAIL_OTP_DIGITS}}$`).test(otp)) {
       setError(`Enter the ${AUTH_EMAIL_OTP_DIGITS}-digit code from your email.`);
@@ -90,6 +99,7 @@ export function AdminLoginOtpStep({
   const handleResend = async () => {
     if (secondsLeft > 0) return;
     setError("");
+    setInfo("");
     setIsResending(true);
     try {
       const response = await authApi.resendAdminLoginOtp(challengeId);
@@ -99,7 +109,16 @@ export function AdminLoginOtpStep({
           emailHint: response.data.email_hint,
           resendAvailableAt: response.data.resend_available_at,
         });
-        setOtp("");
+        // Keep whatever they typed — we may have reused the same code.
+        if (!response.data.reused_existing_otp) {
+          setOtp("");
+        }
+        setInfo(
+          response.message ||
+            (response.data.reused_existing_otp
+              ? "A code was already sent and is still valid. Check your email."
+              : "Verification code resent."),
+        );
       } else {
         setError(response.message || "Could not resend code.");
       }
@@ -124,6 +143,7 @@ export function AdminLoginOtpStep({
       </p>
 
       {error && <FormError message={error} />}
+      {info && !error && <FormSuccess message={info} />}
 
       <div className="space-y-2">
         <Label htmlFor="admin-otp" className="label-auth">
@@ -171,7 +191,7 @@ export function AdminLoginOtpStep({
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...
             </span>
           ) : secondsLeft > 0 ? (
-            `Resend code in ${secondsLeft}s`
+            `Resend code in ${formatCountdown(secondsLeft)}`
           ) : (
             "Resend code"
           )}

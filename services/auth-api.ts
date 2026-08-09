@@ -56,12 +56,14 @@ export interface SignInResponseData {
   challenge_id?: string;
   email_hint?: string;
   resend_available_at?: string;
+  reused_existing_otp?: boolean;
 }
 
 export interface AdminLoginOtpResendData {
   challenge_id: string;
   email_hint: string;
   resend_available_at: string;
+  reused_existing_otp?: boolean;
 }
 
 /** Reset password payload (§3.6) */

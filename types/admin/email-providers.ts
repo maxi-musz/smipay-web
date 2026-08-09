@@ -43,6 +43,13 @@ export interface EmailProviderDefaults {
   smtp_user?: string;
 }
 
+export interface EmailProviderStats {
+  /** Rows attributed to this provider (includes failures). */
+  attempts: number;
+  successful: number;
+  failed: number;
+}
+
 export interface EmailProviderConfig {
   id: string;
   name: string;
@@ -59,6 +66,8 @@ export interface EmailProviderConfig {
   createdAt: string;
   updatedAt: string;
   archived_at: string | null;
+  /** All-time counts from email_messages. Present on list responses. */
+  stats?: EmailProviderStats;
 }
 
 export interface EmailMessageItem {
@@ -176,5 +185,9 @@ export interface PaginatedEmailMessages {
     limit: number;
     total: number;
     totalPages: number;
+  };
+  facets?: {
+    by_status: Record<string, number>;
+    by_provider: Record<string, number>;
   };
 }

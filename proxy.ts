@@ -25,15 +25,7 @@ const authRoutes = [
   "/auth/register",
 ];
 
-/**
- * Reads `role` out of the access token without verifying the signature.
- *
- * That's deliberate and safe here: the only thing this decides is which page to
- * redirect to. Every real authorisation decision is made by the backend, which
- * does verify. A forged token buys an attacker nothing but a different landing
- * page. Verifying properly at the edge would mean shipping the JWT secret into
- * the proxy, which is worse.
- */
+// Decode role for redirects only — backend still does real auth.
 function roleFromToken(token: string | undefined): string | null {
   if (!token) return null;
   const payload = token.split(".")[1];
@@ -50,8 +42,7 @@ function roleFromToken(token: string | undefined): string | null {
 export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Web signup is closed while the product is mobile-only. Redirect before the
-  // register page can render so the form never flashes.
+  // No web signup — send them to the app download page.
   if (
     !WEB_REGISTRATION_ENABLED &&
     (pathname === "/auth/register" || pathname.startsWith("/auth/register/"))
@@ -84,8 +75,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Customers belong in the mobile app. Caught here rather than in a layout so
-  // the dashboard shell never renders for a split second before redirecting.
+  // Keep customers off the web dashboard.
   if (
     isCustomerRoute(pathname) &&
     shouldGateFromWeb(roleFromToken(token))

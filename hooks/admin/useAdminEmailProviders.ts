@@ -14,7 +14,7 @@ export function useAdminEmailProviders() {
     void store.fetchProviders();
     void store.fetchSummary();
     void store.fetchDailyStats();
-    void store.fetchMessages();
+    // Messages are loaded by the page with its own filters/pagination.
     void store.fetchSuppressions();
   }, [store]);
 
@@ -24,7 +24,6 @@ export function useAdminEmailProviders() {
     void store.fetchProviders(true);
     void store.fetchSummary(true);
     void store.fetchDailyStats();
-    void store.fetchMessages();
     void store.fetchSuppressions();
   }, [store]);
 

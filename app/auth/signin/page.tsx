@@ -86,9 +86,7 @@ function SignInForm() {
     void (async () => {
       const callbackUrl = searchParams.get("callbackUrl");
 
-      // A customer arriving with a session from before web went staff-only.
-      // Requires a hydrated `user` — an absent role mid-hydration would
-      // otherwise bounce staff to the download page.
+      // Wait for user to load so we don't kick staff out by mistake.
       if (user && shouldGateFromWeb(user.role)) {
         logout();
         router.replace(MOBILE_ONLY_PATH);
@@ -147,9 +145,7 @@ function SignInForm() {
     skipAutoRedirect.current = true;
     const user = mapNewAuthUserToUser(apiUser);
 
-    // Customers get the app download page, not the dashboard. Their credentials
-    // were accepted — we just never persist a web session for them, so the
-    // token is dropped here instead of being written to storage.
+    // Login ok, but customers use the app — don't keep a web session.
     if (shouldGateFromWeb(user.role)) {
       setOtpStep(null);
       clearAuth();
@@ -233,7 +229,9 @@ function SignInForm() {
             resendAvailableAt: response.data.resend_available_at,
           });
           setSuccessMessage(
-            "Verification code sent. Check your email to complete sign-in.",
+            response.data.reused_existing_otp
+              ? "A verification code was already sent and is still valid. Check your email."
+              : "Verification code sent. Check your email to complete sign-in.",
           );
           setIsSubmitting(false);
           return;

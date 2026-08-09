@@ -257,8 +257,7 @@ export default function RegisterPage() {
         const { access_token, user: apiUser } = response.data;
         const user = mapNewAuthUserToUser(apiUser);
 
-        // New accounts are customers, and customers use the mobile app. The
-        // account is created either way — we just don't open a web session.
+        // Account created; send them to the app instead of logging in on web.
         if (shouldGateFromWeb(user.role)) {
           setSuccessMessage("Account created! Finish setting up in the app...");
           setTimeout(() => router.replace(MOBILE_ONLY_PATH), 1200);

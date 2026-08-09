@@ -33,7 +33,14 @@ interface AdminEmailProvidersState {
   fetchProviders: (force?: boolean) => Promise<void>;
   fetchSummary: (force?: boolean) => Promise<void>;
   fetchDailyStats: () => Promise<void>;
-  fetchMessages: (page?: number) => Promise<void>;
+  fetchMessages: (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    purpose?: string;
+    provider_name?: string;
+    q?: string;
+  }) => Promise<void>;
   fetchSuppressions: () => Promise<void>;
   invalidateAll: () => void;
 }
@@ -116,10 +123,14 @@ export const useAdminEmailProvidersStore = create<AdminEmailProvidersState>(
       }
     },
 
-    fetchMessages: async (page = 1) => {
+    fetchMessages: async (params = {}) => {
       set({ messagesLoading: true });
       try {
-        const res = await adminEmailProvidersApi.listMessages({ page, limit: 15 });
+        const res = await adminEmailProvidersApi.listMessages({
+          page: 1,
+          limit: 20,
+          ...params,
+        });
         if (res.success && res.data) set({ messages: res.data });
       } finally {
         set({ messagesLoading: false });

@@ -1,12 +1,11 @@
 import Image from "next/image";
 
-/** Same defaults the mobile version-gate uses when env is unset. */
 const DEFAULT_APP_STORE_URL =
   "https://apps.apple.com/us/app/smipay/id6760297048";
 const DEFAULT_PLAY_STORE_URL =
   "https://play.google.com/store/search?q=smipay&c=apps&hl=en";
 
-// Unset → production default. Explicit empty string still means "Coming Soon".
+// Empty string in env = show Coming Soon. Missing env = use defaults above.
 const appStoreUrl =
   process.env.NEXT_PUBLIC_APP_STORE_URL?.trim() ?? DEFAULT_APP_STORE_URL;
 const playStoreUrl =

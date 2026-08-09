@@ -139,6 +139,35 @@ export const adminEmailProvidersApi = {
     }
   },
 
+  checkProviderHealth: async (
+    id: string,
+  ): Promise<
+    ApiResponse<{
+      ok: boolean;
+      latencyMs: number;
+      message: string;
+      provider_id: string;
+      provider_name: string;
+      consecutive_failures: number;
+    }>
+  > => {
+    try {
+      const response = await backendApi.post<
+        ApiResponse<{
+          ok: boolean;
+          latencyMs: number;
+          message: string;
+          provider_id: string;
+          provider_name: string;
+          consecutive_failures: number;
+        }>
+      >(`${BASE}/providers/${id}/health-check`);
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
   getAnalyticsSummary: async (
     month?: string,
   ): Promise<ApiResponse<EmailAnalyticsSummary>> => {
@@ -173,6 +202,8 @@ export const adminEmailProvidersApi = {
     limit?: number;
     status?: string;
     purpose?: string;
+    provider_name?: string;
+    q?: string;
   }): Promise<ApiResponse<PaginatedEmailMessages>> => {
     try {
       const response = await backendApi.get<ApiResponse<PaginatedEmailMessages>>(

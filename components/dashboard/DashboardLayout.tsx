@@ -31,8 +31,6 @@ function DashboardAuthGuard({
   const hasAttemptedReinit = useRef(false);
 
   const isPaymentCallback = searchParams.get("payment") === "callback";
-  // The proxy catches this on document requests; this covers a session that
-  // lives in localStorage without a matching cookie.
   const gatedToMobile = !!user && shouldGateFromWeb(user.role);
 
   useEffect(() => {
