@@ -5,6 +5,10 @@ import Image from "next/image";
 import { ChevronDown, Menu, X, LogOut, User, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+} from "@/lib/web-access";
 import { Button } from "./ui/button";
 
 export default function HeaderNew() {
@@ -131,7 +135,15 @@ export default function HeaderNew() {
                     asChild
                     className="bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90"
                   >
-                    <Link href="/auth/register">Register</Link>
+                    <Link
+                      href={
+                        WEB_REGISTRATION_ENABLED
+                          ? "/auth/register"
+                          : MOBILE_ONLY_PATH
+                      }
+                    >
+                      {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
+                    </Link>
                   </Button>
                 </div>
               )}
@@ -167,7 +179,15 @@ export default function HeaderNew() {
                     size="sm"
                     className="h-8 px-3 rounded-full bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90 text-xs font-semibold"
                   >
-                    <Link href="/auth/register">Register</Link>
+                    <Link
+                      href={
+                        WEB_REGISTRATION_ENABLED
+                          ? "/auth/register"
+                          : MOBILE_ONLY_PATH
+                      }
+                    >
+                      {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
+                    </Link>
                   </Button>
                 </>
               )}
@@ -289,10 +309,14 @@ export default function HeaderNew() {
                       className="w-full bg-white text-brand-bg-primary hover:bg-white/90 justify-center"
                     >
                       <Link
-                        href="/auth/register"
+                        href={
+                          WEB_REGISTRATION_ENABLED
+                            ? "/auth/register"
+                            : MOBILE_ONLY_PATH
+                        }
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        Register
+                        {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
                       </Link>
                     </Button>
                   </div>

@@ -22,6 +22,11 @@ import {
   resolveStaffRedirect,
 } from "@/lib/admin-home";
 import { adminManagementApi } from "@/services/admin/management-api";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+  shouldGateFromWeb,
+} from "@/lib/web-access";
 import { useAdminPermissionsStore } from "@/store/admin/admin-permissions-store";
 import { AdminLoginOtpStep } from "@/components/auth/AdminLoginOtpStep";
 import { Loader2 } from "lucide-react";
@@ -43,7 +48,14 @@ const fieldVariants = {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, login, isAuthenticated, isLoading: authLoading, initializeAuth } = useAuth();
+  const {
+    user,
+    login,
+    logout,
+    isAuthenticated,
+    isLoading: authLoading,
+    initializeAuth,
+  } = useAuth();
   const [formData, setFormData] = useState<LoginBackendData>({
     email: "",
     password: "",
@@ -73,6 +85,16 @@ function SignInForm() {
 
     void (async () => {
       const callbackUrl = searchParams.get("callbackUrl");
+
+      // A customer arriving with a session from before web went staff-only.
+      // Requires a hydrated `user` — an absent role mid-hydration would
+      // otherwise bounce staff to the download page.
+      if (user && shouldGateFromWeb(user.role)) {
+        logout();
+        router.replace(MOBILE_ONLY_PATH);
+        return;
+      }
+
       if (user?.role && user.role !== "user") {
         try {
           const res = await adminManagementApi.getMyPermissions();
@@ -91,7 +113,7 @@ function SignInForm() {
         callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
       router.replace(redirectUrl);
     })();
-  }, [isAuthenticated, authLoading, router, searchParams, user]);
+  }, [isAuthenticated, authLoading, router, searchParams, user, logout]);
 
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
@@ -124,6 +146,18 @@ function SignInForm() {
   ) => {
     skipAutoRedirect.current = true;
     const user = mapNewAuthUserToUser(apiUser);
+
+    // Customers get the app download page, not the dashboard. Their credentials
+    // were accepted — we just never persist a web session for them, so the
+    // token is dropped here instead of being written to storage.
+    if (shouldGateFromWeb(user.role)) {
+      setOtpStep(null);
+      clearAuth();
+      setSuccessMessage("Signed in. Continue in the SmiPay mobile app...");
+      router.replace(MOBILE_ONLY_PATH);
+      return;
+    }
+
     login(user, access_token);
     setOtpStep(null);
     setSuccessMessage("Login successful! Redirecting...");
@@ -358,10 +392,12 @@ function SignInForm() {
           >
             Don&apos;t have an account?{" "}
             <Link
-              href="/auth/register"
+              href={
+                WEB_REGISTRATION_ENABLED ? "/auth/register" : MOBILE_ONLY_PATH
+              }
               className="text-dashboard-accent hover:underline font-medium"
             >
-              Create one
+              {WEB_REGISTRATION_ENABLED ? "Create one" : "Get the app"}
             </Link>
           </motion.p>
         </motion.form>

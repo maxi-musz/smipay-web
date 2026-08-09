@@ -73,7 +73,29 @@ export interface ResetPasswordPayload {
 
 export const authApi = {
   /**
-   * Step 1 — Request email verification (§3.1).
+   * Step 1 — Is this phone number free?
+   *
+   * Runs before any email OTP so a number that already belongs to an active
+   * account costs one tap to discover instead of a wasted send. A 409 means
+   * taken; `register` re-checks server-side regardless.
+   */
+  checkPhoneAvailability: async (
+    phoneNumber: string
+  ): Promise<ApiEnvelope<{ phone_number: string; display: string }>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<{ phone_number: string; display: string }>
+      >("/new-auth/check-phone-availability", {
+        phone_number: phoneNumber.trim(),
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /**
+   * Step 2 — Request email verification (§3.1).
    * User enters email and clicks "Verify email". Backend sends OTP.
    */
   requestEmailVerification: async (email: string): Promise<ApiEnvelope> => {

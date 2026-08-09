@@ -18,11 +18,20 @@ import {
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
 import { mapNewAuthUserToUser } from "@/lib/auth-storage";
+import { MOBILE_ONLY_PATH, shouldGateFromWeb } from "@/lib/web-access";
 import { AUTH_EMAIL_OTP_DIGITS } from "@/lib/auth-password";
 import { Loader2, ArrowLeft, Mail, CheckCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-/** Three-step registration flow per FRONTEND_DEVICE_METADATA.md §3.0 */
+/**
+ * Email + verification, then the profile — phone is collected on the last step.
+ *
+ * Note the cost of this ordering: one active account per phone number is
+ * enforced by the backend at `register`, so someone whose number is already in
+ * use finds out only after verifying an email and filling in the whole form.
+ * `authApi.checkPhoneAvailability` exists to ask that question up front if we
+ * want to reinstate a phone-first step later.
+ */
 type Step = "verify-email" | "verify-otp" | "register";
 
 const formVariants = {
@@ -39,9 +48,9 @@ const fieldVariants = {
 };
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: "verify-email", label: "Verify email" },
-  { id: "verify-otp", label: "Enter OTP" },
-  { id: "register", label: "Create account" },
+  { id: "verify-email", label: "Email" },
+  { id: "verify-otp", label: "Verify" },
+  { id: "register", label: "Profile" },
 ];
 
 function stepIndex(step: Step): number {
@@ -164,7 +173,7 @@ export default function RegisterPage() {
     }
   };
 
-  /** Step 2: Verify OTP → email marked verified, user can submit step 3 */
+  /** Step 2: Verify OTP → email marked verified, user can submit the profile */
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
@@ -247,6 +256,15 @@ export default function RegisterPage() {
       if (response.success && response.data?.access_token) {
         const { access_token, user: apiUser } = response.data;
         const user = mapNewAuthUserToUser(apiUser);
+
+        // New accounts are customers, and customers use the mobile app. The
+        // account is created either way — we just don't open a web session.
+        if (shouldGateFromWeb(user.role)) {
+          setSuccessMessage("Account created! Finish setting up in the app...");
+          setTimeout(() => router.replace(MOBILE_ONLY_PATH), 1200);
+          return;
+        }
+
         login(user, access_token);
         setSuccessMessage("Account created! Redirecting to dashboard...");
         setTimeout(() => {
@@ -337,13 +355,13 @@ export default function RegisterPage() {
         }
         description={
           step === "verify-email"
-            ? "Enter your email and we’ll send you a verification code"
+            ? "We’ll send a verification code to this address"
             : step === "verify-otp"
               ? `We sent a ${AUTH_EMAIL_OTP_DIGITS}-digit code to ${formData.email || "your email"}`
               : "Enter your details to finish registration"
         }
       >
-        {/* 3-step progress */}
+        {/* Step progress */}
         <motion.div
           className="mb-6"
           initial={{ opacity: 0, y: 8 }}
@@ -404,7 +422,7 @@ export default function RegisterPage() {
         {successMessage && <FormSuccess message={successMessage} />}
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Email only → request-email-verification */}
+          {/* Step 1: Email → request-email-verification */}
           {step === "verify-email" && (
             <motion.form
               key="verify-email"
@@ -550,7 +568,7 @@ export default function RegisterPage() {
             </motion.form>
           )}
 
-          {/* Step 3: Full form → register (email pre-filled, read-only) */}
+          {/* Step 3: Profile → register (email already verified) */}
           {step === "register" && (
             <motion.form
               key="register"
@@ -611,34 +629,42 @@ export default function RegisterPage() {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="label-auth">Email</Label>
-                    <div className="input-auth input-auth-readonly flex items-center">
-                      <span className="text-sm text-slate-600 truncate">{formData.email}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="phone_number" className="label-auth">
+                        Phone number
+                      </Label>
+                      <Input
+                        id="phone_number"
+                        name="phone_number"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="08012345678"
+                        value={formData.phone_number}
+                        onChange={handleChange}
+                        disabled={isLoading}
+                        className={`input-auth ${errors.phone_number ? "input-auth-error" : ""}`}
+                      />
+                      {errors.phone_number ? (
+                        <p className="text-xs text-red-600">{errors.phone_number}</p>
+                      ) : (
+                        <p className="text-xs text-dashboard-muted">
+                          One account per phone number.
+                        </p>
+                      )}
+                    </div>
+                    {/* Settled at step 1 — shown for confirmation only. */}
+                    <div className="space-y-1">
+                      <Label className="label-auth">Email</Label>
+                      <div className="input-auth input-auth-readonly flex items-center">
+                        <span className="text-sm text-slate-600 truncate">{formData.email}</span>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
 
-                {/* Phone + Password side by side */}
                 <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={fieldVariants}>
-                  <div className="space-y-1">
-                    <Label htmlFor="phone_number" className="label-auth">
-                      Phone number
-                    </Label>
-                    <Input
-                      id="phone_number"
-                      name="phone_number"
-                      type="tel"
-                      placeholder="08012345678"
-                      value={formData.phone_number}
-                      onChange={handleChange}
-                      disabled={isLoading}
-                      className={`input-auth ${errors.phone_number ? "input-auth-error" : ""}`}
-                    />
-                    {errors.phone_number && (
-                      <p className="text-xs text-red-600">{errors.phone_number}</p>
-                    )}
-                  </div>
                   <div className="space-y-1">
                     <Label htmlFor="password" className="label-auth">
                       6-digit PIN

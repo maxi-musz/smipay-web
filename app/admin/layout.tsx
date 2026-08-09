@@ -12,6 +12,7 @@ import {
   hasSuperAdminUserType,
   resolveAdminHomePath,
 } from "@/lib/admin-home";
+import { customerHome } from "@/lib/web-access";
 
 export default function AdminAreaLayout({
   children,
@@ -31,7 +32,7 @@ export default function AdminAreaLayout({
     }
 
     if (!user?.role || user.role === "user") {
-      router.replace("/dashboard");
+      router.replace(customerHome(user?.role));
       return;
     }
 

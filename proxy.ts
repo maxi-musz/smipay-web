@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+  isCustomerRoute,
+  shouldGateFromWeb,
+} from "@/lib/web-access";
 
 // Define protected routes
 const protectedRoutes = [
@@ -19,8 +25,39 @@ const authRoutes = [
   "/auth/register",
 ];
 
+/**
+ * Reads `role` out of the access token without verifying the signature.
+ *
+ * That's deliberate and safe here: the only thing this decides is which page to
+ * redirect to. Every real authorisation decision is made by the backend, which
+ * does verify. A forged token buys an attacker nothing but a different landing
+ * page. Verifying properly at the edge would mean shipping the JWT secret into
+ * the proxy, which is worse.
+ */
+function roleFromToken(token: string | undefined): string | null {
+  if (!token) return null;
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const claims = JSON.parse(json) as { role?: unknown };
+    return typeof claims.role === "string" ? claims.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+
+  // Web signup is closed while the product is mobile-only. Redirect before the
+  // register page can render so the form never flashes.
+  if (
+    !WEB_REGISTRATION_ENABLED &&
+    (pathname === "/auth/register" || pathname.startsWith("/auth/register/"))
+  ) {
+    return NextResponse.redirect(new URL(MOBILE_ONLY_PATH, request.url));
+  }
 
   // Check if route is protected
   const isProtectedRoute = protectedRoutes.some((route) =>
@@ -45,6 +82,15 @@ export function proxy(request: NextRequest) {
     const url = new URL("/auth/signin", request.url);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Customers belong in the mobile app. Caught here rather than in a layout so
+  // the dashboard shell never renders for a split second before redirecting.
+  if (
+    isCustomerRoute(pathname) &&
+    shouldGateFromWeb(roleFromToken(token))
+  ) {
+    return NextResponse.redirect(new URL(MOBILE_ONLY_PATH, request.url));
   }
 
   // If payment callback or payment in progress, allow through and let client handle it

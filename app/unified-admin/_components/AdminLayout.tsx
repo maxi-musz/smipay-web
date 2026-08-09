@@ -18,6 +18,7 @@ import {
   ANALYST_HOME,
   shouldBlockUnifiedAdminAccess,
 } from "@/lib/admin-home";
+import { customerHome } from "@/lib/web-access";
 import { Loader2 } from "lucide-react";
 
 function AdminAuthGuard({
@@ -41,7 +42,7 @@ function AdminAuthGuard({
     }
 
     if (user?.role === "user" || !user?.role) {
-      router.push("/dashboard");
+      router.push(customerHome(user?.role));
       return;
     }
 

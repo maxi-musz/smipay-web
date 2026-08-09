@@ -41,6 +41,7 @@ export function CashbackSettings({
     default_percentage: config.default_percentage,
     max_cashback_per_transaction: config.max_cashback_per_transaction,
     max_cashback_per_day: config.max_cashback_per_day,
+    max_cashback_per_identity_day: config.max_cashback_per_identity_day,
     min_transaction_amount: config.min_transaction_amount,
   });
   const [configSaving, setConfigSaving] = useState(false);
@@ -65,6 +66,7 @@ export function CashbackSettings({
       default_percentage: config.default_percentage,
       max_cashback_per_transaction: config.max_cashback_per_transaction,
       max_cashback_per_day: config.max_cashback_per_day,
+      max_cashback_per_identity_day: config.max_cashback_per_identity_day,
       min_transaction_amount: config.min_transaction_amount,
     });
   }, [config]);
@@ -87,6 +89,12 @@ export function CashbackSettings({
           configForm.max_cashback_per_transaction;
       if (configForm.max_cashback_per_day !== config.max_cashback_per_day)
         payload.max_cashback_per_day = configForm.max_cashback_per_day;
+      if (
+        configForm.max_cashback_per_identity_day !==
+        config.max_cashback_per_identity_day
+      )
+        payload.max_cashback_per_identity_day =
+          configForm.max_cashback_per_identity_day;
       if (configForm.min_transaction_amount !== config.min_transaction_amount)
         payload.min_transaction_amount = configForm.min_transaction_amount;
 
@@ -234,6 +242,8 @@ export function CashbackSettings({
     configForm.max_cashback_per_transaction !==
       config.max_cashback_per_transaction ||
     configForm.max_cashback_per_day !== config.max_cashback_per_day ||
+    configForm.max_cashback_per_identity_day !==
+      config.max_cashback_per_identity_day ||
     configForm.min_transaction_amount !== config.min_transaction_amount;
 
   const serviceLabel = (type: CashbackServiceType) =>
@@ -323,14 +333,33 @@ export function CashbackSettings({
             prefix="₦"
           />
           <InputField
-            label="Max Per Day"
+            label="Max Per Day (per account)"
             value={configForm.max_cashback_per_day}
             onChange={(v) =>
               setConfigForm((p) => ({ ...p, max_cashback_per_day: v }))
             }
             prefix="₦"
           />
+          <InputField
+            label="Max Per Day (per person)"
+            value={configForm.max_cashback_per_identity_day}
+            onChange={(v) =>
+              setConfigForm((p) => ({
+                ...p,
+                max_cashback_per_identity_day: v,
+              }))
+            }
+            prefix="₦"
+          />
         </div>
+        <p className="text-[10px] leading-relaxed text-dashboard-muted mt-2">
+          <span className="font-semibold">Per person</span> is shared across
+          every account we can tie to the same human — same email inbox (Gmail
+          dots and <code>+tags</code> folded together), same phone number, or
+          same device. The per-account limit multiplies by however many accounts
+          somebody opens; this one doesn&apos;t. Keep the two equal and a normal
+          user with one account never notices. Set to 0 to switch it off.
+        </p>
         <div className="flex items-center gap-2 mt-3">
           <button
             type="button"
