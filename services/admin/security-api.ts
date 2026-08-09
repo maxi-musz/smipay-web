@@ -58,11 +58,23 @@ export const adminSecurityApi = {
     days?: number;
     rule?: string;
     limit?: number;
+    page?: number;
+    search?: string;
+    blocked?: boolean;
   } = {}): Promise<SecurityEventsResponse> => {
     try {
       const response = await backendApi.get<SecurityEventsResponse>(
         "/unified-admin/security/events",
-        { params },
+        {
+          params: {
+            ...params,
+            ...(params.blocked === true
+              ? { blocked: "true" }
+              : params.blocked === false
+                ? { blocked: "false" }
+                : {}),
+          },
+        },
       );
       return response.data;
     } catch (error) {

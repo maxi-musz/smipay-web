@@ -19,7 +19,6 @@ import {
 import { adminSecurityApi } from "@/services/admin/security-api";
 import { adminMaintenanceApi } from "@/services/admin/maintenance-api";
 import type {
-  SecurityEventsResponse,
   SecurityPolicy,
   SecurityPolicyField,
   SecurityPolicyGroup,
@@ -46,6 +45,7 @@ import {
   type RuleState,
 } from "./_RateLimitsPanel";
 import { MessagesSection } from "./_MessagesPanel";
+import { MonitorLogPanel } from "./_MonitorLogPanel";
 import type { UserMessageItem } from "@/types/admin/messages";
 
 const ICONS: Record<string, typeof ShieldCheck> = {
@@ -593,7 +593,7 @@ export default function SecuritySettingsPage() {
         </div>
       )}
 
-      <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4 max-w-3xl">
+      <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
             {error}
@@ -650,7 +650,7 @@ export default function SecuritySettingsPage() {
             />
           </>
         ) : tab?.kind === "monitor" ? (
-          <MonitorLog enforcing={enforcing} />
+          <MonitorLogPanel enforcing={enforcing} />
         ) : tab?.kind === "ratelimits" ? (
           <>
             <MessagesSection
@@ -701,7 +701,7 @@ export default function SecuritySettingsPage() {
 
       {dirty && (
         <div className="fixed bottom-0 inset-x-0 z-30 bg-dashboard-surface border-t border-dashboard-border/60 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-          <div className="px-4 py-3 sm:px-6 lg:px-8 max-w-3xl flex items-center justify-between gap-3">
+          <div className="px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
             <p className="text-xs text-dashboard-muted">
               <span className="font-semibold text-dashboard-heading">
                 {totalChanges}
@@ -739,179 +739,6 @@ export default function SecuritySettingsPage() {
         <div className="fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold shadow-lg">
           <Check className="h-4 w-4" />
           Security settings saved
-        </div>
-      )}
-    </div>
-  );
-}
-
-const WINDOWS = [
-  { days: 1, label: "24 hours" },
-  { days: 7, label: "7 days" },
-  { days: 30, label: "30 days" },
-];
-
-/**
- * The answer to "monitor mode is on — so what would have been blocked?".
- * Reads its own data on mount; nothing here is editable, so it stays outside
- * the page's draft/save cycle.
- */
-function MonitorLog({ enforcing }: { enforcing: boolean }) {
-  const [data, setData] = useState<SecurityEventsResponse["data"] | null>(null);
-  const [days, setDays] = useState(7);
-  const [rule, setRule] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setErr(null);
-    adminSecurityApi
-      .listEvents({ days, rule: rule ?? undefined, limit: 50 })
-      .then((res) => {
-        if (!cancelled) setData(res.data);
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setErr(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [days, rule]);
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-dashboard-heading">
-              Monitor log
-            </p>
-            <p className="text-xs text-dashboard-muted mt-0.5">
-              Every time a rule tripped, and whether it actually blocked.
-              {!enforcing &&
-                " While you're in Monitor only, everything here was allowed through."}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {WINDOWS.map((w) => (
-              <button
-                key={w.days}
-                type="button"
-                onClick={() => setDays(w.days)}
-                className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${
-                  days === w.days
-                    ? "bg-brand-bg-primary text-white"
-                    : "text-dashboard-muted hover:bg-dashboard-bg"
-                }`}
-              >
-                {w.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {err && (
-          <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {err}
-          </p>
-        )}
-
-        {loading ? (
-          <div className="mt-4 h-20 rounded-lg bg-dashboard-bg animate-pulse" />
-        ) : data && data.summary.length > 0 ? (
-          <div className="mt-4 divide-y divide-dashboard-border/40">
-            {data.summary.map((row) => {
-              const selected = rule === row.rule;
-              return (
-                <button
-                  key={row.rule}
-                  type="button"
-                  onClick={() => setRule(selected ? null : row.rule)}
-                  className={`w-full flex items-center justify-between gap-3 py-2.5 text-left transition-colors ${
-                    selected ? "" : "hover:opacity-80"
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span
-                      className={`text-sm block truncate ${
-                        selected
-                          ? "font-semibold text-dashboard-heading"
-                          : "text-dashboard-heading"
-                      }`}
-                    >
-                      {row.label}
-                    </span>
-                    {row.last_seen && (
-                      <span className="text-[11px] text-dashboard-muted">
-                        last {fmt(row.last_seen)}
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-sm font-bold text-dashboard-heading shrink-0 tabular-nums">
-                    {row.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-lg border border-dashed border-dashboard-border/60 px-4 py-6 text-center">
-            <p className="text-sm text-dashboard-heading font-medium">
-              Nothing tripped in this window
-            </p>
-            <p className="text-xs text-dashboard-muted mt-1">
-              Rules record here automatically once they are wired into a flow.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {data && data.events.length > 0 && (
-        <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2 pb-2 mb-1 border-b border-dashboard-border/40">
-            <p className="text-sm font-semibold text-dashboard-heading">
-              Recent{rule ? " — filtered" : ""}
-            </p>
-            {rule && (
-              <button
-                type="button"
-                onClick={() => setRule(null)}
-                className="text-[11px] text-dashboard-muted hover:text-dashboard-heading underline"
-              >
-                Clear filter
-              </button>
-            )}
-          </div>
-          <div className="divide-y divide-dashboard-border/40">
-            {data.events.map((e) => (
-              <div key={e.id} className="py-2.5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs text-dashboard-heading leading-relaxed min-w-0">
-                    {e.description}
-                  </p>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${
-                      e.metadata?.blocked
-                        ? "bg-red-100 text-red-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    {e.metadata?.blocked ? "Blocked" : "Allowed"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-dashboard-muted mt-1">
-                  {fmt(e.createdAt)}
-                  {e.ip_address ? ` · ${e.ip_address}` : ""}
-                  {e.device_id ? ` · device ${e.device_id.slice(0, 12)}` : ""}
-                </p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

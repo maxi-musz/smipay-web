@@ -82,6 +82,9 @@ export interface SecurityEventsResponse {
   data: {
     window_days: number;
     total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
     summary: SecurityEventSummaryRow[];
     events: SecurityEvent[];
   };
