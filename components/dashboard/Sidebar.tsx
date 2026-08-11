@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { markIntentionalLogout } from "@/lib/auth-storage";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -182,8 +183,9 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
+    markIntentionalLogout();
     logout();
-    router.push("/");
+    router.push("/auth/signin?signed_out=true");
   };
 
   const disabledHint = UTILITIES_PURCHASES_DISABLED

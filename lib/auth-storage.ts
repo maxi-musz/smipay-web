@@ -181,6 +181,48 @@ export function clearAuth(): void {
 }
 
 /**
+ * Marks the next auth clear as an intentional sign-out so 401 handlers and
+ * the sign-in page do not claim the session "expired".
+ */
+const LOGOUT_INTENT_KEY = "smipay-logout-intent";
+/** In-memory companion so interceptors see intent before sessionStorage settles. */
+let intentionalLogoutInFlight = false;
+
+export function markIntentionalLogout(): void {
+  intentionalLogoutInFlight = true;
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(LOGOUT_INTENT_KEY, "1");
+  } catch {
+    // private mode / blocked storage — interceptor still has the in-memory flag
+  }
+}
+
+export function hasIntentionalLogout(): boolean {
+  if (intentionalLogoutInFlight) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(LOGOUT_INTENT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Read-and-clear. Use on the sign-in page when choosing the banner copy. */
+export function consumeIntentionalLogout(): boolean {
+  const present = hasIntentionalLogout();
+  intentionalLogoutInFlight = false;
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem(LOGOUT_INTENT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+  return present;
+}
+
+/**
  * True when the client has a valid persisted session (localStorage + expiry).
  * Middleware only sees cookies — use this on the client before trusting auth.
  */

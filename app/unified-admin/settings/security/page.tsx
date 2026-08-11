@@ -58,7 +58,7 @@ const ICONS: Record<string, typeof ShieldCheck> = {
   ShieldAlert,
 };
 
-type Value = string | number | boolean;
+type Value = string | number | boolean | null;
 
 /** Editable slice of a maintenance flag. Dates are `datetime-local` strings. */
 interface AreaState {
@@ -620,15 +620,17 @@ export default function SecuritySettingsPage() {
                   {tab.group.description}
                 </p>
               </div>
+              {tab.group.key === "login" ? (
+                <AdminLoginOtpStatusBanner draft={policyDraft} />
+              ) : null}
               <div className="divide-y divide-dashboard-border/40">
                 {tab.group.fields
-                  .filter(
-                    (f) =>
-                      !f.depends_on ||
-                      f.depends_on.equals.includes(
-                        policyDraft[f.depends_on.key],
-                      ),
-                  )
+                  .filter((f) => {
+                    if (!f.depends_on) return true;
+                    const current = policyDraft[f.depends_on.key];
+                    if (current === null || current === undefined) return false;
+                    return f.depends_on.equals.includes(current);
+                  })
                   .map((field) => (
                     <FieldRow
                       key={field.key}
@@ -953,6 +955,45 @@ function describeWindow(state: AreaState, phase: MaintenancePhase): string {
   return `Offline now, back automatically at ${fmt(e)}.`;
 }
 
+/** Live effective state for admin-login OTP, including temporary overrides. */
+function AdminLoginOtpStatusBanner({ draft }: { draft: SecurityPolicy }) {
+  const baseline = draft.admin_login_requires_otp !== false;
+  const untilRaw = draft.admin_login_otp_override_until;
+  const until =
+    typeof untilRaw === "string" && untilRaw ? new Date(untilRaw) : null;
+  const overrideActive =
+    !!until && !Number.isNaN(until.getTime()) && until.getTime() > Date.now();
+  const effective = overrideActive ? !baseline : baseline;
+
+  const tone = effective
+    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+    : "bg-amber-50 border-amber-200 text-amber-900";
+
+  let detail: string;
+  if (overrideActive && until) {
+    detail = effective
+      ? `Temporary override: OTP is required until ${until.toLocaleString()}, then the baseline (${baseline ? "required" : "not required"}) returns.`
+      : `Temporary override: password-only admin login is allowed until ${until.toLocaleString()}, then OTP returns automatically.`;
+  } else if (until && !Number.isNaN(until.getTime()) && until.getTime() <= Date.now()) {
+    detail =
+      "The override deadline has passed. Clear it, or set a new one. Baseline toggle applies now.";
+  } else {
+    detail = effective
+      ? "Staff must verify an email OTP after their password on the web console."
+      : "Staff can sign in with password only on the web console. Re-enable OTP when the window of need ends.";
+  }
+
+  return (
+    <div className={`mt-3 mb-1 rounded-lg border px-3 py-2.5 text-xs leading-relaxed ${tone}`}>
+      <span className="font-semibold">
+        Effective now: {effective ? "OTP required" : "OTP not required"}
+      </span>
+      <span className="mx-1.5 text-current/50">·</span>
+      <span>{detail}</span>
+    </div>
+  );
+}
+
 function FieldRow({
   field,
   value,
@@ -1045,16 +1086,47 @@ function FieldRow({
             ))}
           </select>
         )}
+
+        {field.type === "datetime" && (
+          <div className="flex flex-col items-end gap-1.5">
+            <input
+              type="datetime-local"
+              value={
+                typeof value === "string" ? isoToLocalInput(value) : ""
+              }
+              onChange={(e) =>
+                onChange(field.key, localInputToIso(e.target.value))
+              }
+              className="text-sm border border-dashboard-border/60 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
+            />
+            {field.nullable && value ? (
+              <button
+                type="button"
+                onClick={() => onChange(field.key, null)}
+                className="text-[11px] text-dashboard-muted hover:text-dashboard-heading underline"
+              >
+                Clear deadline
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function renderValue(value: Value, field: SecurityPolicyField): string {
+  if (value === null || value === undefined || value === "") {
+    return field.type === "datetime" ? "none" : "—";
+  }
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") {
     if (value === 0 && field.zero_label) return field.zero_label.toLowerCase();
     return field.unit ? `${value} ${field.unit}` : String(value);
+  }
+  if (field.type === "datetime" && typeof value === "string") {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleString();
   }
   return field.options?.find((o) => o.value === value)?.label ?? String(value);
 }

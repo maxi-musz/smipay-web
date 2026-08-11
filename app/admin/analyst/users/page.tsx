@@ -17,9 +17,9 @@ import {
 import { METRIC_HELP } from "../_components/metric-glossary";
 
 export default function AnalystUsersPage() {
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "users",
-    (r) => analyticsApi.users({ range: r }),
+    (q) => analyticsApi.users(q),
   );
   const k = data?.kpis;
 
@@ -29,8 +29,10 @@ export default function AnalystUsersPage() {
       subtitle="Growth, activity & composition"
       icon={Users}
       section="users"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

@@ -12,9 +12,9 @@ import { METRIC_HELP } from "../_components/metric-glossary";
 import { HelpTooltip } from "../_components/help-tooltip";
 
 export default function AnalystDevicesPage() {
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "devices",
-    (r) => analyticsApi.devices({ range: r }),
+    (q) => analyticsApi.devices(q),
   );
 
   return (
@@ -23,8 +23,10 @@ export default function AnalystDevicesPage() {
       subtitle="Where activity happens"
       icon={Smartphone}
       section="devices"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

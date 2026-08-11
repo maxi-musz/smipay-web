@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
-import { clearAuth } from "@/lib/auth-storage";
+import { clearAuth, hasIntentionalLogout } from "@/lib/auth-storage";
 import { generateSecurityHeaders, shouldBypassSecurityHeaders } from "./security-headers";
 import { getDeviceMetadataHeaders } from "./device-metadata";
 
@@ -71,6 +71,8 @@ const AUTH_PATHS_NO_SESSION = [
   "/new-auth/reset-password",
   "/new-auth/verify-admin-login-otp",
   "/new-auth/resend-admin-login-otp",
+  // Logout often 401s after local auth was already cleared — not a session timeout.
+  "/new-auth/logout",
 ];
 
 function isAuthRequestWithoutSession(config: InternalAxiosRequestConfig): boolean {
@@ -86,7 +88,12 @@ backendApi.interceptors.response.use(
 
     // Handle 401 Unauthorized - Clear all auth data and redirect to login
     // Skip "session expired" redirect for login/register etc.; let the page show the real error.
+    // Also skip when the user just clicked Sign out — that is intentional, not expiry.
     if (error.response?.status === 401 && typeof window !== "undefined") {
+      if (hasIntentionalLogout()) {
+        clearAuth();
+        return Promise.reject(error);
+      }
       if (!config || !isAuthRequestWithoutSession(config)) {
         clearAuth();
         window.location.href = "/auth/signin?expired=true";

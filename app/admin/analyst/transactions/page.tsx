@@ -32,9 +32,9 @@ const TX_TYPES = [
 
 export default function AnalystTransactionsPage() {
   const [txType, setTxType] = useState("");
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "transactions",
-    (r) => analyticsApi.transactions({ range: r, type: txType || undefined }),
+    (q) => analyticsApi.transactions({ ...q, type: txType || undefined }),
     txType || "all",
   );
   const k = data?.kpis;
@@ -45,8 +45,10 @@ export default function AnalystTransactionsPage() {
       subtitle="Volume, mix & reliability"
       icon={ArrowLeftRight}
       section="transactions"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

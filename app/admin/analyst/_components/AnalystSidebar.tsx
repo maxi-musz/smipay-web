@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  ShieldCheck,
   Smartphone,
   Users,
   Wallet,
@@ -19,6 +20,12 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
+import {
+  SUPER_ADMIN_HOME,
+  isAnalystOnlyAdmin,
+} from "@/lib/admin-home";
+import { markIntentionalLogout } from "@/lib/auth-storage";
 
 interface AnalystMenuItem {
   id: string;
@@ -73,21 +80,36 @@ const analystMenuItems: AnalystMenuItem[] = [
   },
 ];
 
-const analystOtherMenuItems: AnalystMenuItem[] = [
-  {
-    id: "website",
-    label: "Back to Website",
-    icon: Globe,
-    href: "/",
-    enabled: true,
-  },
-];
-
 export default function AnalystSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { userTypes, loaded, isSuperAdmin } = useAdminPermissions();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const canUseUnifiedAdmin =
+    loaded && (isSuperAdmin || !isAnalystOnlyAdmin(userTypes));
+
+  const otherMenuItems = useMemo((): AnalystMenuItem[] => {
+    const items: AnalystMenuItem[] = [];
+    if (canUseUnifiedAdmin) {
+      items.push({
+        id: "unified-admin",
+        label: "Back to Unified Admin",
+        icon: ShieldCheck,
+        href: SUPER_ADMIN_HOME,
+        enabled: true,
+      });
+    }
+    items.push({
+      id: "website",
+      label: "Back to Website",
+      icon: Globe,
+      href: "/",
+      enabled: true,
+    });
+    return items;
+  }, [canUseUnifiedAdmin]);
 
   useEffect(() => {
     if (!isMobileMenuOpen) return;
@@ -99,8 +121,9 @@ export default function AnalystSidebar() {
   }, [isMobileMenuOpen]);
 
   const handleLogout = () => {
+    markIntentionalLogout();
     logout();
-    router.push("/");
+    router.push("/auth/signin?signed_out=true");
   };
 
   // Exact match: the Overview route ("/admin/analyst") is a prefix of every
@@ -109,6 +132,8 @@ export default function AnalystSidebar() {
 
   const closeMobile = () => setIsMobileMenuOpen(false);
 
+  const roleLabel = canUseUnifiedAdmin ? "Super Admin" : "Data Analyst";
+
   const renderMenuItem = (item: AnalystMenuItem, closeFn: () => void) => {
     if (!item.enabled) {
       return (
@@ -116,9 +141,6 @@ export default function AnalystSidebar() {
           <div className="flex items-center gap-3 px-3 py-2 text-sm rounded-lg text-dashboard-muted cursor-not-allowed">
             <item.icon className="h-5 w-5" />
             <span className="font-medium">{item.label}</span>
-          </div>
-          <div className="absolute left-0 top-0 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50 ml-2">
-            Coming Soon
           </div>
         </div>
       );
@@ -131,7 +153,7 @@ export default function AnalystSidebar() {
         onClick={closeFn}
         className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
           isActive(item.href!)
-            ? "bg-brand-bg-primary text-white font-medium shadow-sm"
+            ? "bg-orange-50 text-orange-700 font-semibold"
             : "text-dashboard-heading hover:bg-dashboard-bg"
         }`}
       >
@@ -142,8 +164,8 @@ export default function AnalystSidebar() {
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-dashboard-border bg-dashboard-surface">
+    <div className="flex h-full min-h-0 flex-col bg-dashboard-surface">
+      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-dashboard-border">
         <span className="text-sm font-semibold text-dashboard-heading">
           Analyst Menu
         </span>
@@ -170,7 +192,7 @@ export default function AnalystSidebar() {
             <p className="font-semibold text-sm text-dashboard-heading truncate">
               {user?.first_name} {user?.last_name}
             </p>
-            <p className="text-xs text-orange-600 font-medium">Data Analyst</p>
+            <p className="text-xs text-orange-600 font-medium">{roleLabel}</p>
           </div>
         </div>
       </div>
@@ -191,9 +213,7 @@ export default function AnalystSidebar() {
           Other
         </h3>
         <nav className="space-y-1">
-          {analystOtherMenuItems.map((item) =>
-            renderMenuItem(item, closeMobile),
-          )}
+          {otherMenuItems.map((item) => renderMenuItem(item, closeMobile))}
           <button
             type="button"
             onClick={handleLogout}

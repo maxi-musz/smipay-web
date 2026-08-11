@@ -11,9 +11,9 @@ import { PALETTE, fmtInt, fmtIntCompact, fmtRate } from "../_components/format";
 import { METRIC_HELP } from "../_components/metric-glossary";
 
 export default function AnalystEngagementPage() {
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "engagement",
-    (r) => analyticsApi.engagement({ range: r }),
+    (q) => analyticsApi.engagement(q),
     "v2",
   );
   const k = data?.kpis;
@@ -24,8 +24,10 @@ export default function AnalystEngagementPage() {
       subtitle="Sign-in activity & auth signals"
       icon={Activity}
       section="engagement"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

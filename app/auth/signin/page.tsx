@@ -16,7 +16,12 @@ import {
 } from "@/lib/validations/auth/login-backend.schema";
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
-import { mapNewAuthUserToUser, clearAuth, hasValidClientSession } from "@/lib/auth-storage";
+import {
+  mapNewAuthUserToUser,
+  clearAuth,
+  hasValidClientSession,
+  consumeIntentionalLogout,
+} from "@/lib/auth-storage";
 import {
   fetchAdminHomePath,
   resolveStaffRedirect,
@@ -68,9 +73,34 @@ function SignInForm() {
     challengeId: string;
     emailHint: string;
     resendAvailableAt: string;
+    initialInfo?: string;
   } | null>(null);
   /** Prevents the “already signed in” effect from racing finishLogin(). */
   const skipAutoRedirect = useRef(false);
+
+  const showError = (message: string) => {
+    setSuccessMessage("");
+    setServerError(message);
+  };
+  const showSuccess = (message: string) => {
+    setServerError("");
+    setSuccessMessage(message);
+  };
+
+  /** Drop stale ?expired / ?signed_out so they can't re-flash over the OTP step. */
+  const scrubAuthFlashParams = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    let dirty = false;
+    for (const key of ["expired", "signed_out", "message", "registered", "reset"]) {
+      if (params.has(key)) {
+        params.delete(key);
+        dirty = true;
+      }
+    }
+    if (!dirty) return;
+    const qs = params.toString();
+    router.replace(qs ? `/auth/signin?${qs}` : "/auth/signin", { scroll: false });
+  };
 
   useEffect(() => {
     initializeAuth();
@@ -114,21 +144,44 @@ function SignInForm() {
   }, [isAuthenticated, authLoading, router, searchParams, user, logout]);
 
   useEffect(() => {
+    // While verifying admin OTP, ignore URL flash params — the OTP step owns notices.
+    if (otpStep) return;
+
     if (searchParams.get("registered") === "true") {
-      const msg = "Registration successful! Please sign in to continue.";
-      queueMicrotask(() => setSuccessMessage(msg));
+      queueMicrotask(() =>
+        showSuccess("Registration successful! Please sign in to continue."),
+      );
+      return;
     }
     if (searchParams.get("reset") === "true") {
-      const msg = "Password reset successfully. Please sign in with your new password.";
-      queueMicrotask(() => setSuccessMessage(msg));
+      queueMicrotask(() =>
+        showSuccess(
+          "Password reset successfully. Please sign in with your new password.",
+        ),
+      );
+      return;
+    }
+    if (searchParams.get("signed_out") === "true") {
+      consumeIntentionalLogout();
+      queueMicrotask(() => showSuccess("You have been signed out."));
+      return;
     }
     if (searchParams.get("expired") === "true") {
+      // Intentional logout can still race a 401 into ?expired=true — don't scare the user.
+      if (consumeIntentionalLogout()) {
+        queueMicrotask(() => showSuccess("You have been signed out."));
+        return;
+      }
       const message = searchParams.get("message");
-      const err =
-        message || "Your session has expired. Please sign in again.";
-      queueMicrotask(() => setServerError(err));
+      queueMicrotask(() =>
+        showError(
+          message || "Your session has expired. Please sign in again.",
+        ),
+      );
     }
-  }, [searchParams]);
+    // otpStep / showSuccess / showError are stable enough for this flash effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, otpStep]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -192,7 +245,9 @@ function SignInForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
+    setSuccessMessage("");
     setErrors({});
+    scrubAuthFlashParams();
 
     const result = loginBackendSchema.safeParse(formData);
     if (!result.success) {
@@ -219,26 +274,27 @@ function SignInForm() {
             !response.data.email_hint ||
             !response.data.resend_available_at
           ) {
-            setServerError("Could not start admin verification. Try again.");
+            showError("Could not start admin verification. Try again.");
             setIsSubmitting(false);
             return;
           }
+          const initialInfo = response.data.reused_existing_otp
+            ? "A verification code was already sent and is still valid. Check your email."
+            : "Verification code sent. Check your email to complete sign-in.";
+          setServerError("");
+          setSuccessMessage("");
           setOtpStep({
             challengeId: response.data.challenge_id,
             emailHint: response.data.email_hint,
             resendAvailableAt: response.data.resend_available_at,
+            initialInfo,
           });
-          setSuccessMessage(
-            response.data.reused_existing_otp
-              ? "A verification code was already sent and is still valid. Check your email."
-              : "Verification code sent. Check your email to complete sign-in.",
-          );
           setIsSubmitting(false);
           return;
         }
 
         if (!response.data.access_token || !response.data.user) {
-          setServerError(
+          showError(
             response.message || "Invalid credentials. Please try again.",
           );
           setIsSubmitting(false);
@@ -247,14 +303,16 @@ function SignInForm() {
 
         await finishLogin(response.data.access_token, response.data.user);
       } else {
-        setServerError(
-          response.message || "Invalid credentials. Please try again."
+        showError(
+          response.message || "Invalid credentials. Please try again.",
         );
         setIsSubmitting(false);
       }
     } catch (error: unknown) {
-      setServerError(
-        error instanceof Error ? error.message : "Invalid credentials. Please try again."
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Invalid credentials. Please try again.",
       );
       setIsSubmitting(false);
     }
@@ -271,14 +329,14 @@ function SignInForm() {
         }
       >
         {otpStep ? (
-          <div className="space-y-5">
-            {successMessage && <FormSuccess message={successMessage} />}
-            {serverError && <FormError message={serverError} />}
-            <AdminLoginOtpStep
+          <AdminLoginOtpStep
             challengeId={otpStep.challengeId}
             emailHint={otpStep.emailHint}
             resendAvailableAt={otpStep.resendAvailableAt}
-            onChallengeUpdate={(update) => setOtpStep(update)}
+            initialInfo={otpStep.initialInfo}
+            onChallengeUpdate={(update) =>
+              setOtpStep((prev) => (prev ? { ...prev, ...update } : prev))
+            }
             onBack={() => {
               setOtpStep(null);
               setServerError("");
@@ -287,11 +345,13 @@ function SignInForm() {
             onVerified={async (data) => {
               setIsSubmitting(true);
               setServerError("");
+              setSuccessMessage("");
               try {
                 await finishLogin(data.access_token, data.user);
               } catch (error: unknown) {
                 skipAutoRedirect.current = false;
-                setServerError(
+                setOtpStep(null);
+                showError(
                   error instanceof Error
                     ? error.message
                     : "Sign-in failed. Please try again.",
@@ -300,7 +360,6 @@ function SignInForm() {
               }
             }}
           />
-          </div>
         ) : (
         <motion.form
           onSubmit={handleSubmit}
@@ -309,8 +368,11 @@ function SignInForm() {
           initial="hidden"
           animate="visible"
         >
-          {successMessage && <FormSuccess message={successMessage} />}
-          {serverError && <FormError message={serverError} />}
+          {serverError ? (
+            <FormError message={serverError} />
+          ) : successMessage ? (
+            <FormSuccess message={successMessage} />
+          ) : null}
 
           <motion.div className="space-y-2" variants={fieldVariants}>
             <Label htmlFor="email" className="label-auth">Email address</Label>

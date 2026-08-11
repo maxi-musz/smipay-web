@@ -27,9 +27,9 @@ import {
 import { METRIC_HELP } from "./_components/metric-glossary";
 
 export default function AnalystOverviewPage() {
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "overview",
-    (r) => analyticsApi.overview({ range: r }),
+    (q) => analyticsApi.overview(q),
   );
 
   const k = data?.kpis;
@@ -40,8 +40,10 @@ export default function AnalystOverviewPage() {
       subtitle="Platform-wide KPIs and trends"
       icon={BarChart3}
       section="overview"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

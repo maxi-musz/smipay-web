@@ -6,7 +6,10 @@
 
 export type EnforcementMode = "monitor" | "enforce";
 
-export type SecurityPolicy = Record<string, string | number | boolean>;
+export type SecurityPolicy = Record<
+  string,
+  string | number | boolean | null
+>;
 
 export interface SecurityPolicyFieldOption {
   value: string;
@@ -18,13 +21,14 @@ export interface SecurityPolicyField {
   key: string;
   label: string;
   help: string;
-  type: "boolean" | "number" | "enum";
+  type: "boolean" | "number" | "enum" | "datetime";
   min?: number;
   max?: number;
   unit?: string;
   zero_label?: string;
   options?: SecurityPolicyFieldOption[];
   depends_on?: { key: string; equals: Array<string | number | boolean> };
+  nullable?: boolean;
 }
 
 export interface SecurityPolicyGroup {

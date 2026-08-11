@@ -16,6 +16,8 @@ interface Props {
   challengeId: string;
   emailHint: string;
   resendAvailableAt: string;
+  /** One-time notice from the password step (e.g. "code sent"). Cleared on error. */
+  initialInfo?: string;
   onVerified: (data: {
     access_token: string;
     refresh_token: string | null;
@@ -33,13 +35,14 @@ export function AdminLoginOtpStep({
   challengeId,
   emailHint,
   resendAvailableAt,
+  initialInfo = "",
   onVerified,
   onBack,
   onChallengeUpdate,
 }: Props) {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
+  const [info, setInfo] = useState(initialInfo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendAt, setResendAt] = useState(() => new Date(resendAvailableAt));
@@ -142,8 +145,12 @@ export function AdminLoginOtpStep({
         Enter it below to complete admin sign-in.
       </p>
 
-      {error && <FormError message={error} />}
-      {info && !error && <FormSuccess message={info} />}
+      {/* One banner only — error wins over success/info. */}
+      {error ? (
+        <FormError message={error} />
+      ) : info ? (
+        <FormSuccess message={info} />
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="admin-otp" className="label-auth">
@@ -156,9 +163,12 @@ export function AdminLoginOtpStep({
           maxLength={AUTH_EMAIL_OTP_DIGITS}
           placeholder={`${AUTH_EMAIL_OTP_DIGITS}-digit code`}
           value={otp}
-          onChange={(e) =>
-            setOtp(e.target.value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS))
-          }
+          onChange={(e) => {
+            setOtp(
+              e.target.value.replace(/\D/g, "").slice(0, AUTH_EMAIL_OTP_DIGITS),
+            );
+            if (error) setError("");
+          }}
           disabled={isSubmitting}
           className="input-auth tracking-[0.35em] text-center font-mono text-lg"
         />

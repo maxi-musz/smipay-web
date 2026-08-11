@@ -11,9 +11,9 @@ import { BRAND, PALETTE, fmtMoney, fmtMoneyCompact } from "../_components/format
 import { METRIC_HELP } from "../_components/metric-glossary";
 
 export default function AnalystRevenuePage() {
-  const { range, setRange, data, loading, error, retry } = useAnalytics(
+  const { period, setPreset, setCustom, data, loading, error, retry } = useAnalytics(
     "revenue",
-    (r) => analyticsApi.revenue({ range: r }),
+    (q) => analyticsApi.revenue(q),
   );
   const k = data?.kpis;
 
@@ -23,8 +23,10 @@ export default function AnalystRevenuePage() {
       subtitle="Margin, commission & payouts"
       icon={Wallet}
       section="revenue"
-      range={range}
-      onRangeChange={setRange}
+      period={period}
+      onPreset={setPreset}
+      onCustom={setCustom}
+      rangeMeta={data?.range}
       loading={loading}
       error={error}
       onRetry={retry}

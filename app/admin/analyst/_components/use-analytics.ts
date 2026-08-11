@@ -2,17 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useAdminAnalyticsStore } from "@/store/admin/admin-analytics-store";
+import {
+  useAdminAnalyticsStore,
+  type AnalyticsPeriod,
+} from "@/store/admin/admin-analytics-store";
 import { useAdminSmileAiCacheStore } from "@/store/admin/admin-smileai-cache-store";
-import type { RangeValue } from "./section";
+import type { AnalyticsQuery } from "@/types/admin/analytics";
 
 /** Match backend analytics memo TTL (60s). */
 const CACHE_TTL_MS = 60_000;
 
-function cacheKey(section: string, range: RangeValue, extra?: string) {
+function cacheKey(section: string, periodKey: string, extra?: string) {
   return extra
-    ? `analytics.${section}:${range}:${extra}`
-    : `analytics.${section}:${range}`;
+    ? `analytics.${section}:${periodKey}:${extra}`
+    : `analytics.${section}:${periodKey}`;
 }
 
 function readCached<T>(key: string): T | null {
@@ -23,33 +26,35 @@ function readCached<T>(key: string): T | null {
 }
 
 /**
- * Fetch an analytics section whenever the range (or `extra` filter) changes.
- * Results are cached in the shared admin fetch-cache store so tab switches
- * and React Strict Mode double-mounts don't hammer the backend.
- * Date range is shared across all analyst tabs via admin-analytics-store.
+ * Fetch an analytics section whenever the period (or `extra` filter) changes.
+ * Period is shared across all analyst tabs via admin-analytics-store.
  */
 export function useAnalytics<T>(
   section: string,
-  fetcher: (range: RangeValue) => Promise<T>,
+  fetcher: (query: AnalyticsQuery) => Promise<T>,
   extra?: string,
 ) {
   const fetchFromCache = useAdminSmileAiCacheStore((s) => s.fetch);
-  const range = useAdminAnalyticsStore((s) => s.range);
-  const setRange = useAdminAnalyticsStore((s) => s.setRange);
+  const period = useAdminAnalyticsStore((s) => s.period);
+  const setPreset = useAdminAnalyticsStore((s) => s.setPreset);
+  const setCustom = useAdminAnalyticsStore((s) => s.setCustom);
+  const periodKey = useAdminAnalyticsStore((s) => s.cacheKeyPart());
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
+
   const [data, setData] = useState<T | null>(() =>
-    readCached<T>(cacheKey(section, range, extra)),
+    readCached<T>(cacheKey(section, periodKey, extra)),
   );
   const [loading, setLoading] = useState(
-    () => !readCached<T>(cacheKey(section, range, extra)),
+    () => !readCached<T>(cacheKey(section, periodKey, extra)),
   );
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const load = useCallback(
-    async (r: RangeValue, force = false) => {
-      const key = cacheKey(section, r, extra);
+    async (force = false) => {
+      const keyPart = useAdminAnalyticsStore.getState().cacheKeyPart();
+      const key = cacheKey(section, keyPart, extra);
       const id = ++requestId.current;
 
       const cached = !force ? readCached<T>(key) : null;
@@ -63,9 +68,10 @@ export function useAnalytics<T>(
       setLoading(true);
       setError(null);
       try {
+        const query = useAdminAnalyticsStore.getState().toQuery();
         const result = await fetchFromCache(
           key,
-          () => fetcherRef.current(r),
+          () => fetcherRef.current(query),
           { force, ttlMs: CACHE_TTL_MS },
         );
         if (id === requestId.current) {
@@ -85,16 +91,19 @@ export function useAnalytics<T>(
   );
 
   useEffect(() => {
-    load(range);
-  }, [range, load]);
+    void load();
+  }, [periodKey, load]);
 
   return {
-    range,
-    setRange,
+    period,
+    setPreset,
+    setCustom,
     data,
     loading: loading && !data,
     refreshing: loading,
     error,
-    retry: () => load(range, true),
+    retry: () => load(true),
   };
 }
+
+export type { AnalyticsPeriod };

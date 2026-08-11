@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { markIntentionalLogout } from "@/lib/auth-storage";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -239,6 +240,13 @@ const adminMenuItems: AdminMenuItem[] = [
 
 const adminOtherMenuItems: AdminMenuItem[] = [
   {
+    id: "analytics",
+    label: "Data Analytics",
+    icon: BarChart3,
+    href: "/admin/analyst",
+    enabled: true,
+  },
+  {
     id: "website",
     label: "Back to Website",
     icon: Globe,
@@ -367,8 +375,9 @@ export default function AdminSidebar() {
   };
 
   const handleLogout = () => {
+    markIntentionalLogout();
     logout();
-    router.push("/");
+    router.push("/auth/signin?signed_out=true");
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");

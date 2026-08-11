@@ -19,6 +19,7 @@ import {
   shouldBlockUnifiedAdminAccess,
 } from "@/lib/admin-home";
 import { customerHome } from "@/lib/web-access";
+import { hasIntentionalLogout } from "@/lib/auth-storage";
 import { Loader2 } from "lucide-react";
 
 function AdminAuthGuard({
@@ -37,6 +38,8 @@ function AdminAuthGuard({
     if (isLoading) return;
 
     if (!isAuthenticated) {
+      // Sidebar logout navigates itself — don't overwrite with a "please sign in" bounce.
+      if (hasIntentionalLogout()) return;
       router.push("/auth/signin?callbackUrl=/unified-admin/dashboard");
       return;
     }

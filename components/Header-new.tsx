@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ChevronDown, Menu, X, LogOut, User, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { markIntentionalLogout } from "@/lib/auth-storage";
 import {
   MOBILE_ONLY_PATH,
   WEB_REGISTRATION_ENABLED,
@@ -17,8 +18,9 @@ export default function HeaderNew() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
   const handleSignOut = () => {
+    markIntentionalLogout();
     logout();
-    window.location.href = "/";
+    window.location.href = "/auth/signin?signed_out=true";
   };
 
   return (
