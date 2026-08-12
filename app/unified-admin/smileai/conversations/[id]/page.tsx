@@ -489,6 +489,36 @@ function TranscriptView({
 function MessageRow({ message }: { message: SmileAiConversationMessage }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
+  const emptyAssistant =
+    message.role === "assistant" && !message.content?.trim();
+  const scheduled = (
+    message.payload as {
+      scheduled_reply?: { status?: string; run_after?: string };
+    } | null
+  )?.scheduled_reply;
+
+  // Empty placeholders are internal pacing/generation state — never render
+  // them as ASSISTANT chat bubbles (that looks like a blank reply).
+  if (emptyAssistant) {
+    const when =
+      scheduled?.status === "scheduled" && scheduled.run_after
+        ? new Date(scheduled.run_after)
+        : null;
+    const label =
+      scheduled?.status === "scheduled"
+        ? when && !Number.isNaN(when.getTime())
+          ? `Reply scheduled · ${when.toLocaleString()}`
+          : "Reply scheduled (not sent yet)"
+        : "Generation failed — no reply was sent";
+    return (
+      <div className="flex justify-center">
+        <p className="text-[11px] text-dashboard-muted italic px-2 py-1">
+          {label}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
