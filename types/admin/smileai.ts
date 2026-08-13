@@ -478,6 +478,7 @@ export interface SmileAiConversationBehaviour {
   reply_delay_max_seconds: number;
   typing_indicator_lead_seconds: number;
 
+  allow_multiple_messages_before_reply: boolean;
   min_seconds_between_messages: number;
   duplicate_message_cooldown_seconds: number;
   duplicate_similarity_threshold: number;

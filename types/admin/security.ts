@@ -29,6 +29,8 @@ export interface SecurityPolicyField {
   options?: SecurityPolicyFieldOption[];
   depends_on?: { key: string; equals: Array<string | number | boolean> };
   nullable?: boolean;
+  /** OTP fields: which delivery channel the rule applies to. */
+  channel?: "sms" | "email" | "both";
 }
 
 export interface SecurityPolicyGroup {

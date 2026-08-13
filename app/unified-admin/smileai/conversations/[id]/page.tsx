@@ -497,8 +497,7 @@ function MessageRow({ message }: { message: SmileAiConversationMessage }) {
     } | null
   )?.scheduled_reply;
 
-  // Empty placeholders are internal pacing/generation state — never render
-  // them as ASSISTANT chat bubbles (that looks like a blank reply).
+  // Empty placeholders are internal state — don't render as chat bubbles.
   if (emptyAssistant) {
     const when =
       scheduled?.status === "scheduled" && scheduled.run_after

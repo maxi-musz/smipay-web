@@ -1017,6 +1017,7 @@ function FieldRow({
           <label className="text-sm font-medium text-dashboard-heading">
             {field.label}
           </label>
+          {field.channel && <ChannelBadge channel={field.channel} />}
           {changed && (
             <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
               Changed
@@ -1060,11 +1061,16 @@ function FieldRow({
                 className="w-20 text-sm text-right border border-dashboard-border/60 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200"
               />
               {field.unit && (
-                <span className="text-xs text-dashboard-muted w-16">
+                <span className="text-xs text-dashboard-muted min-w-[4.5rem]">
                   {field.unit}
                 </span>
               )}
             </div>
+            {field.unit === "seconds" && typeof value === "number" && value > 0 && (
+              <span className="text-[11px] text-dashboard-muted tabular-nums">
+                {formatSecondsFriendly(value)}
+              </span>
+            )}
             {field.zero_label && value === 0 && (
               <span className="text-[11px] text-dashboard-muted italic">
                 {field.zero_label}
@@ -1122,6 +1128,9 @@ function renderValue(value: Value, field: SecurityPolicyField): string {
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") {
     if (value === 0 && field.zero_label) return field.zero_label.toLowerCase();
+    if (field.unit === "seconds" && value > 0) {
+      return `${value} seconds (${formatSecondsFriendly(value).replace(/^=\s*/, "")})`;
+    }
     return field.unit ? `${value} ${field.unit}` : String(value);
   }
   if (field.type === "datetime" && typeof value === "string") {
@@ -1129,6 +1138,36 @@ function renderValue(value: Value, field: SecurityPolicyField): string {
     if (!Number.isNaN(d.getTime())) return d.toLocaleString();
   }
   return field.options?.find((o) => o.value === value)?.label ?? String(value);
+}
+
+function ChannelBadge({ channel }: { channel: "sms" | "email" | "both" }) {
+  const label =
+    channel === "sms" ? "SMS" : channel === "email" ? "Email" : "SMS + Email";
+  const className =
+    channel === "sms"
+      ? "bg-sky-100 text-sky-800"
+      : channel === "email"
+        ? "bg-violet-100 text-violet-800"
+        : "bg-emerald-100 text-emerald-800";
+  return (
+    <span
+      className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** e.g. 90 → "= 1m 30s", 120 → "= 2 minutes" */
+function formatSecondsFriendly(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  if (seconds < 60) return `= ${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (secs === 0) {
+    return mins === 1 ? "= 1 minute" : `= ${mins} minutes`;
+  }
+  return `= ${mins}m ${secs}s`;
 }
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {

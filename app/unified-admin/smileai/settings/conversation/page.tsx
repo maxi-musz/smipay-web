@@ -157,6 +157,20 @@ export default function ConversationSettingsPage() {
               />
             </Group>
 
+            {/* ── Message sending ─────────────────────────── */}
+            <Group
+              title="Message sending"
+              hint="When off, users must wait for a reply before sending again."
+            >
+              <ToggleField
+                label="Allow multiple messages before a reply"
+                checked={cfg.allow_multiple_messages_before_reply ?? true}
+                onChange={(v) =>
+                  patch({ allow_multiple_messages_before_reply: v })
+                }
+              />
+            </Group>
+
             {/* ── Reply pacing ────────────────────────────── */}
             <Group
               title="Reply pacing"
