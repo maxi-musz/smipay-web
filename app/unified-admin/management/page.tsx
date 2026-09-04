@@ -8,13 +8,15 @@ import {
   Tags,
   Loader2,
   Lock,
+  LayoutList,
 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
-import { AccessLevelTab } from "./_components/AccessLevelTab";
+import { PermissionsTab } from "./_components/PermissionsTab";
+import { ModuleRegistry } from "./_components/ModuleRegistry";
 import { UserTypesTab } from "./_components/UserTypesTab";
 
-type Tab = "admins" | "access" | "types";
+type Tab = "admins" | "permissions" | "types" | "modules";
 
 export default function ManagementPage() {
   const { isSuperAdmin, can, loaded, loading } = useAdminPermissions();
@@ -46,8 +48,9 @@ export default function ManagementPage() {
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "admins", label: "Admin Users", icon: Users },
-    { id: "access", label: "Access Level", icon: ShieldCheck },
+    { id: "permissions", label: "Permissions", icon: ShieldCheck },
     { id: "types", label: "User Types", icon: Tags },
+    { id: "modules", label: "Modules", icon: LayoutList },
   ];
 
   return (
@@ -99,10 +102,12 @@ export default function ManagementPage() {
       <div className="px-4 py-5 sm:px-6 lg:px-8">
         {tab === "admins" ? (
           <AdminUsersTab canManage={canManage} />
-        ) : tab === "access" ? (
-          <AccessLevelTab canManage={canManage} />
-        ) : (
+        ) : tab === "permissions" ? (
+          <PermissionsTab canManage={canManage} />
+        ) : tab === "types" ? (
           <UserTypesTab canManage={canManage} />
+        ) : (
+          <ModuleRegistry canManage={canManage} onChanged={() => {}} />
         )}
       </div>
     </div>

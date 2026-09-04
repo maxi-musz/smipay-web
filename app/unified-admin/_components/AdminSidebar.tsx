@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,6 +42,10 @@ import {
 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import type { EffectiveModule } from "@/types/admin/management";
+import { SIDEBAR_SECTIONS, sectionIdForModule } from "./sidebar-sections";
+
+/** localStorage key remembering which sidebar sections the admin expanded. */
+const SECTIONS_STORAGE_KEY = "admin-sidebar-sections";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
 const MARKUP_NEW_BADGE_UNTIL = "2026-03-20"; // 7 days from feature add
@@ -387,6 +391,76 @@ export default function AdminSidebar() {
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/");
+
+  const itemContainsActive = (item: AdminMenuItem) =>
+    (!!item.href && item.href !== "/" && isActive(item.href)) ||
+    !!item.submenu?.some((sub) => isActive(sub.href));
+
+  // Group top-level items into the named sections (unknown keys fall into the
+  // default section via sectionIdForModule); empty sections are dropped.
+  const sections = useMemo(() => {
+    const bySection = new Map<string, AdminMenuItem[]>();
+    for (const item of menuItems) {
+      const sid = sectionIdForModule(item.id);
+      const arr = bySection.get(sid) ?? [];
+      arr.push(item);
+      bySection.set(sid, arr);
+    }
+    return SIDEBAR_SECTIONS.filter((s) => bySection.has(s.id)).map((s) => ({
+      ...s,
+      items: bySection.get(s.id)!,
+    }));
+  }, [menuItems]);
+
+  const activeSectionId =
+    sections.find((s) => s.items.some(itemContainsActive))?.id ?? null;
+
+  // Collapsed by default; expand the stored choice (or the active section) on
+  // mount only, so SSR markup matches the first client render.
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [sectionsReady, setSectionsReady] = useState(false);
+
+  useEffect(() => {
+    let stored: string[] | null = null;
+    try {
+      const raw = window.localStorage.getItem(SECTIONS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) {
+        stored = parsed.filter((x): x is string => typeof x === "string");
+      }
+    } catch {
+      // Corrupted value — fall back to defaults.
+    }
+    setOpenSections(stored ?? (activeSectionId ? [activeSectionId] : []));
+    setSectionsReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Navigating always reveals the section holding the new active page (the
+  // reveal itself is not persisted — only explicit toggles are).
+  useEffect(() => {
+    if (!sectionsReady || !activeSectionId) return;
+    setOpenSections((prev) =>
+      prev.includes(activeSectionId) ? prev : [...prev, activeSectionId],
+    );
+  }, [pathname, sectionsReady, activeSectionId]);
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections((prev) => {
+      const next = prev.includes(sectionId)
+        ? prev.filter((id) => id !== sectionId)
+        : [...prev, sectionId];
+      try {
+        window.localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Storage unavailable (private mode) — state still works in-memory.
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!isMobileMenuOpen) return;
     const prev = document.body.style.overflow;
@@ -409,8 +483,6 @@ export default function AdminSidebar() {
     logout();
     router.push("/auth/signin?signed_out=true");
   };
-
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   const renderMenuItem = (item: AdminMenuItem, closeMobile: () => void) => {
     if (item.submenu) {
@@ -557,9 +629,49 @@ export default function AdminSidebar() {
           <h3 className="text-xs font-semibold text-dashboard-muted uppercase tracking-wider mb-3">
             Admin Panel
           </h3>
-          <nav className="space-y-1">
-            {menuItems.map((item) => renderMenuItem(item, closeMobile))}
-          </nav>
+          <div className="space-y-2">
+            {sections.map((section) => {
+              const open = openSections.includes(section.id);
+              const hasActive = section.items.some(itemContainsActive);
+              return (
+                <div
+                  key={section.id}
+                  className="rounded-xl border border-dashboard-border/60 overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    aria-expanded={open}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-dashboard-bg transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      {open ? (
+                        <ChevronDown className="h-3.5 w-3.5 text-dashboard-muted" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 text-dashboard-muted" />
+                      )}
+                      <span className="text-xs font-semibold uppercase tracking-wider text-dashboard-heading">
+                        {section.label}
+                      </span>
+                    </span>
+                    {!open && hasActive && (
+                      <span
+                        className="h-2 w-2 rounded-full bg-brand-bg-primary"
+                        aria-hidden
+                      />
+                    )}
+                  </button>
+                  {open && (
+                    <nav className="space-y-1 px-2 pb-2">
+                      {section.items.map((item) =>
+                        renderMenuItem(item, closeMobile),
+                      )}
+                    </nav>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { formatErrorMessage } from "@/lib/error-handler";
 import type {
   AccessLevel,
   AccessModule,
+  AdminGrants,
   AdminUser,
   ApiResponse,
   CreateLevelPayload,
@@ -79,6 +80,21 @@ export const adminManagementApi = {
       backendApi.put(`${BASE}/admins/${encodeURIComponent(userId)}/level`, {
         permission_level,
       }),
+    ),
+  // Per-admin permission matrix (Management → Permissions)
+  getAdminGrants: (userId: string) =>
+    unwrap<ApiResponse<AdminGrants>>(
+      backendApi.get(`${BASE}/admins/${encodeURIComponent(userId)}/grants`),
+    ),
+  setAdminGrants: (userId: string, grants: GrantItem[]) =>
+    unwrap<ApiResponse<AdminGrants>>(
+      backendApi.put(`${BASE}/admins/${encodeURIComponent(userId)}/grants`, {
+        grants,
+      }),
+    ),
+  resetAdminGrants: (userId: string) =>
+    unwrap<ApiResponse<AdminGrants>>(
+      backendApi.delete(`${BASE}/admins/${encodeURIComponent(userId)}/grants`),
     ),
   setAdminSignInIpPolicy: (
     userId: string,

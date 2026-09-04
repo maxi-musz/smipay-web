@@ -102,6 +102,40 @@ export interface MePermissions {
   modules: EffectiveModule[];
 }
 
+// ── Per-admin permissions (Management → Permissions) ──────
+
+/** One module row in the per-user permission editor. */
+export interface AdminModuleGrant {
+  key: string;
+  label: string;
+  icon: string | null;
+  href: string | null;
+  parent_key: string | null;
+  sort_order: number;
+  is_active: boolean;
+  /** What the admin's numeric level would grant (the fallback). */
+  level_default: Crud;
+  /** The admin's own per-user row; null when none exists for this module. */
+  own: Crud | null;
+  /** What actually applies (own matrix when has_custom, level otherwise). */
+  effective: Crud;
+}
+
+export interface AdminGrants {
+  admin: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    role: string | null;
+    permission_level: number;
+  };
+  is_super_admin: boolean;
+  /** True when the admin has ANY per-user rows (custom mode). */
+  has_custom: boolean;
+  modules: AdminModuleGrant[];
+}
+
 // ── Payloads ──────────────────────────────────────────────
 
 export interface CreateModulePayload {
