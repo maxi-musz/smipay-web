@@ -213,6 +213,13 @@ const adminMenuItems: AdminMenuItem[] = [
         icon: ShieldAlert,
         enabled: true,
       },
+      {
+        id: "alerts",
+        label: "Alerts",
+        href: "/unified-admin/settings/alerts",
+        icon: BellRing,
+        enabled: true,
+      },
     ],
   },
   {
