@@ -15,12 +15,10 @@ const naira = (n: number) =>
 export function PartnerLoadingManager({
   partner = "vtpass",
   dateFrom,
-  dateTo,
   onChanged,
 }: {
   partner?: string;
   dateFrom: string;
-  dateTo: string;
   onChanged?: () => void;
 }) {
   const [entries, setEntries] = useState<PartnerLoadingEntry[]>([]);
@@ -33,15 +31,15 @@ export function PartnerLoadingManager({
   const [reference, setReference] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Show ALL recorded top-ups for this partner, not just ones inside the current
+  // report window — otherwise an entry dated outside the report period vanishes
+  // right after you add it. The report's period-scoped "loaded" figure is
+  // computed separately server-side; this manager is for recording/seeing top-ups.
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await adminRewardsReportApi.listPartnerLoading({
-        partner,
-        date_from: dateFrom,
-        date_to: dateTo,
-      });
+      const res = await adminRewardsReportApi.listPartnerLoading({ partner });
       setEntries(res.entries);
       setTotalLoaded(res.total_loaded);
     } catch (e) {
@@ -49,7 +47,7 @@ export function PartnerLoadingManager({
     } finally {
       setLoading(false);
     }
-  }, [partner, dateFrom, dateTo]);
+  }, [partner]);
 
   useEffect(() => {
     load();
@@ -101,11 +99,14 @@ export function PartnerLoadingManager({
         <div className="flex items-center gap-2">
           <Fuel className="h-4 w-4 text-brand-bg-primary" />
           <span className="text-sm font-semibold text-dashboard-heading">
-            {partner.toUpperCase()} loading (this period)
+            {partner.toUpperCase()} loading — recorded top-ups
           </span>
         </div>
         <span className="text-sm font-bold text-dashboard-heading tabular-nums">
-          {naira(totalLoaded)}
+          {naira(totalLoaded)}{" "}
+          <span className="text-[11px] font-normal text-dashboard-muted">
+            total
+          </span>
         </span>
       </div>
 
@@ -174,7 +175,7 @@ export function PartnerLoadingManager({
         </div>
       ) : entries.length === 0 ? (
         <div className="py-3 text-center text-xs text-dashboard-muted">
-          No loading entries recorded for this period.
+          No top-ups recorded yet.
         </div>
       ) : (
         <div className="space-y-1">

@@ -17,8 +17,36 @@ import {
   Eye,
   EyeOff,
   BarChart3,
+  CheckCircle2,
+  ShieldCheck,
+  Search,
 } from "lucide-react";
 import type { RewardsReport } from "@/types/admin/rewards-report";
+import { ForgedEventsPanel } from "./ForgedEventsPanel";
+
+/** Preventive fixes shipped after the forged-webhook incident. Each is hideable. */
+const PREVENTION_FIXES = [
+  {
+    id: "signature",
+    title: "Webhook signature is now mandatory",
+    desc: "Unsigned or wrongly-signed Paystack webhooks are rejected with 401 — the exact gap the attacker exploited is closed.",
+  },
+  {
+    id: "reverify",
+    title: "Every charge is re-verified with Paystack",
+    desc: "On each charge.success we call Paystack's verify API and only credit when the reference exists, the status is success, and the amount matches exactly.",
+  },
+  {
+    id: "alerts",
+    title: "Instant forgery alerts",
+    desc: "Any rejected webhook (unsigned, bad signature, unknown reference, or amount mismatch) emails the team immediately with the attacker's details.",
+  },
+  {
+    id: "remediated",
+    title: "Fraudulent credits reversed & accounts suspended",
+    desc: "All forged deposits were clawed back and the involved accounts suspended, with the full audit trail preserved.",
+  },
+];
 
 const naira = (n: number) =>
   new Intl.NumberFormat("en-NG", {
@@ -192,7 +220,10 @@ export function ReportResults({ report }: { report: RewardsReport }) {
     if (hasRewardMetric) ids.push("rewards");
     if (m.user_deposits) ids.push("deposits");
     if (m.vtpass_reconciliation) ids.push("vtpass");
-    if (m.forged_webhook_summary) ids.push("forged");
+    if (m.forged_webhook_summary) {
+      ids.push("forged");
+      ids.push("fixes");
+    }
     if (m.total_transactions) ids.push("transactions");
     return ids;
   }, [m, hasRewardMetric]);
@@ -200,6 +231,15 @@ export function ReportResults({ report }: { report: RewardsReport }) {
   // Collapsed by default.
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
   const [showFakeDeposits, setShowFakeDeposits] = useState(false);
+  const [showForgedEvents, setShowForgedEvents] = useState(false);
+  const [hiddenFixes, setHiddenFixes] = useState<Set<string>>(new Set());
+  const toggleFix = (id: string) =>
+    setHiddenFixes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const toggle = (id: string) =>
     setOpenMap((s) => ({ ...s, [id]: !s[id] }));
   const setAll = (v: boolean) =>
@@ -383,10 +423,20 @@ export function ReportResults({ report }: { report: RewardsReport }) {
           onToggle={toggle}
         >
           <DetailRow
-            label="User deposits (real)"
+            label="User deposits (real, all accounts)"
             value={naira(m.user_deposits.total)}
             hint={`${count(m.user_deposits.count)} deposits · forged-webhook credits are NOT included`}
             strong
+          />
+          <DetailRow
+            label="Current Paystack account"
+            value={naira(m.user_deposits.current_total)}
+            hint={`${count(m.user_deposits.current_count)} deposits · matches the current Paystack dashboard`}
+          />
+          <DetailRow
+            label="Legacy (old) account"
+            value={naira(m.user_deposits.legacy_total)}
+            hint={`${count(m.user_deposits.legacy_count)} deposits · pre-switch account, not in the current dashboard`}
           />
           <div className="mt-3">
             <button
@@ -514,6 +564,79 @@ export function ReportResults({ report }: { report: RewardsReport }) {
             label="Accounts involved"
             value={count(m.forged_webhook_summary.accounts)}
           />
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowForgedEvents((s) => !s)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 hover:underline"
+            >
+              {showForgedEvents ? (
+                <EyeOff className="h-3.5 w-3.5" />
+              ) : (
+                <Search className="h-3.5 w-3.5" />
+              )}
+              {showForgedEvents ? "Hide" : "View"} attacker webhook events
+              (identity, device, payload)
+            </button>
+          </div>
+          {showForgedEvents && (
+            <div className="mt-3">
+              <ForgedEventsPanel />
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {/* Prevention fixes — happy, green, per-item hideable */}
+      {m.forged_webhook_summary && (
+        <CollapsibleSection
+          id="fixes"
+          title="Fixes in place to prevent recurrence"
+          icon={ShieldCheck}
+          periodLabel={periodLabel}
+          open={!!openMap["fixes"]}
+          onToggle={toggle}
+        >
+          <div className="space-y-2">
+            {PREVENTION_FIXES.filter((f) => !hiddenFixes.has(f.id)).map((f) => (
+              <div
+                key={f.id}
+                className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2.5"
+              >
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-emerald-900">
+                    {f.title}
+                  </div>
+                  <div className="text-xs text-emerald-800/80">{f.desc}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleFix(f.id)}
+                  className="text-emerald-700/60 hover:text-emerald-900 shrink-0"
+                  title="Hide this item"
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {PREVENTION_FIXES.some((f) => hiddenFixes.has(f.id)) && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-dashboard-muted">Hidden:</span>
+              {PREVENTION_FIXES.filter((f) => hiddenFixes.has(f.id)).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => toggleFix(f.id)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashboard-border/60 text-[11px] text-dashboard-muted hover:text-dashboard-heading"
+                  title="Unhide"
+                >
+                  <Eye className="h-3 w-3" /> {f.title}
+                </button>
+              ))}
+            </div>
+          )}
         </CollapsibleSection>
       )}
 

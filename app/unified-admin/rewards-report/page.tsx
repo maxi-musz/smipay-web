@@ -249,7 +249,6 @@ export default function RewardsReportPage() {
             <PartnerLoadingManager
               partner="vtpass"
               dateFrom={dateFrom}
-              dateTo={dateTo}
               onChanged={() => report && generate()}
             />
           )}

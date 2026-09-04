@@ -3,11 +3,15 @@ import { formatErrorMessage } from "@/lib/error-handler";
 import type {
   ApiEnvelope,
   CreatePartnerLoadingPayload,
+  ForgedIncidentEvents,
   GenerateReportPayload,
   MetricDefinition,
+  PartnerBalances,
+  PartnerBalancesConfig,
   PartnerLoadingEntry,
   PartnerLoadingList,
   RewardsReport,
+  VtpassBalance,
 } from "@/types/admin/rewards-report";
 
 const BASE = "/unified-admin/rewards-report";
@@ -56,6 +60,70 @@ export const adminRewardsReportApi = {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  getPartnerBalances: async (force = false): Promise<PartnerBalances> => {
+    try {
+      const res = await backendApi.get<ApiEnvelope<PartnerBalances>>(
+        `${BASE}/partner-balances`,
+        { params: force ? { force: 1 } : undefined },
+      );
+      return res.data.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  getPartnerBalancesConfig: async (): Promise<PartnerBalancesConfig> => {
+    try {
+      const res = await backendApi.get<ApiEnvelope<PartnerBalancesConfig>>(
+        "/unified-admin/partner-balances-config",
+      );
+      return res.data.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  updatePartnerBalancesConfig: async (payload: {
+    refresh_interval_seconds?: number;
+    funding_accounts?: Record<
+      string,
+      { bank_name?: string; account_number?: string; account_name?: string }
+    >;
+  }): Promise<PartnerBalancesConfig> => {
+    try {
+      const res = await backendApi.put<ApiEnvelope<PartnerBalancesConfig>>(
+        "/unified-admin/partner-balances-config",
+        payload,
+      );
+      return res.data.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  getVtpassBalance: async (force = false): Promise<VtpassBalance> => {
+    try {
+      const res = await backendApi.get<ApiEnvelope<VtpassBalance>>(
+        `${BASE}/vtpass-balance`,
+        { params: force ? { force: 1 } : undefined },
+      );
+      return res.data.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  getForgedIncidentEvents: async (): Promise<ForgedIncidentEvents> => {
+    try {
+      const res = await backendApi.get<ApiEnvelope<ForgedIncidentEvents>>(
+        `${BASE}/forged-incident-events`,
+      );
+      return res.data.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));
     }

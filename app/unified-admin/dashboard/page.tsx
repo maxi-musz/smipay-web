@@ -19,6 +19,7 @@ import { SectionCard } from "./_components/SectionCard";
 // import { ActionItems } from "./_components/ActionItems";
 import { TierDistribution } from "./_components/TierDistribution";
 import { RevenueBreakdown } from "./_components/RevenueBreakdown";
+import { PartnerBalancesCard } from "./_components/PartnerBalancesCard";
 import { DashboardSkeleton } from "./_components/DashboardSkeleton";
 import { Button } from "@/components/ui/button";
 
@@ -191,6 +192,9 @@ export default function AdminDashboardPage() {
             index={7}
           />
         </div>
+
+        {/* Partner balances (live upstream wallets) */}
+        <PartnerBalancesCard />
 
         {/* Detailed Section Cards */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

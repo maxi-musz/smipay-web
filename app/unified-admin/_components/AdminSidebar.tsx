@@ -235,6 +235,13 @@ const adminMenuItems: AdminMenuItem[] = [
         icon: BookOpen,
         enabled: true,
       },
+      {
+        id: "partner-balances",
+        label: "Partner Balances",
+        href: "/unified-admin/settings/partner-balances",
+        icon: CreditCard,
+        enabled: true,
+      },
     ],
   },
   {
