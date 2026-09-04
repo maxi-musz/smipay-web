@@ -16,6 +16,11 @@ interface Props {
   challengeId: string;
   emailHint: string;
   resendAvailableAt: string;
+  /**
+   * Which challenge these codes belong to. "admin" is the staff OTP gate;
+   * "device" is the new-device sign-in check — same UI, different endpoints.
+   */
+  flow?: "admin" | "device";
   /** One-time notice from the password step (e.g. "code sent"). Cleared on error. */
   initialInfo?: string;
   onVerified: (data: {
@@ -35,6 +40,7 @@ export function AdminLoginOtpStep({
   challengeId,
   emailHint,
   resendAvailableAt,
+  flow = "admin",
   initialInfo = "",
   onVerified,
   onBack,
@@ -80,7 +86,10 @@ export function AdminLoginOtpStep({
 
     setIsSubmitting(true);
     try {
-      const response = await authApi.verifyAdminLoginOtp(challengeId, otp);
+      const response =
+        flow === "device"
+          ? await authApi.verifyDeviceLoginOtp(challengeId, otp)
+          : await authApi.verifyAdminLoginOtp(challengeId, otp);
       if (response.success && response.data?.access_token && response.data.user) {
         await onVerified({
           access_token: response.data.access_token,
@@ -105,7 +114,10 @@ export function AdminLoginOtpStep({
     setInfo("");
     setIsResending(true);
     try {
-      const response = await authApi.resendAdminLoginOtp(challengeId);
+      const response =
+        flow === "device"
+          ? await authApi.resendDeviceLoginOtp(challengeId)
+          : await authApi.resendAdminLoginOtp(challengeId);
       if (response.success && response.data) {
         onChallengeUpdate({
           challengeId: response.data.challenge_id,
@@ -142,7 +154,9 @@ export function AdminLoginOtpStep({
       <p className="text-sm text-dashboard-muted">
         We sent a {AUTH_EMAIL_OTP_DIGITS}-digit code to{" "}
         <span className="font-medium text-dashboard-heading">{emailHint}</span>.
-        Enter it below to complete admin sign-in.
+        {flow === "device"
+          ? " Enter it below to confirm this device and finish signing in."
+          : " Enter it below to complete admin sign-in."}
       </p>
 
       {/* One banner only — error wins over success/info. */}

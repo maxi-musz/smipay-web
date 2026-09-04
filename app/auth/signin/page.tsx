@@ -70,6 +70,7 @@ function SignInForm() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpStep, setOtpStep] = useState<{
+    flow: "admin" | "device";
     challengeId: string;
     emailHint: string;
     resendAvailableAt: string;
@@ -268,13 +269,16 @@ function SignInForm() {
       });
 
       if (response.success && response.data) {
-        if (response.data.requires_admin_otp) {
+        if (
+          response.data.requires_admin_otp ||
+          response.data.requires_device_otp
+        ) {
           if (
             !response.data.challenge_id ||
             !response.data.email_hint ||
             !response.data.resend_available_at
           ) {
-            showError("Could not start admin verification. Try again.");
+            showError("Could not start sign-in verification. Try again.");
             setIsSubmitting(false);
             return;
           }
@@ -284,6 +288,7 @@ function SignInForm() {
           setServerError("");
           setSuccessMessage("");
           setOtpStep({
+            flow: response.data.requires_admin_otp ? "admin" : "device",
             challengeId: response.data.challenge_id,
             emailHint: response.data.email_hint,
             resendAvailableAt: response.data.resend_available_at,
@@ -321,7 +326,13 @@ function SignInForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
       <AuthCard
-        title={otpStep ? "Verify admin sign-in" : "Sign in to Smipay"}
+        title={
+          otpStep
+            ? otpStep.flow === "device"
+              ? "Confirm this device"
+              : "Verify admin sign-in"
+            : "Sign in to Smipay"
+        }
         description={
           otpStep
             ? "Enter the code we emailed you to finish signing in."
@@ -330,6 +341,7 @@ function SignInForm() {
       >
         {otpStep ? (
           <AdminLoginOtpStep
+            flow={otpStep.flow}
             challengeId={otpStep.challengeId}
             emailHint={otpStep.emailHint}
             resendAvailableAt={otpStep.resendAvailableAt}

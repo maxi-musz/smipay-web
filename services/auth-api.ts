@@ -53,6 +53,8 @@ export interface SignInResponseData {
   refresh_token?: string | null;
   user?: NewAuthUser;
   requires_admin_otp?: boolean;
+  /** New-device sign-in (Security → "OTP on new-device login") — same challenge machinery as the admin OTP step. */
+  requires_device_otp?: boolean;
   challenge_id?: string;
   email_hint?: string;
   resend_available_at?: string;
@@ -207,6 +209,34 @@ export const authApi = {
       const response = await backendApi.post<
         ApiEnvelope<AdminLoginOtpResendData>
       >("/new-auth/resend-admin-login-otp", { challenge_id: challengeId });
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  verifyDeviceLoginOtp: async (
+    challengeId: string,
+    otp: string
+  ): Promise<ApiEnvelope<SignInResponseData>> => {
+    try {
+      const response = await backendApi.post<ApiEnvelope<SignInResponseData>>(
+        "/new-auth/verify-device-login-otp",
+        { challenge_id: challengeId, otp }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  resendDeviceLoginOtp: async (
+    challengeId: string
+  ): Promise<ApiEnvelope<AdminLoginOtpResendData>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<AdminLoginOtpResendData>
+      >("/new-auth/resend-device-login-otp", { challenge_id: challengeId });
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));
