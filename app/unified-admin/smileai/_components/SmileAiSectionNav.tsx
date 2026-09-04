@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Library,
+  MessageCircle,
   MessageSquare,
   PlugZap,
   Settings,
@@ -125,6 +126,11 @@ const NAV: NavSection[] = [
         label: "Vector Store",
         href: "/unified-admin/smileai/settings/vector-store",
         icon: FlaskConical,
+      },
+      {
+        label: "Chat behaviour",
+        href: "/unified-admin/smileai/settings/conversation",
+        icon: MessageCircle,
       },
       {
         label: "Limits",

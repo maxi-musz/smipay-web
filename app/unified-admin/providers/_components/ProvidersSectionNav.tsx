@@ -30,7 +30,7 @@ const NAV: NavItem[] = [
     label: "Email Providers",
     href: "/unified-admin/providers/email",
     icon: Mail,
-    enabled: false,
+    enabled: true,
   },
   {
     label: "Utility Providers",

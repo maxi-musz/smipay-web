@@ -8,6 +8,7 @@ import { SessionWarning } from "@/components/auth/SessionWarning";
 import { SessionExpired } from "@/components/auth/SessionExpired";
 import { WebhookEventsSocketProvider } from "@/components/providers/WebhookEventsSocketProvider";
 import { isPaymentInProgress, getToken, clearAuth } from "@/lib/auth-storage";
+import { MOBILE_ONLY_PATH, shouldGateFromWeb } from "@/lib/web-access";
 import Sidebar from "./Sidebar";
 import SupportFAB from "./SupportFAB";
 import { UtilitiesPurchaseGuard } from "./UtilitiesPurchaseGuard";
@@ -26,12 +27,19 @@ function DashboardAuthGuard({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading, initializeAuth } = useAuth();
+  const { user, isAuthenticated, isLoading, initializeAuth } = useAuth();
   const hasAttemptedReinit = useRef(false);
 
   const isPaymentCallback = searchParams.get("payment") === "callback";
+  const gatedToMobile = !!user && shouldGateFromWeb(user.role);
 
   useEffect(() => {
+    if (gatedToMobile) {
+      clearAuth();
+      router.replace(MOBILE_ONLY_PATH);
+      return;
+    }
+
     if (sessionExpired) return;
     if (isPaymentCallback || isPaymentInProgress()) return;
 
@@ -48,7 +56,15 @@ function DashboardAuthGuard({
       clearAuth();
       router.push("/auth/signin?callbackUrl=/dashboard");
     }
-  }, [isLoading, isAuthenticated, router, isPaymentCallback, sessionExpired, initializeAuth]);
+  }, [isLoading, isAuthenticated, router, isPaymentCallback, sessionExpired, initializeAuth, gatedToMobile]);
+
+  if (gatedToMobile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
+        <Loader2 className="h-8 w-8 animate-spin text-dashboard-accent" />
+      </div>
+    );
+  }
 
   if (sessionExpired) {
     return <>{children}</>;

@@ -7,6 +7,7 @@ import type {
   SmileAiActionAnalyticsRow,
   SmileAiAdminNote,
   SmileAiChunk,
+  SmileAiConversationBehaviour,
   SmileAiConversationDetail,
   SmileAiConversationListItem,
   SmileAiCostBreakdown,
@@ -277,6 +278,7 @@ export const smileAiApi = {
   conversations: {
     list: (params: {
       status?: string;
+      bucket?: "active" | "handed_off" | "closed";
       trigger?: string;
       q?: string;
       user_id?: string;
@@ -289,6 +291,7 @@ export const smileAiApi = {
         items: SmileAiConversationListItem[];
         total: number;
         by_status: Record<string, number>;
+        buckets: { active: number; handed_off: number; closed: number };
         total_all: number;
         limit: number;
         offset: number;
@@ -428,6 +431,16 @@ export const smileAiApi = {
     }) =>
       unwrap<SmileAiServicesResponse>(
         backendApi.patch(`${BASE}/settings/services`, payload),
+      ),
+    getConversation: () =>
+      unwrap<SmileAiSettingsResponse<SmileAiConversationBehaviour>>(
+        backendApi.get(`${BASE}/settings/conversation`),
+      ),
+    setConversation: (
+      payload: Partial<SmileAiConversationBehaviour> & { notes?: string },
+    ) =>
+      unwrap<SmileAiSettingsResponse<SmileAiConversationBehaviour>>(
+        backendApi.patch(`${BASE}/settings/conversation`, payload),
       ),
     getLifecycle: () =>
       unwrap<SmileAiSettingsResponse<SmileAiLifecycle>>(

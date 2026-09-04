@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -16,7 +16,24 @@ import {
 } from "@/lib/validations/auth/login-backend.schema";
 import { authApi } from "@/services/auth-api";
 import { useAuth } from "@/hooks/useAuth";
-import { mapNewAuthUserToUser, clearAuth, hasValidClientSession } from "@/lib/auth-storage";
+import {
+  mapNewAuthUserToUser,
+  clearAuth,
+  hasValidClientSession,
+  consumeIntentionalLogout,
+} from "@/lib/auth-storage";
+import {
+  fetchAdminHomePath,
+  resolveStaffRedirect,
+} from "@/lib/admin-home";
+import { adminManagementApi } from "@/services/admin/management-api";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+  shouldGateFromWeb,
+} from "@/lib/web-access";
+import { useAdminPermissionsStore } from "@/store/admin/admin-permissions-store";
+import { AdminLoginOtpStep } from "@/components/auth/AdminLoginOtpStep";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -36,7 +53,14 @@ const fieldVariants = {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isAuthenticated, isLoading: authLoading, initializeAuth } = useAuth();
+  const {
+    user,
+    login,
+    logout,
+    isAuthenticated,
+    isLoading: authLoading,
+    initializeAuth,
+  } = useAuth();
   const [formData, setFormData] = useState<LoginBackendData>({
     email: "",
     password: "",
@@ -45,6 +69,39 @@ function SignInForm() {
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otpStep, setOtpStep] = useState<{
+    flow: "admin" | "device";
+    challengeId: string;
+    emailHint: string;
+    resendAvailableAt: string;
+    initialInfo?: string;
+  } | null>(null);
+  /** Prevents the “already signed in” effect from racing finishLogin(). */
+  const skipAutoRedirect = useRef(false);
+
+  const showError = (message: string) => {
+    setSuccessMessage("");
+    setServerError(message);
+  };
+  const showSuccess = (message: string) => {
+    setServerError("");
+    setSuccessMessage(message);
+  };
+
+  /** Drop stale ?expired / ?signed_out so they can't re-flash over the OTP step. */
+  const scrubAuthFlashParams = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    let dirty = false;
+    for (const key of ["expired", "signed_out", "message", "registered", "reset"]) {
+      if (params.has(key)) {
+        params.delete(key);
+        dirty = true;
+      }
+    }
+    if (!dirty) return;
+    const qs = params.toString();
+    router.replace(qs ? `/auth/signin?${qs}` : "/auth/signin", { scroll: false });
+  };
 
   useEffect(() => {
     initializeAuth();
@@ -55,29 +112,77 @@ function SignInForm() {
 
   // Already signed in — skip the form and go to the intended destination.
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    const callbackUrl = searchParams.get("callbackUrl");
-    const redirectUrl =
-      callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
-    router.replace(redirectUrl);
-  }, [isAuthenticated, authLoading, router, searchParams]);
+    if (authLoading || !isAuthenticated || skipAutoRedirect.current) return;
+
+    void (async () => {
+      const callbackUrl = searchParams.get("callbackUrl");
+
+      // Wait for user to load so we don't kick staff out by mistake.
+      if (user && shouldGateFromWeb(user.role)) {
+        logout();
+        router.replace(MOBILE_ONLY_PATH);
+        return;
+      }
+
+      if (user?.role && user.role !== "user") {
+        try {
+          const res = await adminManagementApi.getMyPermissions();
+          const redirectUrl = await resolveStaffRedirect(
+            callbackUrl,
+            res.data ?? null,
+          );
+          router.replace(redirectUrl);
+        } catch {
+          router.replace(await fetchAdminHomePath());
+        }
+        return;
+      }
+
+      const redirectUrl =
+        callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+      router.replace(redirectUrl);
+    })();
+  }, [isAuthenticated, authLoading, router, searchParams, user, logout]);
 
   useEffect(() => {
+    // While verifying admin OTP, ignore URL flash params — the OTP step owns notices.
+    if (otpStep) return;
+
     if (searchParams.get("registered") === "true") {
-      const msg = "Registration successful! Please sign in to continue.";
-      queueMicrotask(() => setSuccessMessage(msg));
+      queueMicrotask(() =>
+        showSuccess("Registration successful! Please sign in to continue."),
+      );
+      return;
     }
     if (searchParams.get("reset") === "true") {
-      const msg = "Password reset successfully. Please sign in with your new password.";
-      queueMicrotask(() => setSuccessMessage(msg));
+      queueMicrotask(() =>
+        showSuccess(
+          "Password reset successfully. Please sign in with your new password.",
+        ),
+      );
+      return;
+    }
+    if (searchParams.get("signed_out") === "true") {
+      consumeIntentionalLogout();
+      queueMicrotask(() => showSuccess("You have been signed out."));
+      return;
     }
     if (searchParams.get("expired") === "true") {
+      // Intentional logout can still race a 401 into ?expired=true — don't scare the user.
+      if (consumeIntentionalLogout()) {
+        queueMicrotask(() => showSuccess("You have been signed out."));
+        return;
+      }
       const message = searchParams.get("message");
-      const err =
-        message || "Your session has expired. Please sign in again.";
-      queueMicrotask(() => setServerError(err));
+      queueMicrotask(() =>
+        showError(
+          message || "Your session has expired. Please sign in again.",
+        ),
+      );
     }
-  }, [searchParams]);
+    // otpStep / showSuccess / showError are stable enough for this flash effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, otpStep]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,10 +192,63 @@ function SignInForm() {
     }
   };
 
+  const finishLogin = async (
+    access_token: string,
+    apiUser: Parameters<typeof mapNewAuthUserToUser>[0],
+  ) => {
+    skipAutoRedirect.current = true;
+    const user = mapNewAuthUserToUser(apiUser);
+
+    // Login ok, but customers use the app — don't keep a web session.
+    if (shouldGateFromWeb(user.role)) {
+      setOtpStep(null);
+      clearAuth();
+      setSuccessMessage("Signed in. Continue in the SmiPay mobile app...");
+      router.replace(MOBILE_ONLY_PATH);
+      return;
+    }
+
+    login(user, access_token);
+    setOtpStep(null);
+    setSuccessMessage("Login successful! Redirecting...");
+
+    let redirectUrl = "/dashboard";
+    if (user.role && user.role !== "user") {
+      useAdminPermissionsStore.getState().invalidate();
+      try {
+        const res = await adminManagementApi.getMyPermissions();
+        if (res.success && res.data) {
+          useAdminPermissionsStore.setState({
+            data: res.data,
+            fetched: true,
+            ts: Date.now(),
+            error: null,
+            loading: false,
+          });
+          redirectUrl = await resolveStaffRedirect(
+            searchParams.get("callbackUrl"),
+            res.data,
+          );
+        } else {
+          redirectUrl = await fetchAdminHomePath();
+        }
+      } catch {
+        redirectUrl = await fetchAdminHomePath();
+      }
+    } else {
+      const callbackUrl = searchParams.get("callbackUrl");
+      if (callbackUrl?.startsWith("/")) redirectUrl = callbackUrl;
+    }
+
+    router.replace(redirectUrl);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError("");
+    setSuccessMessage("");
     setErrors({});
+    scrubAuthFlashParams();
 
     const result = loginBackendSchema.safeParse(formData);
     if (!result.success) {
@@ -111,30 +269,55 @@ function SignInForm() {
       });
 
       if (response.success && response.data) {
-        const { access_token, user: apiUser } = response.data;
-        const user = mapNewAuthUserToUser(apiUser);
-        login(user, access_token);
-        setSuccessMessage("Login successful! Redirecting...");
-        let redirectUrl = "/dashboard";
-        if (user.role && user.role !== "user") {
-          redirectUrl = "/";
-        } else {
-          const callbackUrl = searchParams.get("callbackUrl");
-          if (callbackUrl) redirectUrl = callbackUrl;
+        if (
+          response.data.requires_admin_otp ||
+          response.data.requires_device_otp
+        ) {
+          if (
+            !response.data.challenge_id ||
+            !response.data.email_hint ||
+            !response.data.resend_available_at
+          ) {
+            showError("Could not start sign-in verification. Try again.");
+            setIsSubmitting(false);
+            return;
+          }
+          const initialInfo = response.data.reused_existing_otp
+            ? "A verification code was already sent and is still valid. Check your email."
+            : "Verification code sent. Check your email to complete sign-in.";
+          setServerError("");
+          setSuccessMessage("");
+          setOtpStep({
+            flow: response.data.requires_admin_otp ? "admin" : "device",
+            challengeId: response.data.challenge_id,
+            emailHint: response.data.email_hint,
+            resendAvailableAt: response.data.resend_available_at,
+            initialInfo,
+          });
+          setIsSubmitting(false);
+          return;
         }
-        setTimeout(() => {
-          router.push(redirectUrl);
-          router.refresh();
-        }, 1000);
+
+        if (!response.data.access_token || !response.data.user) {
+          showError(
+            response.message || "Invalid credentials. Please try again.",
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        await finishLogin(response.data.access_token, response.data.user);
       } else {
-        setServerError(
-          response.message || "Invalid credentials. Please try again."
+        showError(
+          response.message || "Invalid credentials. Please try again.",
         );
         setIsSubmitting(false);
       }
     } catch (error: unknown) {
-      setServerError(
-        error instanceof Error ? error.message : "Invalid credentials. Please try again."
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Invalid credentials. Please try again.",
       );
       setIsSubmitting(false);
     }
@@ -143,9 +326,53 @@ function SignInForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
       <AuthCard
-        title="Sign in to Smipay"
-        description="Welcome back. Sign in with your email."
+        title={
+          otpStep
+            ? otpStep.flow === "device"
+              ? "Confirm this device"
+              : "Verify admin sign-in"
+            : "Sign in to Smipay"
+        }
+        description={
+          otpStep
+            ? "Enter the code we emailed you to finish signing in."
+            : "Welcome back. Sign in with your email."
+        }
       >
+        {otpStep ? (
+          <AdminLoginOtpStep
+            flow={otpStep.flow}
+            challengeId={otpStep.challengeId}
+            emailHint={otpStep.emailHint}
+            resendAvailableAt={otpStep.resendAvailableAt}
+            initialInfo={otpStep.initialInfo}
+            onChallengeUpdate={(update) =>
+              setOtpStep((prev) => (prev ? { ...prev, ...update } : prev))
+            }
+            onBack={() => {
+              setOtpStep(null);
+              setServerError("");
+              setSuccessMessage("");
+            }}
+            onVerified={async (data) => {
+              setIsSubmitting(true);
+              setServerError("");
+              setSuccessMessage("");
+              try {
+                await finishLogin(data.access_token, data.user);
+              } catch (error: unknown) {
+                skipAutoRedirect.current = false;
+                setOtpStep(null);
+                showError(
+                  error instanceof Error
+                    ? error.message
+                    : "Sign-in failed. Please try again.",
+                );
+                setIsSubmitting(false);
+              }
+            }}
+          />
+        ) : (
         <motion.form
           onSubmit={handleSubmit}
           className="space-y-5"
@@ -153,8 +380,11 @@ function SignInForm() {
           initial="hidden"
           animate="visible"
         >
-          {successMessage && <FormSuccess message={successMessage} />}
-          {serverError && <FormError message={serverError} />}
+          {serverError ? (
+            <FormError message={serverError} />
+          ) : successMessage ? (
+            <FormSuccess message={successMessage} />
+          ) : null}
 
           <motion.div className="space-y-2" variants={fieldVariants}>
             <Label htmlFor="email" className="label-auth">Email address</Label>
@@ -234,13 +464,16 @@ function SignInForm() {
           >
             Don&apos;t have an account?{" "}
             <Link
-              href="/auth/register"
+              href={
+                WEB_REGISTRATION_ENABLED ? "/auth/register" : MOBILE_ONLY_PATH
+              }
               className="text-dashboard-accent hover:underline font-medium"
             >
-              Create one
+              {WEB_REGISTRATION_ENABLED ? "Create one" : "Get the app"}
             </Link>
           </motion.p>
         </motion.form>
+        )}
       </AuthCard>
     </div>
   );

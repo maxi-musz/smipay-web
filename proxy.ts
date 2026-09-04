@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+  isCustomerRoute,
+  shouldGateFromWeb,
+} from "@/lib/web-access";
 
 // Define protected routes
 const protectedRoutes = [
@@ -10,6 +16,7 @@ const protectedRoutes = [
   "/settings",
   "/cards",
   "/unified-admin",
+  "/admin",
 ];
 
 // Define auth routes (redirect to dashboard if already logged in)
@@ -18,8 +25,30 @@ const authRoutes = [
   "/auth/register",
 ];
 
+// Decode role for redirects only — backend still does real auth.
+function roleFromToken(token: string | undefined): string | null {
+  if (!token) return null;
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const claims = JSON.parse(json) as { role?: unknown };
+    return typeof claims.role === "string" ? claims.role : null;
+  } catch {
+    return null;
+  }
+}
+
 export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+
+  // No web signup — send them to the app download page.
+  if (
+    !WEB_REGISTRATION_ENABLED &&
+    (pathname === "/auth/register" || pathname.startsWith("/auth/register/"))
+  ) {
+    return NextResponse.redirect(new URL(MOBILE_ONLY_PATH, request.url));
+  }
 
   // Check if route is protected
   const isProtectedRoute = protectedRoutes.some((route) =>
@@ -44,6 +73,14 @@ export function proxy(request: NextRequest) {
     const url = new URL("/auth/signin", request.url);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Keep customers off the web dashboard.
+  if (
+    isCustomerRoute(pathname) &&
+    shouldGateFromWeb(roleFromToken(token))
+  ) {
+    return NextResponse.redirect(new URL(MOBILE_ONLY_PATH, request.url));
   }
 
   // If payment callback or payment in progress, allow through and let client handle it

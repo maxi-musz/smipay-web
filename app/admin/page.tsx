@@ -1,12 +1,24 @@
-import React from "react";
+"use client";
 
-export default function Admin404() {
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+
+import { fetchAdminHomePath } from "@/lib/admin-home";
+
+/** Sends staff to the correct admin home based on user type tags. */
+export default function AdminIndexPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    void fetchAdminHomePath().then((path) => {
+      router.replace(path);
+    });
+  }, [router]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dashboard-bg px-4 py-12">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404 - Admin Page Not Found</h1>
-        <p className="text-lg text-dashboard-muted mb-8">The admin page is not yet available.</p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
+      <Loader2 className="h-8 w-8 animate-spin text-dashboard-accent" />
     </div>
   );
 }

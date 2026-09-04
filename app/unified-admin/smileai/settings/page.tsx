@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock,
   FlaskConical,
+  MessageCircle,
   PlugZap,
   Power,
   Settings,
@@ -25,6 +26,12 @@ const SECTIONS = [
     icon: FlaskConical,
     title: "Vector store",
     desc: "Where knowledge base embeddings live",
+  },
+  {
+    href: "/unified-admin/smileai/settings/conversation",
+    icon: MessageCircle,
+    title: "Chat behaviour",
+    desc: "Reply length & tone, human-like delay, anti-spam throttle, daily cap",
   },
   {
     href: "/unified-admin/smileai/settings/limits",

@@ -13,6 +13,7 @@ import { TransactionsFilters } from "./_components/TransactionsFilters";
 import { TransactionsTable } from "./_components/TransactionsTable";
 import { TransactionsPagination } from "./_components/TransactionsPagination";
 import { TransactionsSkeleton } from "./_components/TransactionsSkeleton";
+import { StuckFundsBanner } from "./_components/StuckFundsBanner";
 
 function formatNGN(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -226,6 +227,8 @@ function TransactionsPageContent() {
             </button>
           </motion.div>
         )}
+
+        <StuckFundsBanner />
 
         {analytics && (
           <TransactionsAnalytics

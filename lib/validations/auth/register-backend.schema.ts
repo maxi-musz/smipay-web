@@ -13,8 +13,38 @@ export const AUTH_OTP_DIGITS = 6;
 
 const SIX_DIGIT_REGEX = /^\d{6}$/;
 
+/** Accepts 0XXXXXXXXXX, 234XXXXXXXXXX or +234XXXXXXXXXX. */
+const NIGERIAN_PHONE_REGEX = /^(\+?234|0)?[789][01]\d{8}$/;
+
+/** Reduce any accepted shape to the canonical `234` + 10 digits the API stores. */
+function toCanonicalPhone(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("0")) return `234${digits.slice(1)}`;
+  if (digits.startsWith("234")) return digits;
+  return `234${digits}`;
+}
+
 /**
- * Step 1: Request Email OTP Schema
+ * Standalone phone-availability check. Not currently wired into the sign-up
+ * flow — phone is collected on the final step and validated by
+ * `newAuthRegisterSchema`. Kept because the backend endpoint still exists, so
+ * reinstating a phone-first step is a UI change only.
+ */
+export const checkPhoneSchema = z.object({
+  phone_number: z
+    .string()
+    .min(1, "Phone number is required")
+    .regex(
+      NIGERIAN_PHONE_REGEX,
+      "Enter a valid Nigerian mobile number, like 08012345678"
+    )
+    .transform(toCanonicalPhone),
+});
+
+export type CheckPhoneData = z.infer<typeof checkPhoneSchema>;
+
+/**
+ * Step 2: Request Email OTP Schema
  */
 export const requestEmailOtpSchema = z.object({
   email: z

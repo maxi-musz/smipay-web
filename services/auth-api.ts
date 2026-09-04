@@ -47,11 +47,25 @@ export interface SignInPayload {
   password: string;
 }
 
-/** Sign-in response (§3.3) */
+/** Sign-in response (§3.3) — tokens, or admin OTP step when staff password succeeds */
 export interface SignInResponseData {
-  access_token: string;
-  refresh_token: string | null;
-  user: NewAuthUser;
+  access_token?: string;
+  refresh_token?: string | null;
+  user?: NewAuthUser;
+  requires_admin_otp?: boolean;
+  /** New-device sign-in (Security → "OTP on new-device login") — same challenge machinery as the admin OTP step. */
+  requires_device_otp?: boolean;
+  challenge_id?: string;
+  email_hint?: string;
+  resend_available_at?: string;
+  reused_existing_otp?: boolean;
+}
+
+export interface AdminLoginOtpResendData {
+  challenge_id: string;
+  email_hint: string;
+  resend_available_at: string;
+  reused_existing_otp?: boolean;
 }
 
 /** Reset password payload (§3.6) */
@@ -63,7 +77,29 @@ export interface ResetPasswordPayload {
 
 export const authApi = {
   /**
-   * Step 1 — Request email verification (§3.1).
+   * Step 1 — Is this phone number free?
+   *
+   * Runs before any email OTP so a number that already belongs to an active
+   * account costs one tap to discover instead of a wasted send. A 409 means
+   * taken; `register` re-checks server-side regardless.
+   */
+  checkPhoneAvailability: async (
+    phoneNumber: string
+  ): Promise<ApiEnvelope<{ phone_number: string; display: string }>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<{ phone_number: string; display: string }>
+      >("/new-auth/check-phone-availability", {
+        phone_number: phoneNumber.trim(),
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  /**
+   * Step 2 — Request email verification (§3.1).
    * User enters email and clicks "Verify email". Backend sends OTP.
    */
   requestEmailVerification: async (email: string): Promise<ApiEnvelope> => {
@@ -145,6 +181,62 @@ export const authApi = {
         "/new-auth/signin",
         credentials
       );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  verifyAdminLoginOtp: async (
+    challengeId: string,
+    otp: string
+  ): Promise<ApiEnvelope<SignInResponseData>> => {
+    try {
+      const response = await backendApi.post<ApiEnvelope<SignInResponseData>>(
+        "/new-auth/verify-admin-login-otp",
+        { challenge_id: challengeId, otp }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  resendAdminLoginOtp: async (
+    challengeId: string
+  ): Promise<ApiEnvelope<AdminLoginOtpResendData>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<AdminLoginOtpResendData>
+      >("/new-auth/resend-admin-login-otp", { challenge_id: challengeId });
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  verifyDeviceLoginOtp: async (
+    challengeId: string,
+    otp: string
+  ): Promise<ApiEnvelope<SignInResponseData>> => {
+    try {
+      const response = await backendApi.post<ApiEnvelope<SignInResponseData>>(
+        "/new-auth/verify-device-login-otp",
+        { challenge_id: challengeId, otp }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  resendDeviceLoginOtp: async (
+    challengeId: string
+  ): Promise<ApiEnvelope<AdminLoginOtpResendData>> => {
+    try {
+      const response = await backendApi.post<
+        ApiEnvelope<AdminLoginOtpResendData>
+      >("/new-auth/resend-device-login-otp", { challenge_id: challengeId });
       return response.data;
     } catch (error) {
       throw new Error(formatErrorMessage(error));

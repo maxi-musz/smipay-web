@@ -6,6 +6,8 @@ export interface CashbackConfig {
   default_percentage: number;
   max_cashback_per_transaction: number;
   max_cashback_per_day: number;
+  /** Shared across every account tied to one person. 0 disables. */
+  max_cashback_per_identity_day: number;
   min_transaction_amount: number;
   updated_by: string | null;
   createdAt: string;
@@ -17,6 +19,7 @@ export interface CashbackConfigPayload {
   default_percentage?: number;
   max_cashback_per_transaction?: number;
   max_cashback_per_day?: number;
+  max_cashback_per_identity_day?: number;
   min_transaction_amount?: number;
 }
 

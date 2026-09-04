@@ -1,7 +1,15 @@
 import Image from "next/image";
 
-const appStoreUrl = process.env.NEXT_PUBLIC_APP_STORE_URL?.trim() ?? "";
-const playStoreUrl = process.env.NEXT_PUBLIC_PLAY_STORE_URL?.trim() ?? "";
+const DEFAULT_APP_STORE_URL =
+  "https://apps.apple.com/us/app/smipay/id6760297048";
+const DEFAULT_PLAY_STORE_URL =
+  "https://play.google.com/store/search?q=smipay&c=apps&hl=en";
+
+// Empty string in env = show Coming Soon. Missing env = use defaults above.
+const appStoreUrl =
+  process.env.NEXT_PUBLIC_APP_STORE_URL?.trim() ?? DEFAULT_APP_STORE_URL;
+const playStoreUrl =
+  process.env.NEXT_PUBLIC_PLAY_STORE_URL?.trim() ?? DEFAULT_PLAY_STORE_URL;
 
 export default function AppStoreButtons() {
   return (

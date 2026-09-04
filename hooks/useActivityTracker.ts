@@ -9,6 +9,7 @@ import {
   getTimeUntilExpiry,
   SESSION_WARNING_TIME,
   clearAuth,
+  markIntentionalLogout,
 } from "@/lib/auth-storage";
 
 /**
@@ -41,15 +42,14 @@ export function useActivityTracker() {
   }, [logout]);
 
   const handleLogout = useCallback((message?: string) => {
+    markIntentionalLogout();
     clearAuth();
     logout();
 
-    // Redirect to landing page instead of signin.
-    // We intentionally drop the \"session expired\" query so users just see home.
     if (message) {
       console.info(message);
     }
-    router.push("/");
+    router.push("/auth/signin?signed_out=true");
   }, [logout, router]);
 
   const acknowledgeExpiry = useCallback(() => {

@@ -5,6 +5,11 @@ import Image from "next/image";
 import { ChevronDown, Menu, X, LogOut, User, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { markIntentionalLogout } from "@/lib/auth-storage";
+import {
+  MOBILE_ONLY_PATH,
+  WEB_REGISTRATION_ENABLED,
+} from "@/lib/web-access";
 import { Button } from "./ui/button";
 
 export default function HeaderNew() {
@@ -13,8 +18,9 @@ export default function HeaderNew() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
   const handleSignOut = () => {
+    markIntentionalLogout();
     logout();
-    window.location.href = "/";
+    window.location.href = "/auth/signin?signed_out=true";
   };
 
   return (
@@ -100,7 +106,7 @@ export default function HeaderNew() {
                       <>
                         <hr className="my-2" />
                         <Link
-                          href="/unified-admin/dashboard"
+                          href="/admin"
                           className="flex items-center gap-2 rounded px-3 py-2 hover:bg-zinc-100 text-orange-600 font-medium"
                         >
                           <ShieldCheck className="h-4 w-4" />
@@ -131,7 +137,15 @@ export default function HeaderNew() {
                     asChild
                     className="bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90"
                   >
-                    <Link href="/auth/register">Register</Link>
+                    <Link
+                      href={
+                        WEB_REGISTRATION_ENABLED
+                          ? "/auth/register"
+                          : MOBILE_ONLY_PATH
+                      }
+                    >
+                      {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
+                    </Link>
                   </Button>
                 </div>
               )}
@@ -167,7 +181,15 @@ export default function HeaderNew() {
                     size="sm"
                     className="h-8 px-3 rounded-full bg-brand-bg-primary text-white hover:bg-brand-bg-primary/90 text-xs font-semibold"
                   >
-                    <Link href="/auth/register">Register</Link>
+                    <Link
+                      href={
+                        WEB_REGISTRATION_ENABLED
+                          ? "/auth/register"
+                          : MOBILE_ONLY_PATH
+                      }
+                    >
+                      {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
+                    </Link>
                   </Button>
                 </>
               )}
@@ -251,7 +273,7 @@ export default function HeaderNew() {
                     </Link>
                     {user.role && user.role !== "user" && (
                       <Link
-                        href="/unified-admin/dashboard"
+                        href="/admin"
                         className="flex items-center gap-2 py-2.5 hover:bg-white/10 rounded-lg px-3 -mx-3 text-orange-300 font-medium"
                         onClick={() => setIsMenuOpen(false)}
                       >
@@ -289,10 +311,14 @@ export default function HeaderNew() {
                       className="w-full bg-white text-brand-bg-primary hover:bg-white/90 justify-center"
                     >
                       <Link
-                        href="/auth/register"
+                        href={
+                          WEB_REGISTRATION_ENABLED
+                            ? "/auth/register"
+                            : MOBILE_ONLY_PATH
+                        }
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        Register
+                        {WEB_REGISTRATION_ENABLED ? "Register" : "Get the app"}
                       </Link>
                     </Button>
                   </div>
