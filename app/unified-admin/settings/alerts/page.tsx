@@ -19,6 +19,7 @@ import type {
 
 type ToggleKey =
   | "paystack_forgery_alerts"
+  | "forgery_auto_suspend"
   | "vtpass_rejection_alerts"
   | "vtpass_silence_alerts"
   | "wallet_integrity_alerts";
@@ -27,7 +28,12 @@ const TOGGLES: { key: ToggleKey; label: string; help: string }[] = [
   {
     key: "paystack_forgery_alerts",
     label: "Paystack webhook forgery attempts",
-    help: "Email the moment a Paystack webhook is rejected — unsigned, bad signature, a reference Paystack doesn't recognise, or a mismatched amount. Includes the exact payload sent and the target account's profile & wallet.",
+    help: "Email the moment a Paystack webhook is rejected — unsigned, bad signature, a reference Paystack doesn't recognise, or a mismatched amount. Includes the exact payload sent, the attacker's IP & location, and the target account's profile & wallet.",
+  },
+  {
+    key: "forgery_auto_suspend",
+    label: "Auto-suspend forgery targets",
+    help: "When a forged (unsigned or bad-signature) Paystack webhook names a customer code, suspend that SmiPay account immediately — in self-credit fraud it's the attacker's own account. Staff accounts are never auto-suspended, every suspension is audit-logged, and it's reversible from Users. Runs even while alert emails are muted or in cooldown.",
   },
   {
     key: "vtpass_rejection_alerts",
@@ -89,6 +95,7 @@ export default function AlertsSettingsPage() {
         vtpass_silence_alerts: config.vtpass_silence_alerts,
         vtpass_silence_hours: config.vtpass_silence_hours,
         wallet_integrity_alerts: config.wallet_integrity_alerts,
+        forgery_auto_suspend: config.forgery_auto_suspend,
         alert_cooldown_minutes: config.alert_cooldown_minutes,
       });
       setConfig(res.data);
@@ -284,7 +291,7 @@ export default function AlertsSettingsPage() {
                 </label>
                 <p className="text-xs text-dashboard-muted mb-2">
                   Minimum gap between two emails of the same type, so an attacker
-                  can't flood your inbox.
+                  can&apos;t flood your inbox.
                 </p>
                 <input
                   type="number"

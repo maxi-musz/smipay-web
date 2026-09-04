@@ -11,6 +11,8 @@ export interface OpsAlertConfig {
   vtpass_silence_alerts: boolean;
   vtpass_silence_hours: number;
   wallet_integrity_alerts: boolean;
+  /** Auto-suspend accounts targeted by unsigned/bad-signature Paystack webhooks. */
+  forgery_auto_suspend: boolean;
   alert_cooldown_minutes: number;
   /** Server-resolved effective recipients (admin list, else DEV_EMAILS). */
   resolved_recipients: string[];

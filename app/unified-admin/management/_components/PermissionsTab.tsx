@@ -13,6 +13,7 @@ import {
   CornerDownRight,
 } from "lucide-react";
 import { adminManagementApi } from "@/services/admin/management-api";
+import { useAuth } from "@/hooks/useAuth";
 import type {
   AdminGrants,
   AdminModuleGrant,
@@ -81,9 +82,11 @@ function buildSections(modules: AdminModuleGrant[]): SectionGroup[] {
 function draftFromData(d: AdminGrants): Record<string, Crud> {
   const out: Record<string, Crud> = {};
   for (const m of d.modules) {
-    out[m.key] = d.is_super_admin
-      ? { ...m.effective }
-      : { ...(d.has_custom ? (m.own ?? EMPTY) : m.level_default) };
+    out[m.key] = d.has_custom
+      ? { ...(m.own ?? EMPTY) }
+      : d.full_access_default
+        ? { ...m.effective } // start from "everything" and take tabs away
+        : { ...m.level_default };
   }
   return out;
 }
@@ -99,6 +102,7 @@ interface Props {
 }
 
 export function PermissionsTab({ canManage }: Props) {
+  const { user: currentUser } = useAuth();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -182,8 +186,10 @@ export function PermissionsTab({ canManage }: Props) {
     return map;
   }, [data]);
 
-  const isSuper = data?.is_super_admin ?? false;
-  const editable = canManage && !isSuper && !detailLoading;
+  const fullDefault = data?.full_access_default ?? false;
+  // You can't edit your own permissions (backend enforces this too).
+  const isSelf = !!data && data.admin.id === currentUser?.id;
+  const editable = canManage && !isSelf && !detailLoading;
 
   const dirty = useMemo(
     () =>
@@ -263,9 +269,13 @@ export function PermissionsTab({ canManage }: Props) {
 
   const resetToLevel = async () => {
     if (!selectedId || !data) return;
+    const fallback =
+      data.admin.role === "admin"
+        ? "full access"
+        : `their level ${data.admin.permission_level} defaults`;
     const ok = window.confirm(
       `Remove all custom permissions for ${data.admin.email ?? "this admin"}? ` +
-        `They will fall back to their level ${data.admin.permission_level} defaults.`,
+        `They will go back to ${fallback}.`,
     );
     if (!ok) return;
     setResetting(true);
@@ -366,9 +376,9 @@ export function PermissionsTab({ canManage }: Props) {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[300px,1fr]">
-      {/* Admin list */}
-      <div className="h-fit rounded-xl border border-dashboard-border/60 bg-dashboard-surface">
+    <div className="grid items-start gap-4 lg:grid-cols-[300px_1fr]">
+      {/* Admin list — sticks in place while the matrix scrolls */}
+      <div className="h-fit rounded-xl border border-dashboard-border/60 bg-dashboard-surface lg:sticky lg:top-28">
         <div className="border-b border-dashboard-border/60 p-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dashboard-muted" />
@@ -380,14 +390,15 @@ export function PermissionsTab({ canManage }: Props) {
             />
           </div>
         </div>
-        <div className="max-h-[520px] overflow-y-auto p-2">
+        <div className="max-h-[520px] overflow-y-auto p-2 lg:max-h-[calc(100vh-16rem)]">
           {filteredAdmins.map((a) => {
             const name =
               [a.first_name, a.last_name].filter(Boolean).join(" ") ||
               a.email ||
               "—";
             const active = a.id === selectedId;
-            const superAdmin = a.role === "admin";
+            const isMe = a.id === currentUser?.id;
+            const fullAccess = a.role === "admin" && !a.has_custom;
             return (
               <button
                 key={a.id}
@@ -405,6 +416,15 @@ export function PermissionsTab({ canManage }: Props) {
                   }`}
                 >
                   {name}
+                  {isMe && (
+                    <span
+                      className={`ml-1.5 text-xs font-normal ${
+                        active ? "text-white/80" : "text-dashboard-muted"
+                      }`}
+                    >
+                      (you)
+                    </span>
+                  )}
                 </p>
                 <p
                   className={`truncate text-xs ${
@@ -417,14 +437,16 @@ export function PermissionsTab({ canManage }: Props) {
                   className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                     active
                       ? "bg-white/20 text-white"
-                      : superAdmin
+                      : a.has_custom
                         ? "bg-orange-50 text-orange-700"
                         : "bg-dashboard-bg text-dashboard-muted"
                   }`}
                 >
-                  {superAdmin ? (
+                  {a.has_custom ? (
+                    <>Custom</>
+                  ) : fullAccess ? (
                     <>
-                      <ShieldCheck className="h-3 w-3" /> Super admin
+                      <ShieldCheck className="h-3 w-3" /> Full access
                     </>
                   ) : (
                     <>Level {a.permission_level}</>
@@ -482,18 +504,20 @@ export function PermissionsTab({ canManage }: Props) {
                     "—"}
                 </p>
                 <p className="text-xs text-dashboard-muted">
-                  {isSuper ? (
-                    "Super admin — always has full access to everything"
+                  {isSelf ? (
+                    "This is you — you can't edit your own permissions; ask another full-access admin"
                   ) : data.has_custom ? (
                     <span className="font-medium text-orange-700">
                       Custom permissions
                     </span>
+                  ) : fullDefault ? (
+                    "Full access (no custom permissions yet) — uncheck tabs and save to restrict"
                   ) : (
                     `Using level ${data.admin.permission_level} defaults — saving creates custom permissions`
                   )}
                 </p>
               </div>
-              {!isSuper && canManage && (
+              {editable && (
                 <div className="flex items-center gap-2">
                   {data.has_custom && (
                     <button
@@ -507,7 +531,7 @@ export function PermissionsTab({ canManage }: Props) {
                       ) : (
                         <RotateCcw className="h-3.5 w-3.5" />
                       )}
-                      Reset to level defaults
+                      Reset to defaults
                     </button>
                   )}
                   <button
@@ -576,14 +600,14 @@ export function PermissionsTab({ canManage }: Props) {
               ))}
             </div>
 
-            {!isSuper && (
+            {editable && (
               <p className="border-t border-dashboard-border/60 px-4 py-3 text-xs text-dashboard-muted">
                 <strong>Read</strong> controls whether {selected?.first_name ||
                   "the admin"}{" "}
                 sees the tab in their sidebar. Checking Write, Update or Delete
                 turns Read on automatically; unchecking Read on a group hides
-                everything inside it. Clearing every checkbox and saving returns
-                them to their level defaults.
+                everything inside it. Use &quot;Reset to defaults&quot; to
+                remove all custom permissions again.
               </p>
             )}
           </div>

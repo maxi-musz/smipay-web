@@ -82,6 +82,8 @@ export interface AdminUser {
   user_types: string[];
   admin_sign_in_ip_mode: "any" | "allowlist";
   admin_allowed_ips: string[];
+  /** True when the admin has custom per-user grants (Permissions tab). */
+  has_custom?: boolean;
   last_sign_in?: AdminLastSignIn | null;
 }
 
@@ -130,7 +132,12 @@ export interface AdminGrants {
     role: string | null;
     permission_level: number;
   };
-  is_super_admin: boolean;
+  /**
+   * True when the admin currently gets the full-access bypass: role=admin AND
+   * no custom rows. Saving a custom matrix removes the bypass; resetting
+   * restores it.
+   */
+  full_access_default: boolean;
   /** True when the admin has ANY per-user rows (custom mode). */
   has_custom: boolean;
   modules: AdminModuleGrant[];
