@@ -38,6 +38,7 @@ import {
   Mail,
   SlidersHorizontal,
   Circle,
+  BookOpen,
 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import type { EffectiveModule } from "@/types/admin/management";
@@ -191,6 +192,13 @@ const adminMenuItems: AdminMenuItem[] = [
         icon: Sparkles,
         enabled: true,
       },
+      {
+        id: "rewards-report",
+        label: "Reports",
+        href: "/unified-admin/rewards-report",
+        icon: BarChart3,
+        enabled: true,
+      },
     ],
   },
   {
@@ -218,6 +226,13 @@ const adminMenuItems: AdminMenuItem[] = [
         label: "Alerts",
         href: "/unified-admin/settings/alerts",
         icon: BellRing,
+        enabled: true,
+      },
+      {
+        id: "api-docs",
+        label: "API Docs",
+        href: "/unified-admin/settings/api-docs",
+        icon: BookOpen,
         enabled: true,
       },
     ],
@@ -290,6 +305,7 @@ const iconMap: Record<string, LucideIcon> = {
   SlidersHorizontal,
   CreditCard,
   BarChart3,
+  BookOpen,
 };
 
 // Cosmetic "New" badges, keyed by module key (data has no badge column).
