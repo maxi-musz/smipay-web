@@ -82,7 +82,6 @@ export interface AdminUser {
   user_types: string[];
   admin_sign_in_ip_mode: "any" | "allowlist";
   admin_allowed_ips: string[];
-  /** True when the admin has custom per-user grants (Permissions tab). */
   has_custom?: boolean;
   last_sign_in?: AdminLastSignIn | null;
 }
@@ -106,7 +105,6 @@ export interface MePermissions {
 
 // ── Per-admin permissions (Management → Permissions) ──────
 
-/** One module row in the per-user permission editor. */
 export interface AdminModuleGrant {
   key: string;
   label: string;
@@ -115,11 +113,8 @@ export interface AdminModuleGrant {
   parent_key: string | null;
   sort_order: number;
   is_active: boolean;
-  /** What the admin's numeric level would grant (the fallback). */
   level_default: Crud;
-  /** The admin's own per-user row; null when none exists for this module. */
   own: Crud | null;
-  /** What actually applies (own matrix when has_custom, level otherwise). */
   effective: Crud;
 }
 
@@ -132,13 +127,8 @@ export interface AdminGrants {
     role: string | null;
     permission_level: number;
   };
-  /**
-   * True when the admin currently gets the full-access bypass: role=admin AND
-   * no custom rows. Saving a custom matrix removes the bypass; resetting
-   * restores it.
-   */
+  /** role=admin with no custom rows — currently sees everything. */
   full_access_default: boolean;
-  /** True when the admin has ANY per-user rows (custom mode). */
   has_custom: boolean;
   modules: AdminModuleGrant[];
 }

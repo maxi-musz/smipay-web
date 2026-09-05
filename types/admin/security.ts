@@ -6,6 +6,27 @@
 
 export type EnforcementMode = "monitor" | "enforce";
 
+export interface BlockedIp {
+  id: string;
+  ip: string;
+  reason: string;
+  source: "manual" | "auto_forgery" | string;
+  blocked_by: string | null;
+  notes: string | null;
+  hit_count: number;
+  last_hit_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlockedIpsResponse {
+  success: boolean;
+  message: string;
+  data: BlockedIp[];
+}
+
 export type SecurityPolicy = Record<
   string,
   string | number | boolean | null

@@ -1,6 +1,7 @@
 import { backendApi } from "@/lib/api-client-backend";
 import { formatErrorMessage } from "@/lib/error-handler";
 import type {
+  BlockedIpsResponse,
   SecurityEventsResponse,
   SecurityPolicy,
   SecurityPolicyResponse,
@@ -75,6 +76,46 @@ export const adminSecurityApi = {
                 : {}),
           },
         },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  // ── IP blocklist ─────────────────────────────────────────
+
+  listBlockedIps: async (): Promise<BlockedIpsResponse> => {
+    try {
+      const response = await backendApi.get<BlockedIpsResponse>(
+        "/unified-admin/security/blocked-ips",
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  blockIp: async (payload: {
+    ip: string;
+    reason?: string;
+    notes?: string;
+  }): Promise<BlockedIpsResponse> => {
+    try {
+      const response = await backendApi.post<BlockedIpsResponse>(
+        "/unified-admin/security/blocked-ips",
+        payload,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(formatErrorMessage(error));
+    }
+  },
+
+  unblockIp: async (id: string): Promise<BlockedIpsResponse> => {
+    try {
+      const response = await backendApi.delete<BlockedIpsResponse>(
+        `/unified-admin/security/blocked-ips/${encodeURIComponent(id)}`,
       );
       return response.data;
     } catch (error) {

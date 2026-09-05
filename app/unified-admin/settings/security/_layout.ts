@@ -19,7 +19,8 @@ export type TabSpec =
   | { key: string; label: string; kind: "policy"; group: string }
   | { key: string; label: string; kind: "availability"; areas: string[] }
   /** Read-only view of what tripped; has no backing catalogue entry. */
-  | { key: string; label: string; kind: "monitor" };
+  | { key: string; label: string; kind: "monitor" }
+  | { key: string; label: string; kind: "blocked-ips" };
 
 export interface SectionSpec {
   key: string;
@@ -88,6 +89,7 @@ export const SECURITY_LAYOUT: SectionSpec[] = [
         kind: "policy",
         group: "enforcement",
       },
+      { key: "blocked-ips", label: "Blocked IPs", kind: "blocked-ips" },
       { key: "monitor", label: "Monitor log", kind: "monitor" },
     ],
   },
@@ -98,7 +100,8 @@ export type ResolvedTab =
   | { key: string; label: string; kind: "policy"; group: SecurityPolicyGroup }
   | { key: string; label: string; kind: "availability"; areas: MaintenanceFlag[] }
   | { key: string; label: string; kind: "ratelimits"; group: RateLimitGroup }
-  | { key: string; label: string; kind: "monitor" };
+  | { key: string; label: string; kind: "monitor" }
+  | { key: string; label: string; kind: "blocked-ips" };
 
 export interface ResolvedSection {
   key: string;
@@ -130,6 +133,8 @@ export function resolveSections(
       if (tab.kind === "monitor") {
         // Always available — it reads events, not configuration.
         tabs.push({ key: tab.key, label: tab.label, kind: "monitor" });
+      } else if (tab.kind === "blocked-ips") {
+        tabs.push({ key: tab.key, label: tab.label, kind: "blocked-ips" });
       } else if (tab.kind === "policy") {
         const group = groupByKey.get(tab.group);
         if (!group) continue;

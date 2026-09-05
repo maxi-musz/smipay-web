@@ -44,7 +44,6 @@ import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import type { EffectiveModule } from "@/types/admin/management";
 import { SIDEBAR_SECTIONS, sectionIdForModule } from "./sidebar-sections";
 
-/** localStorage key remembering which sidebar sections the admin expanded. */
 const SECTIONS_STORAGE_KEY = "admin-sidebar-sections";
 
 // Show "New" badge until this date (ISO). Used for recently added features (e.g. 7 days).
@@ -398,8 +397,6 @@ export default function AdminSidebar() {
     (!!item.href && item.href !== "/" && isActive(item.href)) ||
     !!item.submenu?.some((sub) => isActive(sub.href));
 
-  // Group top-level items into the named sections (unknown keys fall into the
-  // default section via sectionIdForModule); empty sections are dropped.
   const sections = useMemo(() => {
     const bySection = new Map<string, AdminMenuItem[]>();
     for (const item of menuItems) {
@@ -417,8 +414,7 @@ export default function AdminSidebar() {
   const activeSectionId =
     sections.find((s) => s.items.some(itemContainsActive))?.id ?? null;
 
-  // Collapsed by default; expand the stored choice (or the active section) on
-  // mount only, so SSR markup matches the first client render.
+  // Starts collapsed so SSR markup matches the first client render.
   const [openSections, setOpenSections] = useState<string[]>([]);
   const [sectionsReady, setSectionsReady] = useState(false);
 
@@ -431,15 +427,14 @@ export default function AdminSidebar() {
         stored = parsed.filter((x): x is string => typeof x === "string");
       }
     } catch {
-      // Corrupted value — fall back to defaults.
+      /* corrupted value — use defaults */
     }
     setOpenSections(stored ?? (activeSectionId ? [activeSectionId] : []));
     setSectionsReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Navigating always reveals the section holding the new active page (the
-  // reveal itself is not persisted — only explicit toggles are).
+  // Navigating reveals the section holding the active page.
   useEffect(() => {
     if (!sectionsReady || !activeSectionId) return;
     setOpenSections((prev) =>
@@ -455,7 +450,7 @@ export default function AdminSidebar() {
       try {
         window.localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(next));
       } catch {
-        // Storage unavailable (private mode) — state still works in-memory.
+        /* storage unavailable — in-memory state still works */
       }
       return next;
     });

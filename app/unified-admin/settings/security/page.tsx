@@ -46,6 +46,7 @@ import {
 } from "./_RateLimitsPanel";
 import { MessagesSection } from "./_MessagesPanel";
 import { MonitorLogPanel } from "./_MonitorLogPanel";
+import { BlockedIpsPanel } from "./_BlockedIpsPanel";
 import type { UserMessageItem } from "@/types/admin/messages";
 
 const ICONS: Record<string, typeof ShieldCheck> = {
@@ -653,6 +654,8 @@ export default function SecuritySettingsPage() {
           </>
         ) : tab?.kind === "monitor" ? (
           <MonitorLogPanel enforcing={enforcing} />
+        ) : tab?.kind === "blocked-ips" ? (
+          <BlockedIpsPanel />
         ) : tab?.kind === "ratelimits" ? (
           <>
             <MessagesSection

@@ -53,7 +53,6 @@ interface SectionGroup {
   nodes: TreeNode[];
 }
 
-/** Section → top-level tab → child tabs, mirroring the sidebar layout. */
 function buildSections(modules: AdminModuleGrant[]): SectionGroup[] {
   const sorted = [...modules].sort((a, b) => a.sort_order - b.sort_order);
   const tops = sorted.filter((m) => !m.parent_key);
@@ -74,11 +73,7 @@ function buildSections(modules: AdminModuleGrant[]): SectionGroup[] {
   }));
 }
 
-/**
- * The editable matrix for one admin. Starts from what currently applies:
- * their custom rows when they have any, their level defaults otherwise —
- * saving always persists the whole matrix as that admin's custom permissions.
- */
+// Draft starts from what currently applies; saving persists it as custom.
 function draftFromData(d: AdminGrants): Record<string, Crud> {
   const out: Record<string, Crud> = {};
   for (const m of d.modules) {
@@ -174,7 +169,6 @@ export function PermissionsTab({ canManage }: Props) {
     [data],
   );
 
-  /** Top-level key → its children's keys (for the uncheck-parent cascade). */
   const childKeysOf = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const m of data?.modules ?? []) {
@@ -187,7 +181,6 @@ export function PermissionsTab({ canManage }: Props) {
   }, [data]);
 
   const fullDefault = data?.full_access_default ?? false;
-  // You can't edit your own permissions (backend enforces this too).
   const isSelf = !!data && data.admin.id === currentUser?.id;
   const editable = canManage && !isSelf && !detailLoading;
 
@@ -377,7 +370,7 @@ export function PermissionsTab({ canManage }: Props) {
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[300px_1fr]">
-      {/* Admin list — sticks in place while the matrix scrolls */}
+      {/* Admin list */}
       <div className="h-fit rounded-xl border border-dashboard-border/60 bg-dashboard-surface lg:sticky lg:top-28">
         <div className="border-b border-dashboard-border/60 p-3">
           <div className="relative">

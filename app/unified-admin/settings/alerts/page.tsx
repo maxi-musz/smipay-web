@@ -20,6 +20,7 @@ import type {
 type ToggleKey =
   | "paystack_forgery_alerts"
   | "forgery_auto_suspend"
+  | "forgery_auto_block_ip"
   | "vtpass_rejection_alerts"
   | "vtpass_silence_alerts"
   | "wallet_integrity_alerts";
@@ -34,6 +35,11 @@ const TOGGLES: { key: ToggleKey; label: string; help: string }[] = [
     key: "forgery_auto_suspend",
     label: "Auto-suspend forgery targets",
     help: "When a forged (unsigned or bad-signature) Paystack webhook names a customer code, suspend that SmiPay account immediately — in self-credit fraud it's the attacker's own account. Staff accounts are never auto-suspended, every suspension is audit-logged, and it's reversible from Users. Runs even while alert emails are muted or in cooldown.",
+  },
+  {
+    key: "forgery_auto_block_ip",
+    label: "Auto-block forgers' IPs",
+    help: "When a forged webhook arrives, also block the sender's IP on EVERY endpoint (webhooks included). Only the Cloudflare-attested client IP is ever auto-added — spoofable headers are ignored. OFF by default because Nigerian mobile carriers share one IP across thousands of users (CGNAT), so a block can catch innocent users. Manage and reverse blocks under Settings → Security → Blocked IPs.",
   },
   {
     key: "vtpass_rejection_alerts",
@@ -96,6 +102,7 @@ export default function AlertsSettingsPage() {
         vtpass_silence_hours: config.vtpass_silence_hours,
         wallet_integrity_alerts: config.wallet_integrity_alerts,
         forgery_auto_suspend: config.forgery_auto_suspend,
+        forgery_auto_block_ip: config.forgery_auto_block_ip,
         alert_cooldown_minutes: config.alert_cooldown_minutes,
       });
       setConfig(res.data);

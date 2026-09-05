@@ -1,19 +1,11 @@
-/**
- * Named sections that group the unified-admin sidebar tabs (and the Management
- * → Permissions tree). Purely presentational — modules still come from the
- * access-modules registry / static fallback; this file only decides which
- * section each top-level module key lives under.
- *
- * A module key that isn't mapped here falls into DEFAULT_SECTION so entries
- * registered later from the Management UI never disappear.
- */
+// Groups the unified-admin sidebar tabs (and the Management → Permissions
+// tree). Module keys not mapped here fall into DEFAULT_SECTION.
 
 export interface SidebarSection {
   id: string;
   label: string;
 }
 
-/** Render order of the sections. */
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   { id: "overview", label: "Overview" },
   { id: "people", label: "People" },
@@ -22,7 +14,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   { id: "system", label: "System" },
 ];
 
-/** Top-level module key → section id. Children follow their parent. */
 export const MODULE_SECTION_MAP: Record<string, string> = {
   dashboard: "overview",
   "audit-logs": "overview",
