@@ -21,7 +21,8 @@ export default function AdminAreaLayout({
 }) {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { userTypes, loaded, loading } = useAdminPermissions();
+  const { data, userTypes, loaded, loading, can, isSuperAdmin } =
+    useAdminPermissions();
 
   useEffect(() => {
     if (isLoading || loading) return;
@@ -38,14 +39,16 @@ export default function AdminAreaLayout({
 
     if (!loaded) return;
 
-    // Master admins (role) can view the analyst area too — e.g. via the
-    // unified-admin "Analytics" sidebar tab — alongside tagged analysts.
+    // Full-access admins and tagged analysts can view the analyst area, as can
+    // anyone holding read on the `analytics` module — which is what the API
+    // itself now enforces. A restricted admin no longer gets in on role alone.
     const allowed =
-      user?.role === "admin" ||
+      isSuperAdmin ||
       hasSuperAdminUserType(userTypes) ||
-      hasAnalystUserType(userTypes);
+      hasAnalystUserType(userTypes) ||
+      can("analytics", "read");
     if (!allowed) {
-      router.replace(resolveAdminHomePath({ user_types: userTypes }));
+      router.replace(resolveAdminHomePath(data));
     }
   }, [
     isAuthenticated,
@@ -55,6 +58,9 @@ export default function AdminAreaLayout({
     router,
     user,
     userTypes,
+    data,
+    can,
+    isSuperAdmin,
   ]);
 
   if (isLoading || loading) {

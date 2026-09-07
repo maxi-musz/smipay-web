@@ -1,10 +1,14 @@
 import type { MePermissions } from "@/types/admin/management";
+import { resolveLandingHref } from "@/lib/admin-access";
 
 export const SUPER_ADMIN_TYPE = "super-admin";
 export const ANALYST_TYPE = "analyst";
 
 export const SUPER_ADMIN_HOME = "/unified-admin/dashboard";
 export const ANALYST_HOME = "/admin/analyst";
+
+/** Shown when an account is signed in but has been granted no modules at all. */
+export const NO_ACCESS_HOME = "/unified-admin/no-access";
 
 export function hasSuperAdminUserType(
   userTypes: string[] | null | undefined,
@@ -27,16 +31,29 @@ export function isAnalystOnlyAdmin(
 
 /**
  * Post-login / entry redirect for back-office staff.
- * Uses capability tags from Management → User Types, not role alone.
+ *
+ * Capability tags pick the shell (analyst area vs unified panel); the module
+ * grants then pick the page. Previously this stopped at the tag check and sent
+ * everyone else to the dashboard, which is why an admin with dashboard access
+ * switched off still landed on it.
  */
 export function resolveAdminHomePath(
-  permissions: Pick<MePermissions, "user_types"> | null | undefined,
+  permissions:
+    | Pick<MePermissions, "user_types" | "modules" | "is_super_admin">
+    | null
+    | undefined,
 ): string {
   const types = permissions?.user_types ?? [];
-  if (hasSuperAdminUserType(types)) return SUPER_ADMIN_HOME;
-  if (hasAnalystUserType(types)) return ANALYST_HOME;
-  // Legacy admins without tags — keep existing unified panel until typed.
-  return SUPER_ADMIN_HOME;
+
+  if (hasAnalystUserType(types) && !hasSuperAdminUserType(types)) {
+    return ANALYST_HOME;
+  }
+
+  // Super-admins and legacy untagged admins keep the dashboard; anyone else
+  // lands on the first module they can actually read.
+  return (
+    resolveLandingHref(permissions ?? null, SUPER_ADMIN_HOME) ?? NO_ACCESS_HOME
+  );
 }
 
 export async function fetchAdminHomePath(): Promise<string> {
@@ -74,15 +91,27 @@ export function shouldBlockUnifiedAdminAccess(
 
 export async function resolveStaffRedirect(
   callbackUrl: string | null | undefined,
-  permissions: Pick<MePermissions, "user_types"> | null | undefined,
+  permissions:
+    | Pick<MePermissions, "user_types" | "modules" | "is_super_admin">
+    | null
+    | undefined,
 ): Promise<string> {
   const home = resolveAdminHomePath(permissions);
   if (!callbackUrl?.startsWith("/")) return home;
+
   if (
     shouldBlockUnifiedAdminAccess(permissions?.user_types) &&
     callbackUrl.startsWith("/unified-admin")
   ) {
     return home;
   }
+
+  // Honour the callback only if the account can actually read that page —
+  // otherwise a deep link would drop them straight onto a 403 wall.
+  if (permissions && !permissions.is_super_admin) {
+    const target = resolveLandingHref(permissions, callbackUrl);
+    if (target !== callbackUrl) return home;
+  }
+
   return callbackUrl;
 }

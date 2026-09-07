@@ -270,22 +270,26 @@ const adminMenuItems: AdminMenuItem[] = [
   },
 ];
 
-const adminOtherMenuItems: AdminMenuItem[] = [
-  {
-    id: "analytics",
-    label: "Data Analytics",
-    icon: BarChart3,
-    href: "/admin/analyst",
-    enabled: true,
-  },
-  {
-    id: "website",
-    label: "Back to Website",
-    icon: Globe,
-    href: "/",
-    enabled: true,
-  },
-];
+/**
+ * The "Other" footer links. `analytics` is gated on the module grant like every
+ * other tab — it points at the separate analyst shell, which the API now
+ * enforces `analytics.read` on.
+ */
+const ADMIN_ANALYTICS_ITEM: AdminMenuItem = {
+  id: "analytics",
+  label: "Data Analytics",
+  icon: BarChart3,
+  href: "/admin/analyst",
+  enabled: true,
+};
+
+const ADMIN_WEBSITE_ITEM: AdminMenuItem = {
+  id: "website",
+  label: "Back to Website",
+  icon: Globe,
+  href: "/",
+  enabled: true,
+};
 
 // Maps the `icon` string stored on a registered module to a Lucide component.
 // Unknown / newly-registered icons fall back to a neutral dot, so a brand-new
@@ -373,12 +377,28 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { modules, hasData } = useAdminPermissions();
+  const {
+    modules,
+    hasData,
+    loaded,
+    error: permissionsError,
+    can,
+  } = useAdminPermissions();
 
-  // Data-driven once /me/permissions has loaded; until then (or if it errors —
-  // e.g. before the migration is applied) fall back to the static list so the
-  // panel never renders empty.
-  const menuItems = hasData ? buildMenuFromModules(modules) : adminMenuItems;
+  /**
+   * The sidebar is data-driven from `/me/permissions`.
+   *
+   * Fails closed: if the call errors we render nothing rather than the full
+   * static menu. Showing every tab to an admin who may only read two of them
+   * advertises pages they cannot open, and — before the API was gated — was
+   * the reason a restricted admin still saw the tabs that had been switched
+   * off. The static list is now only a pre-load placeholder.
+   */
+  const menuItems = useMemo(
+    () =>
+      hasData ? buildMenuFromModules(modules) : loaded ? [] : adminMenuItems,
+    [hasData, modules, loaded],
+  );
   const [openMenus, setOpenMenus] = useState<string[]>(() => {
     const initial: string[] = [];
     for (const item of adminMenuItems) {
@@ -396,6 +416,14 @@ export default function AdminSidebar() {
   const itemContainsActive = (item: AdminMenuItem) =>
     (!!item.href && item.href !== "/" && isActive(item.href)) ||
     !!item.submenu?.some((sub) => isActive(sub.href));
+
+  const otherMenuItems = useMemo(() => {
+    const items: AdminMenuItem[] = [];
+    // Same fail-closed rule as the main menu: hide it until we know.
+    if (hasData && can("analytics", "read")) items.push(ADMIN_ANALYTICS_ITEM);
+    items.push(ADMIN_WEBSITE_ITEM);
+    return items;
+  }, [hasData, can]);
 
   const sections = useMemo(() => {
     const bySection = new Map<string, AdminMenuItem[]>();
@@ -625,6 +653,13 @@ export default function AdminSidebar() {
             Admin Panel
           </h3>
           <div className="space-y-2">
+            {sections.length === 0 && loaded ? (
+              <p className="px-1 text-xs leading-relaxed text-dashboard-muted">
+                {permissionsError
+                  ? "Couldn't load your permissions. Refresh the page, or contact a full-access admin if this continues."
+                  : "No sections have been assigned to your account yet."}
+              </p>
+            ) : null}
             {sections.map((section) => {
               const open = openSections.includes(section.id);
               const hasActive = section.items.some(itemContainsActive);
@@ -676,7 +711,7 @@ export default function AdminSidebar() {
           Other
         </h3>
         <nav className="space-y-1">
-          {adminOtherMenuItems.map((item) => renderMenuItem(item, closeMobile))}
+          {otherMenuItems.map((item) => renderMenuItem(item, closeMobile))}
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50 transition-colors"

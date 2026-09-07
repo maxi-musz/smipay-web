@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, Suspense, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, Suspense, useState, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { SessionWarning } from "@/components/auth/SessionWarning";
@@ -16,8 +16,11 @@ import { useAdminSupportGlobalSocket } from "@/hooks/admin/useAdminSupportGlobal
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import {
   ANALYST_HOME,
+  NO_ACCESS_HOME,
+  resolveAdminHomePath,
   shouldBlockUnifiedAdminAccess,
 } from "@/lib/admin-home";
+import { resolveRouteAccess } from "@/lib/admin-access";
 import { customerHome } from "@/lib/web-access";
 import { hasIntentionalLogout } from "@/lib/auth-storage";
 import { Loader2 } from "lucide-react";
@@ -30,8 +33,40 @@ function AdminAuthGuard({
   sessionExpired: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { userTypes, loaded, loading: permissionsLoading } = useAdminPermissions();
+  const {
+    data,
+    userTypes,
+    modules,
+    hasData,
+    loaded,
+    loading: permissionsLoading,
+  } = useAdminPermissions();
+
+  /**
+   * Whether this admin may open the page they are on.
+   *
+   * Only decided once `/me/permissions` has actually returned. While it is
+   * loading — or if it failed — `blocked` stays false and the page renders; the
+   * API is the real gate, so the worst case is a 403 inside the page rather
+   * than a wrongly-locked panel.
+   */
+  const { blocked, fallbackHref } = useMemo(() => {
+    if (!hasData) return { blocked: false, fallbackHref: null as string | null };
+
+    const access = resolveRouteAccess(modules, pathname);
+    if (access.allowed) {
+      return { blocked: false, fallbackHref: null as string | null };
+    }
+
+    const home = resolveAdminHomePath(data);
+    return {
+      blocked: true,
+      // Never bounce to the page we are already on, or we would loop.
+      fallbackHref: home === pathname ? NO_ACCESS_HOME : home,
+    };
+  }, [hasData, modules, pathname, data]);
 
   useEffect(() => {
     if (sessionExpired) return;
@@ -51,6 +86,11 @@ function AdminAuthGuard({
 
     if (loaded && shouldBlockUnifiedAdminAccess(userTypes)) {
       router.replace(ANALYST_HOME);
+      return;
+    }
+
+    if (blocked && fallbackHref) {
+      router.replace(fallbackHref);
     }
   }, [
     isLoading,
@@ -60,13 +100,18 @@ function AdminAuthGuard({
     sessionExpired,
     loaded,
     userTypes,
+    blocked,
+    fallbackHref,
   ]);
 
   if (sessionExpired) {
     return <>{children}</>;
   }
 
-  if (isLoading || permissionsLoading) {
+  // Hold the first paint until permissions have resolved. Without `!loaded`
+  // there is a frame before the fetch starts where `blocked` is still false,
+  // which would flash a module the admin cannot read.
+  if (isLoading || permissionsLoading || !loaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
         <Loader2 className="h-8 w-8 animate-spin text-dashboard-accent" />
@@ -80,6 +125,16 @@ function AdminAuthGuard({
 
   if (loaded && shouldBlockUnifiedAdminAccess(userTypes)) {
     return null;
+  }
+
+  // Hold the page back while the redirect above runs, so a module the admin
+  // cannot read never flashes on screen.
+  if (blocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
+        <Loader2 className="h-8 w-8 animate-spin text-dashboard-accent" />
+      </div>
+    );
   }
 
   return <>{children}</>;
