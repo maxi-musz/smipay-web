@@ -32,6 +32,7 @@ export const MODULE_SECTION_MAP: Record<string, string> = {
   notifications: "engagement",
 
   providers: "system",
+  "kyc-providers": "system",
   settings: "system",
   management: "system",
   compliance: "system",

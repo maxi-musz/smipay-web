@@ -41,7 +41,7 @@ export const SECURITY_LAYOUT: SectionSpec[] = [
     icon: "UserPlus",
     tabs: [
       { key: "device", label: "Device rules", kind: "policy", group: "device" },
-      { key: "login", label: "Login & sessions", kind: "policy", group: "login" },
+      { key: "login", label: "Login & registration", kind: "policy", group: "login" },
       {
         key: "availability",
         label: AVAILABILITY_LABEL,

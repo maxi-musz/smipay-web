@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ChevronDown,
   ChevronRight,
+  Fingerprint,
   Mail,
   MessageSquare,
   Plug,
@@ -30,6 +31,12 @@ const NAV: NavItem[] = [
     label: "Email Providers",
     href: "/unified-admin/providers/email",
     icon: Mail,
+    enabled: true,
+  },
+  {
+    label: "KYC Providers",
+    href: "/unified-admin/providers/kyc",
+    icon: Fingerprint,
     enabled: true,
   },
   {

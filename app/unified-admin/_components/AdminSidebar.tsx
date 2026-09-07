@@ -39,6 +39,7 @@ import {
   SlidersHorizontal,
   Circle,
   BookOpen,
+  Fingerprint,
 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import type { EffectiveModule } from "@/types/admin/management";
@@ -316,6 +317,7 @@ const iconMap: Record<string, LucideIcon> = {
   CreditCard,
   BarChart3,
   BookOpen,
+  Fingerprint,
 };
 
 // Cosmetic "New" badges, keyed by module key (data has no badge column).
