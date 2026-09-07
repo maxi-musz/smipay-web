@@ -4,14 +4,7 @@ import { ShieldOff, RefreshCw } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import { Button } from "@/components/ui/button";
 
-/**
- * Landing page for a staff account that has been granted no modules.
- *
- * Reached when the permission resolver finds nothing this admin can read, so
- * there is no page to send them to. Deliberately a real page rather than a
- * redirect loop back to the dashboard — it tells the person what happened
- * instead of bouncing them between screens they cannot open.
- */
+/** Landing page for a staff account that has been granted no modules. */
 export default function AdminNoAccessPage() {
   const { refetch, loading } = useAdminPermissions();
 

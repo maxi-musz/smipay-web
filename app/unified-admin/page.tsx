@@ -7,13 +7,7 @@ import { Loader2 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import { resolveAdminHomePath, SUPER_ADMIN_HOME } from "@/lib/admin-home";
 
-/**
- * Panel entry point.
- *
- * Sends each admin to the first page they can actually open rather than
- * hard-redirecting everyone to the dashboard — which used to drop a restricted
- * admin onto a module they had no grant for.
- */
+/** Sends each admin to the first page they can open. */
 export default function UnifiedAdminIndexPage() {
   const router = useRouter();
   const { data, loaded } = useAdminPermissions();

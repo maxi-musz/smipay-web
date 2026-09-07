@@ -6,7 +6,19 @@ import { getDeviceMetadataHeaders } from "./device-metadata";
 // Build base URL with API version
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || "/api/v1";
-const BASE_URL = `${API_BASE_URL}${API_VERSION}`;
+const DIRECT_BASE_URL = `${API_BASE_URL}${API_VERSION}`;
+
+/**
+ * Browser traffic goes through this app's signing proxy, which adds the
+ * signature server-side. SSR has no proxy to call and talks to the backend
+ * directly (unsigned read paths only).
+ *
+ * `NEXT_PUBLIC_DISABLE_BACKEND_PROXY=true` falls back to direct calls — for
+ * debugging; with the app gate enforcing those are rejected.
+ */
+const PROXY_DISABLED = process.env.NEXT_PUBLIC_DISABLE_BACKEND_PROXY === "true";
+const USE_PROXY = typeof window !== "undefined" && !PROXY_DISABLED;
+const BASE_URL = USE_PROXY ? "/api/backend" : DIRECT_BASE_URL;
 
 // VTpass and similar flows often exceed 30s; aborting early hides real API errors behind a fake "network" message.
 const BACKEND_REQUEST_TIMEOUT_MS = Number(
@@ -31,9 +43,9 @@ backendApi.interceptors.request.use(
       Object.assign(config.headers, deviceHeaders);
     }
 
-    // Security headers if not bypassed
+    // Identity headers only — the signature is added by the proxy.
     if (!shouldBypassSecurityHeaders()) {
-      const securityHeaders = await generateSecurityHeaders(config.data);
+      const securityHeaders = await generateSecurityHeaders();
       Object.assign(config.headers, securityHeaders);
     }
 

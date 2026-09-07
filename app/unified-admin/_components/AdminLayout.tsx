@@ -44,14 +44,8 @@ function AdminAuthGuard({
     loading: permissionsLoading,
   } = useAdminPermissions();
 
-  /**
-   * Whether this admin may open the page they are on.
-   *
-   * Only decided once `/me/permissions` has actually returned. While it is
-   * loading — or if it failed — `blocked` stays false and the page renders; the
-   * API is the real gate, so the worst case is a 403 inside the page rather
-   * than a wrongly-locked panel.
-   */
+  // Only decided once /me/permissions returns; if it fails we render and let
+  // the API refuse, rather than wrongly locking the panel.
   const { blocked, fallbackHref } = useMemo(() => {
     if (!hasData) return { blocked: false, fallbackHref: null as string | null };
 
@@ -63,7 +57,7 @@ function AdminAuthGuard({
     const home = resolveAdminHomePath(data);
     return {
       blocked: true,
-      // Never bounce to the page we are already on, or we would loop.
+      // Never bounce to the current page, or we loop.
       fallbackHref: home === pathname ? NO_ACCESS_HOME : home,
     };
   }, [hasData, modules, pathname, data]);
@@ -108,9 +102,7 @@ function AdminAuthGuard({
     return <>{children}</>;
   }
 
-  // Hold the first paint until permissions have resolved. Without `!loaded`
-  // there is a frame before the fetch starts where `blocked` is still false,
-  // which would flash a module the admin cannot read.
+  // Hold the first paint until permissions resolve, or a forbidden page flashes.
   if (isLoading || permissionsLoading || !loaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">
@@ -127,8 +119,6 @@ function AdminAuthGuard({
     return null;
   }
 
-  // Hold the page back while the redirect above runs, so a module the admin
-  // cannot read never flashes on screen.
   if (blocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dashboard-bg">

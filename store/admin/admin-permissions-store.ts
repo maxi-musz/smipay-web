@@ -3,6 +3,8 @@ import { adminManagementApi } from "@/services/admin/management-api";
 import type { MePermissions } from "@/types/admin/management";
 
 const CACHE_TTL = 60_000;
+/** Backoff after a failed fetch, so an unreachable API is not hammered. */
+const ERROR_TTL = 5_000;
 
 interface AdminPermissionsState {
   data: MePermissions | null;
@@ -42,12 +44,14 @@ export const useAdminPermissionsStore = create<AdminPermissionsState>(
           set({
             error: res.message || "Failed to load permissions",
             fetched: true,
+            ts: Date.now() - CACHE_TTL + ERROR_TTL,
           });
         }
       } catch (err) {
         set({
           error: err instanceof Error ? err.message : "Failed to load permissions",
           fetched: true,
+          ts: Date.now() - CACHE_TTL + ERROR_TTL,
         });
       } finally {
         set({ loading: false });

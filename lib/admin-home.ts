@@ -30,12 +30,8 @@ export function isAnalystOnlyAdmin(
 }
 
 /**
- * Post-login / entry redirect for back-office staff.
- *
- * Capability tags pick the shell (analyst area vs unified panel); the module
- * grants then pick the page. Previously this stopped at the tag check and sent
- * everyone else to the dashboard, which is why an admin with dashboard access
- * switched off still landed on it.
+ * Post-login redirect. Capability tags pick the shell (analyst vs unified
+ * panel); the module grants then pick the page.
  */
 export function resolveAdminHomePath(
   permissions:
@@ -49,8 +45,6 @@ export function resolveAdminHomePath(
     return ANALYST_HOME;
   }
 
-  // Super-admins and legacy untagged admins keep the dashboard; anyone else
-  // lands on the first module they can actually read.
   return (
     resolveLandingHref(permissions ?? null, SUPER_ADMIN_HOME) ?? NO_ACCESS_HOME
   );
@@ -106,8 +100,7 @@ export async function resolveStaffRedirect(
     return home;
   }
 
-  // Honour the callback only if the account can actually read that page —
-  // otherwise a deep link would drop them straight onto a 403 wall.
+  // Only honour a callback the account can actually read.
   if (permissions && !permissions.is_super_admin) {
     const target = resolveLandingHref(permissions, callbackUrl);
     if (target !== callbackUrl) return home;

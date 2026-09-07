@@ -270,11 +270,7 @@ const adminMenuItems: AdminMenuItem[] = [
   },
 ];
 
-/**
- * The "Other" footer links. `analytics` is gated on the module grant like every
- * other tab — it points at the separate analyst shell, which the API now
- * enforces `analytics.read` on.
- */
+/** Footer links. `analytics` is gated on the module grant like every other tab. */
 const ADMIN_ANALYTICS_ITEM: AdminMenuItem = {
   id: "analytics",
   label: "Data Analytics",
@@ -385,15 +381,8 @@ export default function AdminSidebar() {
     can,
   } = useAdminPermissions();
 
-  /**
-   * The sidebar is data-driven from `/me/permissions`.
-   *
-   * Fails closed: if the call errors we render nothing rather than the full
-   * static menu. Showing every tab to an admin who may only read two of them
-   * advertises pages they cannot open, and — before the API was gated — was
-   * the reason a restricted admin still saw the tabs that had been switched
-   * off. The static list is now only a pre-load placeholder.
-   */
+  // Built from /me/permissions. Fails closed: on error render nothing rather
+  // than the full static menu. The static list is a pre-load placeholder only.
   const menuItems = useMemo(
     () =>
       hasData ? buildMenuFromModules(modules) : loaded ? [] : adminMenuItems,
@@ -419,7 +408,6 @@ export default function AdminSidebar() {
 
   const otherMenuItems = useMemo(() => {
     const items: AdminMenuItem[] = [];
-    // Same fail-closed rule as the main menu: hide it until we know.
     if (hasData && can("analytics", "read")) items.push(ADMIN_ANALYTICS_ITEM);
     items.push(ADMIN_WEBSITE_ITEM);
     return items;

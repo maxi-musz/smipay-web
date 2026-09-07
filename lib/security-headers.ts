@@ -4,9 +4,6 @@
  */
 
 export interface SecurityHeaders {
-  "x-timestamp": string;
-  "x-nonce": string;
-  "x-signature": string;
   "x-request-id": string;
   "x-device-id": string;
   "x-device-fingerprint": string;
@@ -44,46 +41,9 @@ async function sha256Browser(message: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Generate HMAC-SHA256 signature for request body (browser-compatible)
- * @param body - Request body as string or object
- * @param secret - Secret key for signing (from env)
- */
-export async function generateSignature(
-  body: string | Record<string, unknown>,
-  secret: string
-): Promise<string> {
-  const bodyString = typeof body === "string" ? body : JSON.stringify(body);
-  
-  if (typeof window === "undefined") {
-    // Server-side: Use Node.js crypto (dynamic import)
-    const { createHmac } = await import("crypto");
-    return createHmac("sha256", secret).update(bodyString).digest("hex");
-  }
-
-  // Browser: Use Web Crypto API
-  try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const messageData = encoder.encode(bodyString);
-
-    const key = await window.crypto.subtle.importKey(
-      "raw",
-      keyData,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-
-    const signature = await window.crypto.subtle.sign("HMAC", key, messageData);
-    const hashArray = Array.from(new Uint8Array(signature));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (error) {
-    console.error("Error generating signature:", error);
-    // Fallback: simple hash
-    return await sha256Browser(bodyString + secret);
-  }
-}
+// Request signing happens server-side in `app/api/backend/[...path]/route.ts`.
+// Do not reintroduce a client-side `generateSignature`: a browser has no secret
+// a script does not also have.
 
 /**
  * Get or create device ID (stored in localStorage)
@@ -141,29 +101,12 @@ export async function getDeviceFingerprint(): Promise<string> {
   return fingerprint;
 }
 
-/**
- * Generate all required security headers for API requests
- * @param body - Request body (optional, used for signature)
- */
-export async function generateSecurityHeaders(
-  body?: Record<string, unknown> | string
-): Promise<SecurityHeaders> {
-  const timestamp = Date.now().toString();
-  const nonce = generateNonce();
-  const requestId = generateRequestId();
-  const deviceId = getDeviceId();
-  const deviceFingerprint = await getDeviceFingerprint();
-
-  const secret = process.env.NEXT_PUBLIC_API_SECRET || "default-secret-key";
-  const signature = await generateSignature(body ?? "", secret);
-
+/** Identity and device hints — the headers a browser can legitimately produce. */
+export async function generateSecurityHeaders(): Promise<SecurityHeaders> {
   return {
-    "x-timestamp": timestamp,
-    "x-nonce": nonce,
-    "x-signature": signature,
-    "x-request-id": requestId,
-    "x-device-id": deviceId,
-    "x-device-fingerprint": deviceFingerprint,
+    "x-request-id": generateRequestId(),
+    "x-device-id": getDeviceId(),
+    "x-device-fingerprint": await getDeviceFingerprint(),
   };
 }
 
