@@ -16,7 +16,7 @@ export type EmailDeliveryStatus =
   | "complained"
   | "failed";
 
-export type EmailDriver = "resend" | "sendgrid" | "smtp";
+export type EmailDriver = "ses" | "resend" | "sendgrid" | "smtp";
 
 export interface EmailConfig {
   id: string;
@@ -41,6 +41,9 @@ export interface EmailProviderDefaults {
   smtp_port?: number;
   smtp_secure?: boolean;
   smtp_user?: string;
+  ses_region?: string;
+  ses_configuration_set?: string;
+  sns_topic_arn?: string;
 }
 
 export interface EmailProviderStats {

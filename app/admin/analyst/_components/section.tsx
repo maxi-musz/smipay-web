@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertCircle,
@@ -120,18 +120,16 @@ export function DateRange({
   const [draftTo, setDraftTo] = useState("");
   const [draftError, setDraftError] = useState("");
 
-  useEffect(() => {
-    if (!open) return;
-    if (period.mode === "custom") {
-      setDraftFrom(isoToLagosInput(period.from));
-      setDraftTo(isoToLagosInput(period.to));
-    } else {
-      const d = defaultCustomDraft();
-      setDraftFrom(d.from);
-      setDraftTo(d.to);
-    }
+  const openCustom = () => {
+    const d =
+      period.mode === "custom"
+        ? { from: isoToLagosInput(period.from), to: isoToLagosInput(period.to) }
+        : defaultCustomDraft();
+    setDraftFrom(d.from);
+    setDraftTo(d.to);
     setDraftError("");
-  }, [open, period]);
+    setOpen(true);
+  };
 
   const applyCustom = () => {
     const fromIso = lagosInputToIso(draftFrom);
@@ -174,7 +172,7 @@ export function DateRange({
         <button
           type="button"
           title="Pick an exact start and end in Nigeria time (WAT)"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => (open ? setOpen(false) : openCustom())}
           className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
             customActive
               ? "bg-brand-bg-primary text-white shadow-sm"

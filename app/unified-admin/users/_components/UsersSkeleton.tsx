@@ -25,7 +25,7 @@ export function UsersSkeleton() {
 
       <div className="px-4 py-4 sm:px-6 sm:py-5 lg:px-8 space-y-3">
         {/* Analytics cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5 items-start">
           {Array.from({ length: 5 }).map((_, i) => (
             <motion.div
               key={i}
@@ -37,6 +37,19 @@ export function UsersSkeleton() {
               <Pulse className="h-3 w-20 mb-2" />
               <Pulse className="h-6 w-20 mb-1" />
               <Pulse className="h-2.5 w-16" />
+              {i === 0 && (
+                <div className="mt-3 space-y-2.5">
+                  {Array.from({ length: 5 }).map((_, j) => (
+                    <div key={j} className="space-y-1">
+                      <div className="flex justify-between">
+                        <Pulse className="h-2.5 w-20" />
+                        <Pulse className="h-2.5 w-10" />
+                      </div>
+                      <Pulse className="h-1 w-full rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

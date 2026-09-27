@@ -4,6 +4,11 @@ import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { FailedLoginWatchlistRow } from "@/types/admin/analytics";
+import {
+  BreakdownList,
+  PctBar,
+  type BreakdownRow,
+} from "@/app/unified-admin/_components/VerificationBreakdownList";
 import { fmtDelta, fmtInt } from "./format";
 import { HelpTooltip } from "./help-tooltip";
 
@@ -15,6 +20,8 @@ export function KpiCard({
   icon: Icon,
   hint,
   tooltip,
+  headlinePct,
+  breakdown,
 }: {
   title: string;
   value: string;
@@ -23,42 +30,63 @@ export function KpiCard({
   icon?: LucideIcon;
   hint?: string;
   tooltip?: string;
+  headlinePct?: number;
+  breakdown?: BreakdownRow[];
 }) {
   const up = (delta ?? 0) >= 0;
   const good = up === deltaGoodWhenUp;
   return (
-    <div className="rounded-xl border border-dashboard-border/60 bg-dashboard-surface p-4">
+    <div className="flex h-full min-w-0 flex-col rounded-xl border border-dashboard-border/60 bg-dashboard-surface p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1">
-          <p className="text-xs font-medium text-dashboard-muted">{title}</p>
+          <p className="truncate text-xs font-medium text-dashboard-muted">{title}</p>
           {tooltip && <HelpTooltip text={tooltip} />}
         </div>
         {Icon && (
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-dashboard-heading">
+      <p
+        className="mt-1.5 break-words text-xl font-bold tabular-nums tracking-tight text-dashboard-heading sm:text-2xl"
+      >
         {value}
       </p>
-      <div className="mt-1 flex items-center gap-2">
-        {delta !== undefined && (
-          <span
-            className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-              good ? "text-emerald-600" : "text-red-500"
-            }`}
-          >
-            {up ? (
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            ) : (
-              <ArrowDownRight className="h-3.5 w-3.5" />
-            )}
-            {fmtDelta(delta)}
-          </span>
-        )}
-        {hint && <span className="text-xs text-dashboard-muted">{hint}</span>}
-      </div>
+      {(delta !== undefined || hint) && (
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          {delta !== undefined && (
+            <span
+              className={`inline-flex shrink-0 items-center gap-0.5 text-xs font-semibold ${
+                good ? "text-emerald-600" : "text-red-500"
+              }`}
+            >
+              {up ? (
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              ) : (
+                <ArrowDownRight className="h-3.5 w-3.5" />
+              )}
+              {fmtDelta(delta)}
+            </span>
+          )}
+          {hint && (
+            <span className="min-w-0 text-xs text-dashboard-muted">
+              {hint}
+            </span>
+          )}
+        </div>
+      )}
+      {headlinePct !== undefined && (
+        <div className="mt-auto pt-2.5">
+          <PctBar value={headlinePct} tone="positive" />
+        </div>
+      )}
+      {breakdown && breakdown.length > 0 && (
+        <BreakdownList
+          rows={breakdown}
+          className="mt-3 border-t border-dashboard-border/40 pt-3"
+        />
+      )}
     </div>
   );
 }

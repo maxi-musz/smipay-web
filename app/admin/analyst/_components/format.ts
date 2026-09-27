@@ -52,3 +52,5 @@ export const PALETTE = [
 export const BRAND = "#ea6c0b";
 export const AXIS_COLOR = "#94a3b8";
 export const GRID_COLOR = "#e2e8f0";
+export const VERIFIED_COLOR = "#059669";
+export const UNVERIFIED_COLOR = "#f59e0b";

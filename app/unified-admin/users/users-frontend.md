@@ -22,11 +22,30 @@ Returns both the **analytics** (for the cards/charts above the table) and the **
 | `role` | string | — | Filter by role. Values: `user`, `agent`, `support`, `compliance_officer`, `finance`, `operations`, `admin` |
 | `account_status` | string | — | Filter by status. Values: `active`, `suspended` |
 | `tier` | string | — | Filter by tier key (e.g. `"UNVERIFIED"`, `"VERIFIED"`, `"PREMIUM"`) |
-| `kyc_status` | string | — | Filter by KYC status. Values: `verified`, `pending`, `rejected`, `none` |
+| `kyc_status` | string | — | **Legacy** KYC status (`KycVerification.status`, old Flutterwave-era flow; shown as "Legacy KYC" in the UI). Values: `verified`, `pending`, `rejected`, `none` |
+| `email_verified` | string | — | `true` / `false` — filter on `is_email_verified`. Omit for any. |
+| `phone_verified` | string | — | `true` / `false` — filter on `is_phone_verified`. Omit for any. |
+| `bvn_verified` | string | — | `true` / `false` — BVN verified (`bvn_verifications.is_verified` **or** legacy `KycVerification.bvn_verified`). `false` also matches users with no BVN row. Omit for any. |
 | `date_from` | string | — | Filter users registered on or after this date (ISO 8601, e.g. `"2026-01-01"`) |
 | `date_to` | string | — | Filter users registered on or before this date |
 | `sort_by` | string | `createdAt` | Sort field. Options: `createdAt`, `first_name`, `last_name`, `email`, `phone_number` |
 | `sort_order` | string | `desc` | Sort direction: `asc` or `desc` |
+
+The three verification params are strings, not booleans, and are AND-combined with every other filter. The web client (`services/admin/users-api.ts` `buildParams`) only sends them when set to `"true"`/`"false"`.
+
+### Views (web UI)
+
+The page opens on **Phone verified** customers — phone is the minimum signal of a real user. Tabs map to fixed filter sets (`USER_VIEW_FILTERS` in `types/admin/users.ts`); email verification is not used in the UI.
+
+| View | Params sent | Tab count |
+|------|-------------|-----------|
+| Phone verified (default) | `phone_verified=true&customers_only=true` | `verification.phone_verified` |
+| Phone + BVN | `phone_verified=true&bvn_verified=true&customers_only=true` | `verification.phone_and_bvn` |
+| BVN verified | `bvn_verified=true&customers_only=true` | `verification.bvn_verified` |
+| Not phone-verified | `phone_verified=false&customers_only=true` | `verification.total - verification.phone_verified` |
+| All accounts | none (staff included) | `overview.cohort_all_users` |
+
+Deep link: `/unified-admin/users?view=phone|phone_bvn|bvn|not_phone|all` (used by the dashboard verification tiles). "Clear filters" keeps the selected view.
 
 ### Example Request
 ```
@@ -43,7 +62,15 @@ GET /api/v1/unified-admin/users?page=1&limit=20&search=john&account_status=activ
       "overview": {
         "total_users": 3250,
         "active_users": 3100,
-        "suspended_users": 150
+        "suspended_users": 150,
+        "verification": {
+          "total": 3180,
+          "bvn_verified": 1120,
+          "phone_verified": 2400,
+          "email_verified": 3176,
+          "phone_and_bvn": 1090,
+          "unverified": 750
+        }
       },
       "growth": {
         "new_today": 12,
@@ -113,6 +140,9 @@ GET /api/v1/unified-admin/users?page=1&limit=20&search=john&account_status=activ
           "bvn_verified": true,
           "id_type": "NIGERIAN_NIN"
         },
+        "bvn_verification": {
+          "is_verified": true
+        },
         "last_activity": {
           "action": "WALLET_FUND",
           "description": "User funded wallet via Paystack — ₦10,000.00",
@@ -135,13 +165,15 @@ GET /api/v1/unified-admin/users?page=1&limit=20&search=john&account_status=activ
 
 ### Analytics Object (`data.analytics`)
 
-Rendered above the table as cards and charts. Analytics reflect the full user base — they are **not** affected by filters/search/pagination.
+Rendered above the table as cards and charts. Analytics are computed over the users matching the current search/filters (not pagination) — the same cohort as `meta.total`.
 
 | Field | Type | Description |
 |---|---|---|
 | `overview.total_users` | number | Total registered users |
 | `overview.active_users` | number | Users with `active` status |
 | `overview.suspended_users` | number | Users with `suspended` status |
+| `overview.verification` | object \| absent | Verification counts for users **matching the current search/filters** — customers only (`role` null/`user`/`agent`) unless a `role` filter is set. Fields: `total` (denominator for every %), `bvn_verified`, `phone_verified`, `email_verified` (set by both sign-up flows, ~100%), `phone_and_bvn`, `unverified` (neither phone nor BVN). Absent on an older backend. |
+| `overview.cohort_all_users` | number \| absent | Accounts matching search/filters **before** any verification or customers-only scope (staff included) — the "All accounts" tab count. |
 | `growth.new_today` | number | Signups since midnight today |
 | `growth.new_this_week` | number | Signups in the last 7 days |
 | `growth.new_this_month` | number | Signups in the last 30 days |
@@ -200,7 +232,8 @@ Rendered above the table as cards and charts. Analytics reflect the full user ba
 | `updatedAt` | string | ISO datetime |
 | `tier` | object \| null | `{ id, tier, name }` — current tier |
 | `profile_image` | object \| null | `{ secure_url }` — profile image URL |
-| `kyc_verification` | object \| null | `{ status, is_verified, bvn_verified, id_type }` — KYC summary |
+| `kyc_verification` | object \| null | `{ status, is_verified, bvn_verified, id_type }` — legacy KYC summary |
+| `bvn_verification` | object \| null | `{ is_verified }` — current BVN verification; `null` when never started. A user is BVN verified when this **or** `kyc_verification.bvn_verified` is true. |
 | `last_activity` | object \| null | Most recent audit log entry for this user (see below) |
 
 ### Last Activity Object (`last_activity`)
@@ -459,10 +492,11 @@ Returns the full user profile including wallet, address, full KYC details, and c
 ### Page Load
 One call does everything — `GET /unified-admin/users` returns `analytics` + `users` + `meta`. Render analytics at the top, then the table below.
 
-When the user changes page/filters/search, the same endpoint is called again. The `analytics` section is always returned with global numbers (not affected by table filters), so you can keep it updated on every fetch for free.
+When the user changes page/filters/search, the same endpoint is called again. The `analytics` section follows the current search/filters (not the page), so it updates on every fetch for free.
 
 ### Analytics Section (Above Table)
-- **Overview cards:** Total users, Active, Suspended, New Today — display as stat cards with icons. Use `growth.month_over_month_percent` to show a green/red arrow indicator.
+- **Verified Users card** (`_components/UsersAnalytics.tsx`): headline `overview.verification.bvn_verified` with a share bar, rows Phone verified · Email verified (greyed, "set at sign-up") · Phone + BVN · Unverified as shares of `verification.total`, footer "of N customers" ("users" when a role filter is set). The headline and every row are **clickable** and apply the matching `email_verified`/`phone_verified`/`bvn_verified` filters (each row sets all three, e.g. Unverified = `phone_verified=false&bvn_verified=false`); clicking the applied row again, or "Clear filter", removes them. Because the counts follow the filters, an applied row reads 100%. Falls back to the old "Total Users" card when `verification` is absent.
+- **Overview cards:** Active, Suspended, New Today, Wallet total — display as stat cards with icons. Use `growth.month_over_month_percent` to show a green/red arrow indicator.
 - **KYC breakdown:** Donut or pie chart — verified (green), pending (yellow), rejected (red), none (gray).
 - **Role distribution:** Horizontal bar chart or chip-style badges with counts.
 - **Tier distribution:** Stacked bar or donut. Useful for seeing what percentage of users are verified.
@@ -470,7 +504,9 @@ When the user changes page/filters/search, the same endpoint is called again. Th
 
 ### Users Table (Below Analytics)
 - **Search:** Debounce search input (300-500ms) before making API calls. Searches first name, last name, email, phone, and Smipay tag.
-- **Filters:** Stack filters — they are AND-combined. Search + role + status + tier + kyc_status + date range all work together. Show active filters as removable chips.
+- **Filters:** Stack filters — they are AND-combined. Search + role + status + tier + kyc_status + date range + verification all work together. The Filters panel has a "Verification" row (Phone / Email / BVN: any · verified · not verified); the legacy `kyc_status` dropdown is labelled "Legacy KYC". Show active filters as removable chips.
+- **Verification column:** Phone / Email / BVN pills (green = verified) from `is_phone_verified`, `is_email_verified` and `bvn_verification?.is_verified || kyc_verification?.bvn_verified`. It replaced the old KYC column, which read the legacy `kyc_verification.status` that nothing writes any more.
+- **Test identity guards:** header button (only with `identity-guards` read permission, or super admin) that opens the Identity Guards simulator drawer. Nothing is saved and no provider is called.
 - **Pagination:** Use `meta.total_pages` to render pagination controls. Show `meta.total` as "X users found".
 - **Last Activity column:** Show `last_activity.description` truncated + relative time (e.g. "Funded wallet — 2h ago"). Full details on hover tooltip. If `null`, show "No activity" in muted text.
 - **Row click:** Navigate to the user detail view (`GET /users/:id`). The detail endpoint returns wallet balance, full KYC, address, and activity counts.

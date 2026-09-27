@@ -45,12 +45,14 @@ export function TrendChart({
   height = 260,
   yTickFormatter,
   valueFormatter,
+  stacked = false,
 }: {
   data: Record<string, unknown>[];
   series: SeriesDef[];
   height?: number;
   yTickFormatter?: (v: number) => string;
   valueFormatter?: (v: number) => string;
+  stacked?: boolean;
 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -98,6 +100,7 @@ export function TrendChart({
               type="monotone"
               dataKey={s.key}
               name={s.label}
+              stackId={stacked ? "stack" : undefined}
               stroke={c}
               strokeWidth={2}
               fill={`url(#grad-${s.key})`}

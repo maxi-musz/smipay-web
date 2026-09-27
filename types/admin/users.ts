@@ -1,3 +1,8 @@
+import type {
+  VerificationBreakdown,
+  VerificationFlagFilter,
+} from "@/types/admin/verification";
+
 // --- Enums ---
 
 export const USER_ROLES = [
@@ -40,6 +45,8 @@ export interface UserOverview {
   total_main_wallet_balance: number;
   /** Sum of cashback `current_balance` for users matching current list filters. */
   total_cashback_balance: number;
+  verification?: VerificationBreakdown | null;
+  cohort_all_users?: number;
 }
 
 export interface UserGrowth {
@@ -126,6 +133,7 @@ export interface AdminUser {
     bvn_verified: boolean;
     id_type: string | null;
   } | null;
+  bvn_verification?: { is_verified: boolean } | null;
   /** Main wallet; null if no wallet row (unusual). */
   wallet: {
     current_balance: number;
@@ -280,6 +288,11 @@ export interface UserFilters {
   sort_order: string;
   /** Filter by wallet rollup integrity (`ok` / `fail`). Empty = no filter. Cohort must be ≤20k users. */
   wallet_integrity: "" | "ok" | "fail";
+  email_verified: VerificationFlagFilter;
+  phone_verified: VerificationFlagFilter;
+  bvn_verified: VerificationFlagFilter;
+  /** "true" excludes staff; the backend ignores it while a role filter is set. */
+  customers_only: "" | "true";
 }
 
 // --- API Responses ---
@@ -338,4 +351,84 @@ export interface AdjustBalancesResponse {
   success: boolean;
   message: string;
   data: AdjustBalancesResult;
+}
+
+// --- Views (phone verification is the minimum signal of a real customer) ---
+
+export const USER_VIEWS = [
+  {
+    key: "phone",
+    label: "Phone verified",
+    description: "Customers who confirmed their phone number by SMS",
+  },
+  {
+    key: "phone_bvn",
+    label: "Phone + BVN",
+    description: "Customers with both phone and BVN verified",
+  },
+  {
+    key: "bvn",
+    label: "BVN verified",
+    description: "Customers with a verified BVN",
+  },
+  {
+    key: "not_phone",
+    label: "Not phone-verified",
+    description: "Customers who never confirmed a phone number",
+  },
+  {
+    key: "all",
+    label: "All accounts",
+    description: "Every account, including staff",
+  },
+] as const;
+
+export type UserView = (typeof USER_VIEWS)[number]["key"];
+
+export const DEFAULT_USER_VIEW: UserView = "phone";
+
+export type UserViewFilters = Pick<
+  UserFilters,
+  "phone_verified" | "bvn_verified" | "email_verified" | "customers_only"
+>;
+
+export const USER_VIEW_FILTERS: Record<UserView, UserViewFilters> = {
+  phone: { phone_verified: "true", bvn_verified: "", email_verified: "", customers_only: "true" },
+  phone_bvn: { phone_verified: "true", bvn_verified: "true", email_verified: "", customers_only: "true" },
+  bvn: { phone_verified: "", bvn_verified: "true", email_verified: "", customers_only: "true" },
+  not_phone: { phone_verified: "false", bvn_verified: "", email_verified: "", customers_only: "true" },
+  all: { phone_verified: "", bvn_verified: "", email_verified: "", customers_only: "" },
+};
+
+export function isUserView(value: string | null | undefined): value is UserView {
+  return USER_VIEWS.some((v) => v.key === value);
+}
+
+export function viewFromFilters(f: UserViewFilters): UserView | null {
+  const match = USER_VIEWS.find(({ key }) => {
+    const v = USER_VIEW_FILTERS[key];
+    return (
+      v.phone_verified === f.phone_verified &&
+      v.bvn_verified === f.bvn_verified &&
+      v.email_verified === f.email_verified &&
+      v.customers_only === f.customers_only
+    );
+  });
+  return match?.key ?? null;
+}
+
+export function userViewCounts(
+  overview: UserOverview,
+): Partial<Record<UserView, number>> {
+  const v = overview.verification;
+  if (!v) return {};
+  return {
+    phone: v.phone_verified,
+    phone_bvn: v.phone_and_bvn,
+    bvn: v.bvn_verified,
+    not_phone: Math.max(0, v.total - v.phone_verified),
+    ...(typeof overview.cohort_all_users === "number"
+      ? { all: overview.cohort_all_users }
+      : {}),
+  };
 }

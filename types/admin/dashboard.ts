@@ -1,9 +1,12 @@
+import type { VerificationBreakdown } from "@/types/admin/verification";
+
 export interface AdminDashboardUsers {
   total: number;
   new_today: number;
   new_this_week: number;
   active: number;
   suspended: number;
+  verification?: VerificationBreakdown | null;
 }
 
 export interface AdminDashboardTransactions {
@@ -30,6 +33,13 @@ export interface AdminDashboardKYC {
   approved_today: number;
   approved_this_week: number;
   rejected: number;
+}
+
+export interface AdminDashboardBvn {
+  verified_total: number;
+  verified_today: number;
+  pending_otp: number;
+  failed_today: number;
 }
 
 export interface AdminDashboardCompliance {
@@ -86,6 +96,7 @@ export interface AdminDashboardData {
   support: AdminDashboardSupport;
   wallets: AdminDashboardWallets;
   kyc: AdminDashboardKYC;
+  bvn?: AdminDashboardBvn | null;
   compliance: AdminDashboardCompliance;
   cards: AdminDashboardCards;
   referrals: AdminDashboardReferrals;

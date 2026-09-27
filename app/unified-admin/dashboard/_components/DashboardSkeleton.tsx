@@ -32,6 +32,19 @@ export function DashboardSkeleton() {
           ))}
         </div>
 
+        <div className="bg-dashboard-surface rounded-xl border border-dashboard-border/60 p-4 sm:p-5 animate-pulse">
+          <div className="h-3.5 w-40 bg-dashboard-border/60 rounded mb-3" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            {[1, 2, 3, 4, 5].map((j) => (
+              <div key={j} className="rounded-lg border border-dashboard-border/40 p-3 space-y-2">
+                <div className="h-2.5 w-20 bg-dashboard-border/40 rounded" />
+                <div className="h-5 w-16 bg-dashboard-border/60 rounded" />
+                <div className="h-1 w-full bg-dashboard-border/40 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Second stats row skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (

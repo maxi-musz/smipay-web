@@ -257,6 +257,21 @@ export default function UserDetailPage() {
           <InfoRow label="Full Name" value={[user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ") || "—"} />
           <InfoRow label="Email" value={<span className="inline-flex items-center gap-1">{user.email ?? "—"} <VerifyIcon ok={user.is_email_verified} /></span>} />
           <InfoRow label="Phone" value={<span className="inline-flex items-center gap-1">{user.phone_number} <VerifyIcon ok={user.is_phone_verified} /></span>} />
+          <InfoRow
+            label="BVN"
+            value={
+              <span className="inline-flex items-center gap-1">
+                {user.bvn_verification?.is_verified || user.kyc_verification?.bvn_verified
+                  ? "Verified"
+                  : "Not verified"}
+                <VerifyIcon
+                  ok={Boolean(
+                    user.bvn_verification?.is_verified || user.kyc_verification?.bvn_verified,
+                  )}
+                />
+              </span>
+            }
+          />
           <InfoRow label="Smipay Tag" value={user.smipay_tag ? `@${user.smipay_tag}` : "—"} />
           <InfoRow label="Role" value={<span className="capitalize">{user.role.replace(/_/g, " ")}</span>} />
           <InfoRow label="Gender" value={<span className="capitalize">{user.gender ?? "—"}</span>} />

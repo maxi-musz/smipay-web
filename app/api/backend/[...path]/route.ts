@@ -26,14 +26,16 @@ const SIGN_DENY_WHEN_WEB_SIGNUP_DISABLED = [
   "/new-auth/verify-phone-for-registration",
   "/new-auth/request-email-verification",
   "/new-auth/verify-email-for-registration",
+  // Paid Dojah lookup + SMS; the web has no BVN flow.
+  "/registration/bvn",
 ];
 
 function isSignatureDenied(backendPathWithoutVersion: string): boolean {
   if (WEB_REGISTRATION_ENABLED) return false;
+  // Express routes case-insensitively, so compare lowercased.
+  const path = backendPathWithoutVersion.toLowerCase();
   return SIGN_DENY_WHEN_WEB_SIGNUP_DISABLED.some(
-    (p) =>
-      backendPathWithoutVersion === p ||
-      backendPathWithoutVersion.startsWith(`${p}/`),
+    (p) => path === p || path.startsWith(`${p}/`),
   );
 }
 

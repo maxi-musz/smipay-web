@@ -20,6 +20,7 @@ export const MODULE_SECTION_MAP: Record<string, string> = {
 
   users: "people",
   kyc: "people",
+  "identity-guards": "people",
   devices: "people",
 
   transactions: "money",

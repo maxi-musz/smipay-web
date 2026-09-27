@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, X, SlidersHorizontal, RotateCcw } from "lucide-react";
-import { USER_ROLES, ACCOUNT_STATUSES, KYC_STATUSES } from "@/types/admin/users";
+import { USER_ROLES, ACCOUNT_STATUSES } from "@/types/admin/users";
 import type { UserFilters } from "@/types/admin/users";
 
 interface Props {
@@ -30,7 +30,6 @@ export function UsersFilters({ filters, onSearch, onFilterChange, onReset, total
     filters.role ||
     filters.account_status ||
     filters.tier ||
-    filters.kyc_status ||
     filters.date_from ||
     filters.date_to ||
     filters.min_wallet_balance?.trim() ||
@@ -88,7 +87,7 @@ export function UsersFilters({ filters, onSearch, onFilterChange, onReset, total
       </div>
 
       {expanded && (
-        <div className="border-t border-dashboard-border/40 p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+        <div className="border-t border-dashboard-border/40 p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <select
             value={filters.role}
             onChange={(e) => onFilterChange({ role: e.target.value })}
@@ -108,17 +107,6 @@ export function UsersFilters({ filters, onSearch, onFilterChange, onReset, total
             <option value="">All Statuses</option>
             {ACCOUNT_STATUSES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-
-          <select
-            value={filters.kyc_status}
-            onChange={(e) => onFilterChange({ kyc_status: e.target.value })}
-            className="px-2.5 py-2 text-xs bg-dashboard-bg border border-dashboard-border/60 rounded-lg text-dashboard-heading focus:outline-none focus:ring-2 focus:ring-brand-bg-primary/20"
-          >
-            <option value="">All KYC</option>
-            {KYC_STATUSES.map((k) => (
-              <option key={k.value} value={k.value}>{k.label}</option>
             ))}
           </select>
 

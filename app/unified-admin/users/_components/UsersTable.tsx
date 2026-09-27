@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Loader2,
   CheckCircle2,
+  Check,
+  X,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { AdminUser } from "@/types/admin/users";
@@ -44,13 +46,48 @@ const statusBadge: Record<string, string> = {
   suspended: "bg-red-50 text-red-700",
 };
 
-const kycBadge: Record<string, string> = {
-  approved: "bg-emerald-50 text-emerald-700",
-  verified: "bg-emerald-50 text-emerald-700",
-  pending: "bg-amber-50 text-amber-700",
-  rejected: "bg-red-50 text-red-700",
-  none: "bg-slate-100 text-slate-500",
-};
+function formatLocalPhone(raw: string | null | undefined): string {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  const subscriber =
+    digits.length === 13 && digits.startsWith("234")
+      ? digits.slice(3)
+      : digits.length === 11 && digits.startsWith("0")
+        ? digits.slice(1)
+        : digits.length === 10
+          ? digits
+          : null;
+  if (!subscriber) return raw?.trim() || "—";
+  return `0${subscriber.slice(0, 3)} ${subscriber.slice(3, 6)} ${subscriber.slice(6)}`;
+}
+
+// BVN counts the current check or the legacy flag, the same rule as the backend filter.
+function VerificationCell({ user }: { user: AdminUser }) {
+  const phoneOk = user.is_phone_verified;
+  const bvnOk = Boolean(user.bvn_verification?.is_verified || user.kyc_verification?.bvn_verified);
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <span
+        title={phoneOk ? "Phone verified by SMS" : "Phone not verified"}
+        className={`inline-flex items-center gap-1 text-[11px] tabular-nums whitespace-nowrap ${
+          phoneOk ? "text-emerald-700 font-medium" : "text-dashboard-muted"
+        }`}
+      >
+        {phoneOk ? <Check className="h-3 w-3" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}
+        {formatLocalPhone(user.phone_number)}
+        <span className="sr-only">{phoneOk ? " verified" : " not verified"}</span>
+      </span>
+      <span
+        title={bvnOk ? "BVN verified" : "BVN not verified"}
+        className={`inline-flex w-fit items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+          bvnOk ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"
+        }`}
+      >
+        {bvnOk ? <Check className="h-2.5 w-2.5" aria-hidden /> : <X className="h-2.5 w-2.5" aria-hidden />}
+        BVN
+      </span>
+    </div>
+  );
+}
 
 /** Single metric in the wallet popover grid (label + value). */
 function WalletStat({ label, value }: { label: string; value: string }) {
@@ -377,7 +414,9 @@ export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus,
               </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Role</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Status</th>
-              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">KYC</th>
+              <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted" title="Phone number (SMS-verified or not) and BVN status">
+                Phone · BVN
+              </th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Tier</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Last Activity</th>
               <th className="text-left px-4 py-2.5 font-medium text-dashboard-muted">Device</th>
@@ -389,7 +428,6 @@ export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus,
             {users.map((user, i) => {
               const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || user.phone_number;
               const avatar = user.first_name?.[0]?.toUpperCase() ?? "?";
-              const kycStatus = user.kyc_verification?.status ?? "none";
               return (
                 <motion.tr
                   key={user.id}
@@ -427,9 +465,7 @@ export function UsersTable({ users, isLoading = false, onEditRole, onEditStatus,
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${kycBadge[kycStatus] ?? kycBadge.none}`}>
-                      {kycStatus === "approved" ? "verified" : kycStatus}
-                    </span>
+                    <VerificationCell user={user} />
                   </td>
                   <td className="px-4 py-2.5">
                     {user.tier ? (

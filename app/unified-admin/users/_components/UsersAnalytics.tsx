@@ -30,12 +30,14 @@ interface Props {
   analytics: AdminUserAnalytics;
   walletIntegrityFilter: "" | "ok" | "fail";
   onWalletIntegrityFilterChange: (value: "" | "ok" | "fail") => void;
+  viewLabel?: string;
 }
 
 export function UsersAnalytics({
   analytics,
   walletIntegrityFilter,
   onWalletIntegrityFilterChange,
+  viewLabel = "Users",
 }: Props) {
   const { user: authUser } = useAuth();
   const showWalletDevRollups = isDevAdminEmail(authUser?.email);
@@ -104,8 +106,9 @@ export function UsersAnalytics({
 
   const cards = [
     {
-      label: "Total Users",
+      label: viewLabel,
       value: overview.total_users.toLocaleString(),
+      cardTitle: "Accounts in the selected view that match your search and filters.",
       icon: Users,
       iconBg: "bg-blue-50",
       iconColor: "text-blue-600",

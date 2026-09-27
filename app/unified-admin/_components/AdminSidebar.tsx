@@ -40,6 +40,7 @@ import {
   Circle,
   BookOpen,
   Fingerprint,
+  ScanFace,
 } from "lucide-react";
 import { useAdminPermissions } from "@/hooks/admin/useAdminPermissions";
 import type { EffectiveModule } from "@/types/admin/management";
@@ -167,6 +168,13 @@ const adminMenuItems: AdminMenuItem[] = [
     label: "KYC Verification",
     icon: ShieldCheck,
     href: "/unified-admin/kyc",
+    enabled: true,
+  },
+  {
+    id: "identity-guards",
+    label: "Identity Guards",
+    icon: ScanFace,
+    href: "/unified-admin/identity-guards",
     enabled: true,
   },
   {
@@ -318,6 +326,7 @@ const iconMap: Record<string, LucideIcon> = {
   BarChart3,
   BookOpen,
   Fingerprint,
+  ScanFace,
 };
 
 // Cosmetic "New" badges, keyed by module key (data has no badge column).

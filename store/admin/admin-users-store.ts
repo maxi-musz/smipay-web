@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import { adminUsersApi } from "@/services/admin/users-api";
-import type {
-  AdminUser,
-  AdminUserAnalytics,
-  UserListMeta,
-  UserFilters,
+import {
+  DEFAULT_USER_VIEW,
+  USER_VIEW_FILTERS,
+  type AdminUser,
+  type AdminUserAnalytics,
+  type UserListMeta,
+  type UserFilters,
 } from "@/types/admin/users";
 
 const CACHE_TTL = 60_000;
@@ -41,6 +43,7 @@ const DEFAULT_FILTERS: UserFilters = {
   sort_by: "createdAt",
   sort_order: "desc",
   wallet_integrity: "",
+  ...USER_VIEW_FILTERS[DEFAULT_USER_VIEW],
 };
 
 interface AdminUsersState {
@@ -124,8 +127,17 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
     set((s) => ({ filters: { ...s.filters, page } }));
   },
 
+  // Clearing filters keeps the selected view tab.
   resetFilters: () => {
-    set({ filters: { ...DEFAULT_FILTERS } });
+    set((s) => ({
+      filters: {
+        ...DEFAULT_FILTERS,
+        phone_verified: s.filters.phone_verified,
+        bvn_verified: s.filters.bvn_verified,
+        email_verified: s.filters.email_verified,
+        customers_only: s.filters.customers_only,
+      },
+    }));
   },
 
   updateUser: (updated) => {

@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Users, RefreshCw } from "lucide-react";
+import { Users, RefreshCw, ScanFace } from "lucide-react";
 import { useAdminUsers } from "@/hooks/admin/useAdminUsers";
-import { ACCOUNT_STATUSES } from "@/types/admin/users";
-import type { AdminUser } from "@/types/admin/users";
+import { usePermissions } from "@/hooks/admin/useAdminPermissions";
+import {
+  ACCOUNT_STATUSES,
+  USER_VIEWS,
+  USER_VIEW_FILTERS,
+  isUserView,
+  viewFromFilters,
+  type AdminUser,
+  type UserView,
+} from "@/types/admin/users";
 import { UsersAnalytics } from "./_components/UsersAnalytics";
 import { UsersFilters } from "./_components/UsersFilters";
+import { UsersViewTabs } from "./_components/UsersViewTabs";
 import { UsersTable } from "./_components/UsersTable";
 import { UsersPagination } from "./_components/UsersPagination";
 import { UsersListSort } from "./_components/UsersListSort";
@@ -15,6 +24,7 @@ import { UsersSkeleton } from "./_components/UsersSkeleton";
 import { UserRoleModal } from "./_components/UserRoleModal";
 import { UserStatusModal } from "./_components/UserStatusModal";
 import { UserTierModal } from "./_components/UserTierModal";
+import { SimulatorDrawer } from "@/app/unified-admin/identity-guards/_components/SimulatorDrawer";
 
 export default function UsersPage() {
   const {
@@ -35,6 +45,27 @@ export default function UsersPage() {
   const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
   const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
   const [tierTarget, setTierTarget] = useState<AdminUser | null>(null);
+  const [guardsSimOpen, setGuardsSimOpen] = useState(false);
+
+  const { can } = usePermissions();
+  const canTestGuards = can("identity-guards", "read");
+
+  const activeView = viewFromFilters(filters);
+  const activeViewLabel =
+    USER_VIEWS.find((v) => v.key === activeView)?.label ?? "Users";
+
+  const selectView = (view: UserView) => {
+    updateFilters(USER_VIEW_FILTERS[view]);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    window.history.replaceState(null, "", url);
+  };
+
+  // Deep links from the dashboard: /unified-admin/users?view=not_phone
+  useEffect(() => {
+    const view = new URLSearchParams(window.location.search).get("view");
+    if (isUserView(view)) updateFilters(USER_VIEW_FILTERS[view]);
+  }, [updateFilters]);
 
   const handleUpdated = (updated: AdminUser) => {
     updateUser(updated);
@@ -52,18 +83,33 @@ export default function UsersPage() {
             </div>
             <div>
               <h1 className="text-base font-bold text-dashboard-heading">User Management</h1>
-              <p className="text-xs text-dashboard-muted">View and manage all users</p>
+              <p className="text-xs text-dashboard-muted">
+                Phone-verified customers by default — switch views to see everyone else
+              </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={refetch}
-            disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {canTestGuards && (
+              <button
+                type="button"
+                onClick={() => setGuardsSimOpen(true)}
+                title="Check how a phone, email, BVN or name would be treated at sign-up. Nothing is saved and no provider is called."
+                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg transition-colors"
+              >
+                <ScanFace className="h-3.5 w-3.5" />
+                Test identity guards
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={refetch}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-dashboard-border/60 text-dashboard-heading hover:bg-dashboard-bg disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
       </header>
 
@@ -79,11 +125,20 @@ export default function UsersPage() {
           </motion.div>
         )}
 
+        <UsersViewTabs
+          overview={analytics?.overview ?? null}
+          active={activeView}
+          onChange={selectView}
+          roleFiltered={!!filters.role}
+          disabled={isLoading}
+        />
+
         {analytics && (
           <UsersAnalytics
             analytics={analytics}
             walletIntegrityFilter={filters.wallet_integrity}
             onWalletIntegrityFilterChange={(wallet_integrity) => updateFilters({ wallet_integrity })}
+            viewLabel={activeViewLabel}
           />
         )}
 
@@ -176,6 +231,10 @@ export default function UsersPage() {
           onClose={() => setTierTarget(null)}
           onUpdated={handleUpdated}
         />
+      )}
+
+      {canTestGuards && guardsSimOpen && (
+        <SimulatorDrawer open={guardsSimOpen} onClose={() => setGuardsSimOpen(false)} />
       )}
     </div>
   );

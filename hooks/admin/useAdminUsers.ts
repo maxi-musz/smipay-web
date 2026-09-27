@@ -59,6 +59,10 @@ export function useAdminUsers() {
     filters.sort_by,
     filters.sort_order,
     filters.wallet_integrity,
+    filters.email_verified,
+    filters.phone_verified,
+    filters.bvn_verified,
+    filters.customers_only,
   ]);
 
   const debouncedSearch = useCallback(

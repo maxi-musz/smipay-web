@@ -34,6 +34,11 @@ function buildParams(filters: Partial<UserFilters>): Record<string, string | num
   if (filters.wallet_integrity === "ok" || filters.wallet_integrity === "fail") {
     params.wallet_integrity = filters.wallet_integrity;
   }
+  for (const key of ["email_verified", "phone_verified", "bvn_verified"] as const) {
+    const value = filters[key];
+    if (value === "true" || value === "false") params[key] = value;
+  }
+  if (filters.customers_only === "true") params.customers_only = "true";
   return params;
 }
 

@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@/types/admin/management";
+import type { VerificationBreakdown } from "@/types/admin/verification";
 
 export type { ApiResponse };
 
@@ -19,7 +20,12 @@ export interface OverviewData {
     total_users: number;
     new_users: number;
     new_users_delta_pct: number;
+    signups_total?: number;
+    signups_phone_verified?: number;
+    signups_phone_verified_delta_pct?: number;
     active_users: number;
+    active_customers?: number;
+    active_phone_verified?: number;
     transactions_count: number;
     transactions_volume: number;
     volume_delta_pct: number;
@@ -29,6 +35,7 @@ export interface OverviewData {
     funded_amount: number;
     kyc_approved: number;
     referrals: number;
+    verification?: VerificationBreakdown | null;
   };
   trend: {
     date: string;
@@ -36,6 +43,9 @@ export interface OverviewData {
     transactions_count: number;
     transactions_volume: number;
     revenue: number;
+    signups_total?: number;
+    signups_phone_verified?: number;
+    signups_unverified?: number;
   }[];
 }
 
@@ -45,12 +55,26 @@ export interface UsersData {
     total_users: number;
     new_users: number;
     new_users_delta_pct: number;
+    signups_total?: number;
+    signups_phone_verified?: number;
+    signups_phone_verified_delta_pct?: number;
     active_dau: number;
     active_wau: number;
     active_mau: number;
+    active_dau_phone_verified?: number;
+    active_wau_phone_verified?: number;
+    active_mau_phone_verified?: number;
     stickiness: number;
+    verification?: VerificationBreakdown | null;
   };
-  signups: { date: string; new_users: number; cumulative: number }[];
+  signups: {
+    date: string;
+    new_users: number;
+    cumulative: number;
+    phone_verified?: number;
+    unverified?: number;
+    cumulative_phone_verified?: number;
+  }[];
   funnel: { step: string; count: number }[];
   by_tier: Cat[];
   by_status: Cat[];

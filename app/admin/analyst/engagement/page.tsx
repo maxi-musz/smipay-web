@@ -46,8 +46,8 @@ export default function AnalystEngagementPage() {
             <KpiCard title="Logins" value={fmtInt(k.login_success)} icon={LogIn} tooltip={METRIC_HELP.logins} />
             <KpiCard title="Failed logins" value={fmtInt(k.login_failed)} icon={ShieldAlert} deltaGoodWhenUp={false} tooltip={METRIC_HELP.failedLogins} />
             <KpiCard title="Success rate" value={fmtRate(k.login_success_rate)} icon={LogIn} tooltip={METRIC_HELP.loginSuccessRate} />
-            <KpiCard title="MAU" value={fmtInt(k.active_mau)} icon={Activity} tooltip={METRIC_HELP.mau} />
-            <KpiCard title="Stickiness" value={fmtRate(k.stickiness)} icon={Repeat} tooltip={METRIC_HELP.stickiness} />
+            <KpiCard title="MAU" value={fmtInt(k.active_mau)} icon={Activity} tooltip={METRIC_HELP.mauAll} />
+            <KpiCard title="Stickiness" value={fmtRate(k.stickiness)} icon={Repeat} tooltip={METRIC_HELP.stickinessAll} />
             <KpiCard title="OTP requests" value={fmtInt(k.otp_requests)} icon={KeyRound} tooltip={METRIC_HELP.otpRequests} />
           </div>
 

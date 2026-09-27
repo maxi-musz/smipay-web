@@ -57,6 +57,13 @@ export const SECURITY_LAYOUT: SectionSpec[] = [
     tabs: [
       { key: "otp", label: "OTP limits", kind: "policy", group: "otp" },
       {
+        key: "password_reset",
+        label: "Password reset",
+        kind: "policy",
+        group: "password_reset",
+      },
+      { key: "identity", label: "Identity changes", kind: "policy", group: "identity" },
+      {
         key: "availability",
         label: AVAILABILITY_LABEL,
         kind: "availability",

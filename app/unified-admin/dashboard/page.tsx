@@ -2,9 +2,11 @@
 
 import {
   Users,
+  UserCheck,
   ArrowLeftRight,
   Wallet,
   ShieldCheck,
+  Fingerprint,
   Headphones,
   CreditCard,
   UserPlus,
@@ -21,7 +23,16 @@ import { TierDistribution } from "./_components/TierDistribution";
 import { RevenueBreakdown } from "./_components/RevenueBreakdown";
 import { PartnerBalancesCard } from "./_components/PartnerBalancesCard";
 import { DashboardSkeleton } from "./_components/DashboardSkeleton";
+import { VerificationStrip } from "@/app/unified-admin/_components/VerificationStrip";
 import { Button } from "@/components/ui/button";
+import {
+  asVerificationBreakdown,
+  formatPct,
+  pct,
+} from "@/types/admin/verification";
+
+const BVN_PENDING_OTP_HINT =
+  "A code was sent, not yet entered, and is still within its expiry window. Expired codes aren't counted.";
 
 function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString("en-NG", {
@@ -52,6 +63,12 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
+
+  const verification = asVerificationBreakdown(data.users.verification);
+  const bvn = data.bvn ?? null;
+  const phonePct = verification
+    ? pct(verification.phone_verified, verification.total)
+    : 0;
 
   return (
     <div className="min-h-screen bg-dashboard-bg">
@@ -93,16 +110,31 @@ export default function AdminDashboardPage() {
 
         {/* Primary Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-          <StatsCard
-            title="Total Users"
-            value={data.users.total.toLocaleString()}
-            icon={Users}
-            iconBg="var(--quick-action-1-bg)"
-            iconColor="var(--quick-action-1)"
-            subtitle={`+${data.users.new_today} today`}
-            subtitleColor="text-emerald-600"
-            index={0}
-          />
+          {verification ? (
+            <StatsCard
+              title="Phone-verified Customers"
+              value={verification.phone_verified.toLocaleString()}
+              icon={UserCheck}
+              iconBg="var(--quick-action-1-bg)"
+              iconColor="var(--quick-action-1)"
+              subtitle={`${formatPct(phonePct)} of ${verification.total.toLocaleString()} customers`}
+              subtitleColor="text-emerald-600"
+              headlinePct={phonePct}
+              headlineTone="positive"
+              index={0}
+            />
+          ) : (
+            <StatsCard
+              title="Total Users"
+              value={data.users.total.toLocaleString()}
+              icon={Users}
+              iconBg="var(--quick-action-1-bg)"
+              iconColor="var(--quick-action-1)"
+              subtitle={`+${data.users.new_today} today`}
+              subtitleColor="text-emerald-600"
+              index={0}
+            />
+          )}
           <StatsCard
             title="Transactions Today"
             value={data.transactions.total_today.toLocaleString()}
@@ -141,16 +173,33 @@ export default function AdminDashboardPage() {
           />
         </div>
 
+        {verification && (
+          <VerificationStrip
+            verification={verification}
+            newToday={data.users.new_today}
+            index={1}
+          />
+        )}
+
         {/* Secondary Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <StatsCard
-            title="Pending KYC"
-            value={data.kyc.pending.toLocaleString()}
-            icon={ShieldCheck}
+            title="BVN Verified Today"
+            value={bvn ? bvn.verified_today.toLocaleString() : "—"}
+            icon={Fingerprint}
             iconBg="var(--quick-action-3-bg)"
             iconColor="var(--quick-action-3)"
-            subtitle={`${data.kyc.approved_today} approved today`}
-            subtitleColor="text-emerald-600"
+            subtitle={
+              bvn
+                ? `${bvn.pending_otp.toLocaleString()} awaiting code (unexpired) · ${bvn.failed_today.toLocaleString()} failed today`
+                : "Not available"
+            }
+            subtitleHint={bvn ? BVN_PENDING_OTP_HINT : undefined}
+            subtitleColor={
+              bvn && bvn.failed_today > 0
+                ? "text-amber-600"
+                : "text-dashboard-muted"
+            }
             index={4}
           />
           <StatsCard
@@ -204,6 +253,14 @@ export default function AdminDashboardPage() {
             index={0}
             rows={[
               { label: "Total Registered", value: data.users.total.toLocaleString() },
+              ...(verification
+                ? [
+                    {
+                      label: "Customers (excl. staff)",
+                      value: verification.total.toLocaleString(),
+                    },
+                  ]
+                : []),
               {
                 label: "New Today",
                 value: `+${data.users.new_today}`,
@@ -264,36 +321,47 @@ export default function AdminDashboardPage() {
           />
 
           <SectionCard
-            title="KYC Verification"
-            icon={ShieldCheck}
+            title="BVN Verification"
+            icon={Fingerprint}
             index={2}
-            rows={[
-              {
-                label: "Pending Review",
-                value: data.kyc.pending.toLocaleString(),
-                valueColor:
-                  data.kyc.pending > 0
-                    ? "text-amber-600"
-                    : "text-dashboard-heading",
-              },
-              {
-                label: "Approved Today",
-                value: data.kyc.approved_today.toLocaleString(),
-                valueColor: "text-emerald-600",
-              },
-              {
-                label: "Approved This Week",
-                value: data.kyc.approved_this_week.toLocaleString(),
-              },
-              {
-                label: "Rejected",
-                value: data.kyc.rejected.toLocaleString(),
-                valueColor:
-                  data.kyc.rejected > 0
-                    ? "text-red-600"
-                    : "text-dashboard-heading",
-              },
-            ]}
+            rows={
+              bvn
+                ? [
+                    {
+                      label: "Verified (All Time)",
+                      value: bvn.verified_total.toLocaleString(),
+                    },
+                    {
+                      label: "Verified Today",
+                      value: `+${bvn.verified_today.toLocaleString()}`,
+                      valueColor: "text-emerald-600",
+                    },
+                    {
+                      label: "Awaiting Code (Unexpired)",
+                      hint: BVN_PENDING_OTP_HINT,
+                      value: bvn.pending_otp.toLocaleString(),
+                      valueColor:
+                        bvn.pending_otp > 0
+                          ? "text-amber-600"
+                          : "text-dashboard-heading",
+                    },
+                    {
+                      label: "Failed Today",
+                      value: bvn.failed_today.toLocaleString(),
+                      valueColor:
+                        bvn.failed_today > 0
+                          ? "text-red-600"
+                          : "text-dashboard-heading",
+                    },
+                  ]
+                : [
+                    {
+                      label: "BVN counts",
+                      value: "Not available",
+                      valueColor: "text-dashboard-muted",
+                    },
+                  ]
+            }
           />
 
           <SectionCard

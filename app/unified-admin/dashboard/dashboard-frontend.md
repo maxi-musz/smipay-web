@@ -23,7 +23,15 @@ No query params, no payload. Returns all stats in a single call.
       "new_today": 14,
       "new_this_week": 87,
       "active": 1200,
-      "suspended": 50
+      "suspended": 50,
+      "verification": {
+        "total": 1238,
+        "bvn_verified": 412,
+        "phone_verified": 905,
+        "email_verified": 1236,
+        "phone_and_bvn": 398,
+        "unverified": 319
+      }
     },
     "transactions": {
       "total_today": 342,
@@ -42,10 +50,16 @@ No query params, no payload. Returns all stats in a single call.
       "total_funded_today": 3200000.00
     },
     "kyc": {
-      "pending": 12,
-      "approved_today": 8,
-      "approved_this_week": 45,
-      "rejected": 3
+      "pending": 0,
+      "approved_today": 0,
+      "approved_this_week": 0,
+      "rejected": 0
+    },
+    "bvn": {
+      "verified_total": 412,
+      "verified_today": 9,
+      "pending_otp": 4,
+      "failed_today": 2
     },
     "compliance": {
       "flagged_audit_logs": 3,
@@ -109,6 +123,19 @@ No query params, no payload. Returns all stats in a single call.
 | `new_this_week` | number | Users registered in the last 7 days |
 | `active` | number | Users with `active` account status |
 | `suspended` | number | Users with `suspended` account status |
+| `verification` | object \| null \| absent | Live customer verification counts (see below). `null` when the count query failed; absent on an older backend. |
+
+### `users.verification`
+Counted live on every request (memoised 60s server-side), **customers only**: `role` is null, `user` or `agent` — staff accounts are excluded.
+
+| Field | Type | Description |
+|---|---|---|
+| `total` | number | Customers. **The denominator for every percentage** — never divide by `users.total`, which is a drifting counter over all roles and can be lower than a live numerator. |
+| `bvn_verified` | number | BVN verified (`bvn_verifications.is_verified` or the legacy `KycVerification.bvn_verified`) |
+| `phone_verified` | number | `is_phone_verified` |
+| `email_verified` | number | `is_email_verified`. Both sign-up flows set it, so it sits near 100% by design. |
+| `phone_and_bvn` | number | Phone **and** BVN verified |
+| `unverified` | number | **Neither** phone nor BVN verified (email ignored) |
 
 ### `transactions`
 | Field | Type | Description |
@@ -132,13 +159,25 @@ No query params, no payload. Returns all stats in a single call.
 | `total_balance_all_users` | number | Sum of all user wallet balances (NGN) |
 | `total_funded_today` | number | Total amount funded into wallets today (NGN) |
 
-### `kyc`
+### `kyc` (legacy, not rendered)
+Counters from the old `KycVerification` submission flow, kept for API compatibility. The dashboard no longer shows them.
+
 | Field | Type | Description |
 |---|---|---|
-| `pending` | number | KYC applications awaiting review |
-| `approved_today` | number | KYC approvals today |
-| `approved_this_week` | number | KYC approvals in the last 7 days |
-| `rejected` | number | KYC rejections today |
+| `pending` | number | Legacy KYC submissions awaiting review |
+| `approved_today` | number | Legacy approvals today |
+| `approved_this_week` | number | Legacy approvals in the last 7 days |
+| `rejected` | number | Legacy rejections today |
+
+### `bvn`
+Live counts from `bvn_verifications`, cached ~60s server-side. `null` when the count failed; absent on an older backend. "Today" is the Africa/Lagos calendar day.
+
+| Field | Type | Description |
+|---|---|---|
+| `verified_total` | number | BVN-verified rows, all time |
+| `verified_today` | number | Verified today |
+| `pending_otp` | number | A code was sent, not yet confirmed, and is still within its expiry window (expired codes are not counted) |
+| `failed_today` | number | Failed attempts whose last change was today |
 
 ### `compliance`
 | Field | Type | Description |
@@ -206,8 +245,10 @@ Re-syncs all stats from actual database data. Use this after first deploy or if 
 
 ## Frontend Implementation Notes
 
-- **Polling:** Safe to poll every 30–60 seconds. The endpoint reads from pre-aggregated stats tables (3 lightweight queries), not from main transaction/user tables.
+- **Polling:** Safe to poll every 30–60 seconds. The endpoint reads from pre-aggregated stats tables, except `users.verification` and `bvn`, which are live counts memoised for 60s.
 - **Action items:** Use this array to show notification badges or an "Attention needed" section on the dashboard.
+- **Verified Users card:** the first stat card shows `verification.bvn_verified` as the headline with a share bar, then rows Phone verified · Email verified (greyed, "set at sign-up") · Phone + BVN · Unverified, each as a share of `verification.total`, and the footer "of N customers · +X today". The "Users" section card lists the same counts. When `verification` is `null`/absent the card falls back to the old "Total Users" (`users.total`). Shared UI: `app/unified-admin/_components/VerificationBreakdownList.tsx`; type + `pct()`/`formatPct()` helpers: `types/admin/verification.ts`.
+- **BVN widgets:** the second-row stat card "BVN Verified Today" (`bvn.verified_today`, subtitle "N awaiting code (unexpired) · N failed today") and the "BVN Verification" section card (all time, today, awaiting code (unexpired), failed today; the pending count has a hover hint) replace the legacy "Pending KYC" and "KYC Verification" widgets. When `bvn` is `null`/absent both show "Not available"; they never fall back to the legacy `kyc` block.
 - **Tier distribution:** Render as a pie/donut chart. Keys are dynamic — iterate over the object.
 - **Revenue:** Breakdown into **markup** (our margin on VTU/bill payments) and **vtpass_commission** (commission from VTpass). Available for today, this week, this month, last month, and all time. Use `revenue.this_month`, `revenue.last_month`, `revenue.all_time` for period comparisons. Values are `0` when no VTU transactions in that period.
 - **Number formatting:** All monetary values are in NGN (Nigerian Naira). Format with commas and 2 decimal places on the frontend.

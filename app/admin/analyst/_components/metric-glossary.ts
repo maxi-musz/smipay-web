@@ -1,19 +1,29 @@
 /** Plain-language explanations for analytics metrics (hover tooltips). */
 export const METRIC_HELP = {
   totalUsers:
-    "All registered SmiPay accounts, including inactive ones.",
+    "All registered SmiPay accounts, including inactive ones and staff accounts.",
+  phoneVerified:
+    "Customers (staff excluded) who confirmed their phone number by SMS — the minimum sign of a real person. All-time, not limited to the date range. Email is not used: it is marked verified for everyone at sign-up.",
+  verifiedSignups:
+    "Customer sign-ups in the date range whose phone is verified. Sign-ups that never verify are mostly bots and farmed accounts, so they are left out.",
+  activeVerified:
+    "Phone-verified customers who successfully logged in during the date range, out of all customers who logged in.",
   newUsers:
-    "Accounts created during the date range you selected.",
+    "Every account created in the date range, including sign-ups that never verified their phone.",
   dau:
-    "Daily Active Users — how many different people successfully logged in on the last day of your selected range.",
+    "Daily Active Users — phone-verified customers who successfully logged in on the last day of the range. The small print is everyone who logged in, unverified accounts included.",
   wau:
-    "Weekly Active Users — unique users who logged in at least once in the 7 days ending on the range end date.",
+    "Weekly Active Users — phone-verified customers who logged in during the 7 days ending on the range end date. The small print is everyone who logged in.",
   mau:
-    "Monthly Active Users — unique users who logged in at least once in the 30 days ending on the range end date.",
+    "Monthly Active Users — phone-verified customers who logged in during the 30 days ending on the range end date. The small print is everyone who logged in.",
   stickiness:
-    "How often monthly users come back daily. Calculated as DAU ÷ MAU — higher means people use the app more regularly.",
+    "How often verified monthly users come back daily: verified DAU ÷ verified MAU. Higher means people use the app more regularly.",
+  mauAll:
+    "Monthly Active Users — every account (any role, verified or not) that logged in during the 30 days ending on the range end date.",
+  stickinessAll:
+    "How often monthly users come back daily: DAU ÷ MAU across all accounts. Higher means people use the app more regularly.",
   activeUsers:
-    "Unique users who successfully logged in at least once during the selected date range.",
+    "Every account (any role, verified or not) that successfully logged in during the date range.",
   txVolume:
     "Total naira value of all transactions processed in the period.",
   successRate:
@@ -49,7 +59,11 @@ export const METRIC_HELP = {
   netRevenue:
     "What SmiPay keeps after payouts — gross revenue minus bonuses paid to users.",
   verificationFunnel:
-    "How many users completed each step: registered → email verified → phone verified.",
+    "Customers (staff excluded): registered → phone verified → phone + BVN verified. Each step is a subset of the one before, so the drop between steps is real drop-off.",
+  signupSplit:
+    "Customer sign-ups per day, split by whether the phone is verified now. A spike of not-verified sign-ups is usually a bot or farming wave.",
+  cumulativeSplit:
+    "Running total of all accounts next to the running total of phone-verified customers. The gap between the lines is accounts that never proved a real phone.",
   failedLoginWatchlist:
     "Users or sign-in identifiers with the most failed login attempts. Email and phone are masked. IP and location are shown for context.",
   revenueByService:

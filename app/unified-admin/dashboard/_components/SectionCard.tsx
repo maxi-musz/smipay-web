@@ -7,6 +7,7 @@ interface SectionRow {
   label: string;
   value: string | number;
   valueColor?: string;
+  hint?: string;
 }
 
 interface SectionCardProps {
@@ -37,6 +38,7 @@ export function SectionCard({
         {rows.map((row) => (
           <div
             key={row.label}
+            title={row.hint}
             className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 sm:gap-3 px-4 py-2.5 min-w-0"
           >
             <span className="text-xs text-dashboard-muted min-w-0 shrink truncate">
